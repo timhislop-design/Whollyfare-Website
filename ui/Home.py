@@ -70,28 +70,46 @@ total_saved = sum(e.get("found_money", 0) for e in history)
 # ════════════════════════════════════════════════════════════════════════════════
 if not state.is_setup_complete():
 
+    # ── Page-level earthy background + pull content up ────────────────────────
+    st.markdown("""
+    <style>
+      /* Pull the page content right up to the top */
+      .block-container { padding-top: 1rem !important; }
+
+      /* Earthy organic background — soft sage radials on cream */
+      [data-testid="stAppViewContainer"] > .main {
+        background:
+          radial-gradient(ellipse at 15% 8%,  rgba(93,170,106,0.10) 0%, transparent 45%),
+          radial-gradient(ellipse at 85% 5%,  rgba(30,92,50,0.07)  0%, transparent 40%),
+          radial-gradient(ellipse at 50% 85%, rgba(93,170,106,0.07) 0%, transparent 50%),
+          radial-gradient(ellipse at 90% 60%, rgba(242,139,48,0.05) 0%, transparent 35%),
+          #FAFAF7;
+      }
+    </style>
+    """, unsafe_allow_html=True)
+
     # ── Hero ──────────────────────────────────────────────────────────────────
     st.markdown("""
     <div style='background:linear-gradient(135deg,#1E5C32,#3A8C4E);border-radius:14px;
-                padding:52px 44px 44px 44px;margin-bottom:36px;text-align:center;'>
-      <div style='font-size:2.6rem;font-weight:700;color:white;line-height:1.15;margin-bottom:14px;'>
+                padding:36px 40px 32px 40px;margin-bottom:24px;text-align:center;'>
+      <div style='font-size:2.2rem;font-weight:700;color:white;line-height:1.15;margin-bottom:10px;'>
         Eat well. Spend less.<br>Every week.
       </div>
-      <div style='font-size:1.1rem;color:rgba(255,255,255,0.85);margin-bottom:32px;'>
+      <div style='font-size:1rem;color:rgba(255,255,255,0.85);margin-bottom:24px;'>
         Your weekly meal plan built from <em>this week's</em> sale prices at your local stores.
       </div>
-      <div style='display:flex;gap:20px;flex-wrap:wrap;justify-content:center;margin-bottom:32px;'>
-        <div style='background:rgba(255,255,255,0.15);border-radius:10px;padding:16px 28px;min-width:140px;'>
-          <div style='font-size:2rem;font-weight:700;color:white;'>15–25%</div>
-          <div style='font-size:0.82rem;color:rgba(255,255,255,0.75);margin-top:4px;'>avg. grocery savings</div>
+      <div style='display:flex;gap:16px;flex-wrap:wrap;justify-content:center;'>
+        <div style='background:rgba(255,255,255,0.15);border-radius:10px;padding:12px 24px;min-width:130px;'>
+          <div style='font-size:1.7rem;font-weight:700;color:white;'>15–25%</div>
+          <div style='font-size:0.8rem;color:rgba(255,255,255,0.75);margin-top:3px;'>avg. grocery savings</div>
         </div>
-        <div style='background:rgba(255,255,255,0.15);border-radius:10px;padding:16px 28px;min-width:140px;'>
-          <div style='font-size:2rem;font-weight:700;color:#F28B30;'>~$2–4</div>
-          <div style='font-size:0.82rem;color:rgba(255,255,255,0.75);margin-top:4px;'>per serving vs. $9.99 meal kits</div>
+        <div style='background:rgba(255,255,255,0.15);border-radius:10px;padding:12px 24px;min-width:130px;'>
+          <div style='font-size:1.7rem;font-weight:700;color:#F28B30;'>~$2–4</div>
+          <div style='font-size:0.8rem;color:rgba(255,255,255,0.75);margin-top:3px;'>per serving vs. $9.99 meal kits</div>
         </div>
-        <div style='background:rgba(255,255,255,0.15);border-radius:10px;padding:16px 28px;min-width:140px;'>
-          <div style='font-size:2rem;font-weight:700;color:white;'>$0</div>
-          <div style='font-size:0.82rem;color:rgba(255,255,255,0.75);margin-top:4px;'>paid placements. Ever.</div>
+        <div style='background:rgba(255,255,255,0.15);border-radius:10px;padding:12px 24px;min-width:130px;'>
+          <div style='font-size:1.7rem;font-weight:700;color:white;'>$0</div>
+          <div style='font-size:0.8rem;color:rgba(255,255,255,0.75);margin-top:3px;'>paid placements. Ever.</div>
         </div>
       </div>
     </div>
