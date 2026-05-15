@@ -85,15 +85,18 @@ def approve_week():
     plan = st.session_state.get("plan")
     if plan:
         history = st.session_state.get("ledger_history", [])
-        weekly_cost = plan.total_cost
-        # Comparison baselines (real values tuned in pilot)
-        hellofresh_cost = len(plan.meals) * st.session_state["household"].servings_per_meal * 9.99
-        single_store_cost = weekly_cost * 1.20  # ~20% premium for single-store
+        # plan is now a dict
+        totals = plan.get("totals", {})
+        weekly_cost = totals.get("whollyfare_plan", 0.0)
+        savings_vs_single = totals.get("found_money", 0.0)
+        savings_vs_hellofresh = totals.get("vs_hellofresh", 0.0)
         history.append({
-            "week":                   w,
-            "total_cost":             round(weekly_cost, 2),
-            "savings_vs_single":      round(single_store_cost - weekly_cost, 2),
-            "savings_vs_hellofresh":  round(hellofresh_cost - weekly_cost, 2),
-            "meals":                  len(plan.meals),
+            "week":              w,
+            "whollyfare_cost":   round(weekly_cost, 2),
+            "single_store_cost": round(weekly_cost + savings_vs_single, 2),
+            "found_money":       round(savings_vs_single, 2),
+            "vs_hellofresh":     round(savings_vs_hellofresh, 2),
+            "meals_planned":     len(plan.get("meals", [])),
+            "stores_used":       2,
         })
         st.session_state["ledger_history"] = history

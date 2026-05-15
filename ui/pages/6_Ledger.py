@@ -13,6 +13,8 @@ import ui.style as style
 
 st.set_page_config(page_title="Found Money Ledger · WhollyFare", page_icon="💰", layout="wide")
 state.init()
+with st.sidebar:
+    style.sidebar_nav()
 style.page_header("Found Money Ledger", "Your running savings record — every week, auditable and honest.")
 
 ledger = st.session_state.get("ledger_history", [])
@@ -29,7 +31,7 @@ if not ledger:
 # ── Headline metrics ──────────────────────────────────────────────────────────
 total_found      = sum(e.get("found_money", 0) for e in ledger)
 total_vs_hf      = sum(e.get("vs_hellofresh", 0) for e in ledger)
-total_meals      = sum(e.get("meals", 0) for e in ledger)
+total_meals      = sum(e.get("meals_planned", 0) for e in ledger)
 weeks_planned    = len(ledger)
 
 c1, c2, c3, c4 = st.columns(4)
@@ -55,14 +57,14 @@ try:
     with tab_weekly:
         st.bar_chart(
             df.set_index("week")[["found_money"]],
-            color="#007A87",
+            color="#3A8C4E",
             height=260,
         )
 
     with tab_cumulative:
         st.line_chart(
             df.set_index("week")[["cumulative"]],
-            color="#2E7D32",
+            color="#1E5C32",
             height=260,
         )
 
@@ -78,12 +80,12 @@ st.subheader("Week-by-week breakdown")
 for entry in sorted(ledger, key=lambda e: e.get("week", ""), reverse=True):
     week        = entry.get("week", "—")
     found       = entry.get("found_money", 0)
-    plan_cost   = entry.get("plan_cost", 0)
-    single_est  = plan_cost * 1.20
+    plan_cost   = entry.get("whollyfare_cost", 0)
+    single_est  = entry.get("single_store_cost", plan_cost * 1.20)
     hf_est      = entry.get("vs_hellofresh", 0) + plan_cost
-    meals_n     = entry.get("meals", 0)
-    servings_n  = entry.get("servings_per_meal", 0)
-    grocer      = entry.get("primary_grocer", "—")
+    meals_n     = entry.get("meals_planned", 0)
+    servings_n  = 4
+    grocer      = f"Kroger + Food Lion ({entry.get('stores_used', 2)} stores)"
 
     with st.container(border=True):
         col_week, col_cost, col_found, col_meta = st.columns([2, 2, 2, 3])
@@ -127,9 +129,9 @@ lines = ["WhollyFare Found Money Ledger", "=" * 40, ""]
 for entry in sorted(ledger, key=lambda e: e.get("week", "")):
     lines.append(
         f"Week of {entry.get('week','—')}  |  "
-        f"Plan cost: ${entry.get('plan_cost',0):.2f}  |  "
+        f"Plan cost: ${entry.get('whollyfare_cost',0):.2f}  |  "
         f"Found Money: ${entry.get('found_money',0):.2f}  |  "
-        f"Grocer: {entry.get('primary_grocer','—')}"
+        f"Grocer: Kroger + Food Lion ({entry.get('stores_used', 2)} stores)"
     )
 lines += ["", f"TOTAL FOUND MONEY: ${total_found:,.2f}"]
 

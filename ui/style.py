@@ -235,3 +235,84 @@ def page_header(title: str, subtitle: str = ""):
     )
     if subtitle:
         st.markdown(f'<div class="wf-page-sub">{subtitle}</div>', unsafe_allow_html=True)
+
+
+def sidebar_nav():
+    """Render branded sidebar navigation.
+
+    Call this inside a ``with st.sidebar:`` block on every page, e.g.::
+
+        with st.sidebar:
+            sidebar_nav()
+    """
+    # Hide Streamlit's auto-generated file-based nav
+    st.markdown(
+        "<style>[data-testid=\"stSidebarNav\"] { display: none !important; }</style>",
+        unsafe_allow_html=True,
+    )
+
+    # ── Logo (light strokes for dark sidebar background) ─────────────────────
+    SIDEBAR_LOGO = """
+<svg width="52" height="52" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"
+     aria-label="WhollyFare leaf and fork icon" role="img">
+  <g transform="translate(3, 2)">
+    <line x1="8"  y1="31" x2="8"  y2="6"  stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
+    <line x1="5"  y1="6"  x2="5"  y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="8"  y1="6"  x2="8"  y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="11" y1="6"  x2="11" y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
+    <ellipse cx="19" cy="16" rx="9" ry="6" fill="#5DAA6A" transform="rotate(-28 19 16)"/>
+    <line x1="12" y1="21" x2="25" y2="12" stroke="#ffffff" stroke-width="0.9" stroke-linecap="round"/>
+    <circle cx="18" cy="15" r="1.2" fill="#ffffff"/>
+  </g>
+</svg>
+"""
+
+    st.markdown(SIDEBAR_LOGO, unsafe_allow_html=True)
+
+    # ── Wordmark & tagline ────────────────────────────────────────────────────
+    st.markdown(
+        """<div style="margin-top:-4px; margin-bottom:4px;">
+          <span style="font-size:1.25rem; font-weight:700; color:#ffffff;
+                       font-family:Arial,sans-serif; letter-spacing:0.02em;">
+            WhollyFare
+          </span><br>
+          <span style="font-size:0.75rem; color:#9FD9A8;
+                       font-family:Arial,sans-serif; font-style:italic;">
+            Eat well. Spend less.
+          </span>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<hr style='border-color:#3A8C4E; margin:10px 0;'>", unsafe_allow_html=True)
+
+    # ── Home ─────────────────────────────────────────────────────────────────
+    st.page_link("Home.py", label="🏠 Home")
+
+    # ── Section: GET STARTED ──────────────────────────────────────────────────
+    st.markdown(
+        "<div style='font-size:0.65rem; font-weight:700; color:#9FD9A8; "
+        "letter-spacing:0.08em; margin-top:14px; margin-bottom:4px;'>GET STARTED</div>",
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/1_Household.py",  label="👨‍👩‍👧 Household Setup")
+    st.page_link("pages/2_Grocer_Hub.py", label="🏪 Grocer Hub")
+
+    # ── Section: WEEKLY PLAN ──────────────────────────────────────────────────
+    st.markdown(
+        "<div style='font-size:0.65rem; font-weight:700; color:#9FD9A8; "
+        "letter-spacing:0.08em; margin-top:14px; margin-bottom:4px;'>WEEKLY PLAN</div>",
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/3_Plan.py",           label="🍽️ This Week's Plan")
+    st.page_link("pages/4_Sunday_BuyOff.py",  label="✅ Sunday Buy-Off")
+    st.page_link("pages/5_Shopping_List.py",  label="🛒 Shopping List")
+
+    # ── Section: HISTORY & INFO ───────────────────────────────────────────────
+    st.markdown(
+        "<div style='font-size:0.65rem; font-weight:700; color:#9FD9A8; "
+        "letter-spacing:0.08em; margin-top:14px; margin-bottom:4px;'>HISTORY &amp; INFO</div>",
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/6_Ledger.py",   label="💰 Found Money Ledger")
+    st.page_link("pages/7_Investor.py", label="📈 Investor Brief")

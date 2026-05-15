@@ -16,10 +16,52 @@ from app.data.flyer_ingestor import FlyerIngestor
 
 st.set_page_config(page_title="Grocer Hub · WhollyFare", page_icon="🏪", layout="wide")
 state.init()
+
+with st.sidebar:
+    style.sidebar_nav()
+
 style.page_header(
     "Grocer Data Hub",
     "Load weekly price data for each store. The engine runs once all the stores you care about are loaded.",
 )
+
+# ── Setup progress stepper ────────────────────────────────────────────────────
+st.markdown("""
+<div style='display:flex;align-items:center;gap:0;margin-bottom:22px;'>
+  <div style='background:#D8EDD0;color:#5A7A62;border-radius:50%;width:28px;height:28px;
+              display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;
+              flex-shrink:0;'>✓</div>
+  <div style='height:2px;width:40px;background:#3A8C4E;'></div>
+  <div style='background:#3A8C4E;color:white;border-radius:50%;width:28px;height:28px;
+              display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;
+              flex-shrink:0;'>2</div>
+  <div style='height:2px;width:40px;background:#D8EDD0;'></div>
+  <div style='background:#D8EDD0;color:#5A7A62;border-radius:50%;width:28px;height:28px;
+              display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;
+              flex-shrink:0;'>3</div>
+  <div style='margin-left:12px;font-size:0.82rem;color:#5A7A62;'>
+    Household → <strong style='color:#1E5C32;'>Grocer Prices</strong> → Generate Plan
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Demo load banner ──────────────────────────────────────────────────────────
+with st.expander("✨ No grocery data yet? Load a sample week of prices to see the full flow →", expanded=False):
+    st.caption("Pre-loads realistic Kroger + Food Lion sale prices for the week of May 11, 2026. "
+               "Includes chicken, salmon, ground beef, produce, and pantry staples.")
+    if st.button("🌿 Load sample week prices", type="primary", key="load_demo_grocers"):
+        try:
+            from app.data.sample_data import load_all_demo_data
+            demo = load_all_demo_data()
+            st.session_state["grocers"]    = demo["grocers"]
+            st.session_state["flyer_data"] = demo["flyer_data"]
+            st.session_state["plan"]       = demo["plan"]
+            st.session_state["ledger_history"] = demo["ledger_history"]
+            st.session_state["active_week"]    = demo["active_week"]
+            st.success("Sample prices loaded for Kroger + Food Lion! Scroll down to review, then head to This Week's Plan.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Could not load demo data: {e}")
 
 # ── Week selector ─────────────────────────────────────────────────────────────
 col_w, col_status, col_pull = st.columns([2, 2, 1])

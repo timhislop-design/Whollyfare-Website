@@ -1,5 +1,4 @@
-"""
-4_Sunday_BuyOff.py — The Sunday Buy-Off
+"""4_Sunday_BuyOff.py — The Sunday Buy-Off
 One screen. One button. The killer UX moment.
 """
 
@@ -8,135 +7,196 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import streamlit as st
-from datetime import datetime, timedelta
 import ui.state as state
 import ui.style as style
 
 st.set_page_config(page_title="Sunday Buy-Off · WhollyFare", page_icon="✅", layout="wide")
 state.init()
-style.page_header("Sunday Buy-Off", "Review, approve, and send.")
 
-plan      = st.session_state.get("plan")
-household = st.session_state.get("household")
-grocers   = st.session_state.get("grocers", [])
-approved  = state.week_approved()
+with st.sidebar:
+    style.sidebar_nav()
 
-if not plan or not household:
+style.page_header("Sunday Buy-Off", "Review, approve, and go.")
+
+# ── Setup check ───────────────────────────────────────────────────────────────
+plan = st.session_state.get("plan")
+
+if not plan:
     st.warning("No plan ready yet. Generate a plan first.", icon="⚠️")
     st.page_link("pages/2_Grocer_Hub.py", label="→ Go to Grocer Hub", icon="🏪")
     st.stop()
 
-primary = next((g for g in grocers if g.get("is_primary")), grocers[0] if grocers else {})
+totals   = plan["totals"]
+meals    = plan["meals"]
+servings = plan["servings"]
+week     = plan["week"]
 
-# ── Hero banner ───────────────────────────────────────────────────────────────
-with st.container(border=True):
-    c1, c2 = st.columns([3, 1])
-    with c1:
-        st.markdown(
-            f"### I've optimised your week based on the "
-            f"**{primary.get('chain', 'your store')}** weekly circular."
-        )
-        st.markdown(
-            f"**{household.household_name}** · {len(plan.meals)} dinners · "
-            f"{household.servings_per_meal} servings each · "
-            f"Week of **{st.session_state['active_week']}**"
-        )
-    with c2:
-        # Suggest next delivery window
-        now    = datetime.now()
-        target = now.replace(hour=16, minute=0, second=0, microsecond=0)
-        if now.hour >= 14:
-            target += timedelta(days=1)
-        st.metric(
-            "Suggested delivery window",
-            f"{target.strftime('%a %I:%M %p')} – {(target + timedelta(hours=1)).strftime('%I:%M %p')}",
-        )
+STORE_NAMES = {
+    "kroger_palmyra":    "Kroger",
+    "food_lion_palmyra": "Food Lion",
+}
 
-st.divider()
+approved = state.week_approved()
 
-# ── Found Money ───────────────────────────────────────────────────────────────
-weekly_cost  = plan.total_cost
-hellofresh   = len(plan.meals) * household.servings_per_meal * 9.99
-single_store = weekly_cost * 1.20
-found_money  = single_store - weekly_cost
+# ── Week banner ───────────────────────────────────────────────────────────────
+st.markdown(
+    f"""<div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;
+                    padding:12px 20px;margin-bottom:20px;font-size:1rem;color:#1E5C32;
+                    font-weight:600;'>
+      Week of {week}
+      &nbsp;·&nbsp; {len(meals)} dinners
+      &nbsp;·&nbsp; {servings} servings each
+    </div>""",
+    unsafe_allow_html=True,
+)
 
-col_fm, col_vs = st.columns([1, 2])
+# ── Found Money hero ──────────────────────────────────────────────────────────
+st.markdown("<div style='margin:20px 0 10px 0;text-align:center;'>", unsafe_allow_html=True)
 
-with col_fm:
+col_left, col_hero, col_right = st.columns([1, 2, 1])
+with col_hero:
     st.markdown(
         f"""<div class='found-money-box'>
-          <div class='found-money-amount'>${found_money:,.2f}</div>
+          <div class='found-money-amount'>${totals['found_money']:.2f}</div>
           <div class='found-money-label'>Found Money this week</div>
-          <div style='font-size:11px;color:#388E3C;margin-top:6px'>vs. single-store shopping</div>
+          <div style='font-size:12px;color:#BF5E00;margin-top:6px;'>
+            vs. shopping everything at one store
+          </div>
         </div>""",
         unsafe_allow_html=True,
     )
 
-with col_vs:
-    st.markdown("**Your plan vs. the alternatives**")
-    comp_data = {
-        "Option":       ["WhollyFare plan", "Single-store estimate", "HelloFresh equivalent"],
-        "Weekly cost":  [f"${weekly_cost:.2f}", f"${single_store:.2f}", f"${hellofresh:.2f}"],
-        "Per serving":  [
-            f"${weekly_cost / (len(plan.meals) * household.servings_per_meal):.2f}",
-            f"${single_store / (len(plan.meals) * household.servings_per_meal):.2f}",
-            "$9.99",
-        ],
-        "You save":     [
-            "—",
-            f"${found_money:.2f}",
-            f"${hellofresh - weekly_cost:.2f}",
-        ],
-    }
-    st.dataframe(comp_data, use_container_width=True, hide_index=True)
+st.markdown("</div>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
-st.divider()
+# ── Comparison table ──────────────────────────────────────────────────────────
+num_servings_total = len(meals) * servings if meals and servings else 1
 
-# ── Plan at a glance ──────────────────────────────────────────────────────────
+wf_cost     = totals["whollyfare_plan"]
+single_cost = totals["single_store_best"]
+hf_cost     = totals["hellofresh_equiv"]
+
+wf_per       = wf_cost / num_servings_total
+single_per   = single_cost / num_servings_total
+hf_per       = hf_cost / num_servings_total
+
+found_money  = totals["found_money"]
+vs_hf        = totals["vs_hellofresh"]
+
+st.markdown("**Your plan vs. the alternatives**")
+st.markdown(
+    f"""<table style='width:100%;border-collapse:collapse;font-size:0.9rem;
+                       font-family:Arial,sans-serif;margin-bottom:20px;'>
+      <thead>
+        <tr style='background:#D8EDD0;color:#1E5C32;'>
+          <th style='padding:10px 14px;text-align:left;border-radius:6px 0 0 0;'></th>
+          <th style='padding:10px 14px;text-align:right;'>Weekly cost</th>
+          <th style='padding:10px 14px;text-align:right;'>Per serving</th>
+          <th style='padding:10px 14px;text-align:right;border-radius:0 6px 0 0;'>You save</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style='background:#FFFFFF;border-bottom:1px solid #D8EDD0;'>
+          <td style='padding:10px 14px;font-weight:700;color:#1E5C32;'>
+            🟢 WhollyFare plan
+          </td>
+          <td style='padding:10px 14px;text-align:right;font-weight:700;color:#1E5C32;'>
+            ${wf_cost:.2f}
+          </td>
+          <td style='padding:10px 14px;text-align:right;color:#3A8C4E;'>
+            ${wf_per:.2f}
+          </td>
+          <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>—</td>
+        </tr>
+        <tr style='background:#FAFAF7;border-bottom:1px solid #D8EDD0;'>
+          <td style='padding:10px 14px;color:#5A7A62;'>Single store (Kroger)</td>
+          <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${single_cost:.2f}</td>
+          <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${single_per:.2f}</td>
+          <td style='padding:10px 14px;text-align:right;font-weight:700;color:#F28B30;'>
+            ${found_money:.2f}
+          </td>
+        </tr>
+        <tr style='background:#FFFFFF;'>
+          <td style='padding:10px 14px;color:#5A7A62;'>HelloFresh equivalent</td>
+          <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${hf_cost:.2f}</td>
+          <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${hf_per:.2f}</td>
+          <td style='padding:10px 14px;text-align:right;font-weight:700;color:#F28B30;'>
+            ${vs_hf:.2f}
+          </td>
+        </tr>
+      </tbody>
+    </table>""",
+    unsafe_allow_html=True,
+)
+
+# ── Meal preview expander ─────────────────────────────────────────────────────
 with st.expander("📅 Review the week before approving", expanded=False):
-    for m in plan.meals:
+    for meal in meals:
+        cost_per = meal["meal_cost"] / servings if servings else 0
+        allergen_short = meal.get("allergen_notes", "")
+        gf_label = " · GF" if meal.get("gluten_free") else ""
         st.markdown(
-            f"**{m.day}** — {m.name} &nbsp;&nbsp;"
-            f"<span style='color:#888;font-size:12px'>"
-            f"${m.cost_per_serving:.2f}/serving · "
-            f"✅ {', '.join(m.safety_attestation)}"
+            f"**{meal['day']}** — {meal['name']} &nbsp;&nbsp;"
+            f"<span style='color:#5A7A62;font-size:12px;'>"
+            f"${cost_per:.2f}/serving{gf_label}"
+            f"{' · ' + allergen_short if allergen_short else ''}"
             f"</span>",
             unsafe_allow_html=True,
         )
 
-with st.expander("🛒 Shopping list preview", expanded=False):
-    by_cat: dict[str, list] = {}
-    for s in plan.shopping_list:
-        by_cat.setdefault(s.ingredient.category.title(), []).append(s.ingredient)
-    for cat, items in sorted(by_cat.items()):
-        st.markdown(f"**{cat}:** " + ", ".join(i.name for i in items))
+# ── Shopping split expander ───────────────────────────────────────────────────
+with st.expander("🛒 Shopping split by store", expanded=False):
+    store_items: dict[str, list[dict]] = {}
+    for meal in meals:
+        for ing in meal.get("ingredients", []):
+            sid = ing["store"]
+            store_items.setdefault(sid, []).append(ing)
+
+    for sid, items in store_items.items():
+        store_label = STORE_NAMES.get(sid, sid)
+        store_total = sum(i["cost"] for i in items)
+        st.markdown(
+            f"<div style='font-weight:700;color:#1E5C32;font-size:0.95rem;"
+            f"margin:12px 0 4px 0;'>🏪 {store_label} — {len(items)} items</div>",
+            unsafe_allow_html=True,
+        )
+        for ing in items:
+            st.markdown(
+                f"<div style='font-size:12px;color:#5A7A62;padding:2px 0 2px 12px;'>"
+                f"□ {ing['item']} &nbsp; <span style='color:#1E5C32;'>${ing['cost']:.2f}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown(
+            f"<div style='font-size:12px;font-weight:600;color:#3A8C4E;"
+            f"text-align:right;margin-top:4px;'>{store_label} subtotal: ${store_total:.2f}</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("<hr style='border-color:#D8EDD0;margin:8px 0;'>", unsafe_allow_html=True)
 
 st.divider()
 
 # ── The big button ────────────────────────────────────────────────────────────
 if approved:
     st.success(
-        f"✅ **Approved for the week of {st.session_state['active_week']}.** "
-        f"Your shopping list is ready.",
-        icon="✅",
+        f"✅ **Approved for week of {week}.** Your shopping list is ready.",
     )
     st.balloons()
-    c1, c2 = st.columns(2)
-    with c1:
-        st.page_link("pages/5_Shopping_List.py", label="📤 View / export shopping list", icon="🛒")
-    with c2:
-        st.page_link("pages/6_Ledger.py", label="📊 View Found Money history", icon="💰")
+    link_c1, link_c2 = st.columns(2)
+    with link_c1:
+        st.page_link("pages/5_Shopping_List.py", label="🛒 View Shopping List")
+    with link_c2:
+        st.page_link("pages/6_Ledger.py", label="💰 View Found Money History")
 else:
     if st.button(
-        "✅  ONE-CLICK APPROVE — Send shopping list to grocer",
+        "✅  APPROVE THIS WEEK — Send to shopping list",
         type="primary",
         use_container_width=True,
     ):
         state.approve_week()
         st.rerun()
 
-    delivery_txt = "delivery" if primary.get("delivery") else "pickup"
     st.caption(
-        f"Approving queues your shopping list for {primary.get('chain', 'your store')} {delivery_txt}. "
-        "Nothing is shared with anyone else. Ever."
+        "Approving locks this week's plan and generates your final shopping list. "
+        "Nothing is sent anywhere without your action."
     )

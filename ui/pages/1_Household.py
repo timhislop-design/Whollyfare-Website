@@ -17,10 +17,62 @@ from app.core_logic.profile_schema import (
 
 st.set_page_config(page_title="Household · WhollyFare", page_icon="👨‍👩‍👧", layout="wide")
 state.init()
+
+with st.sidebar:
+    style.sidebar_nav()
+
 style.page_header(
     "Household Setup",
     "Tell WhollyFare who's at the table. Every constraint you set here is a hard rule — the engine will never violate it.",
 )
+
+# ── Setup progress stepper ────────────────────────────────────────────────────
+st.markdown("""
+<div style='display:flex;align-items:center;gap:0;margin-bottom:22px;'>
+  <div style='background:#3A8C4E;color:white;border-radius:50%;width:28px;height:28px;
+              display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;
+              flex-shrink:0;'>1</div>
+  <div style='height:2px;width:40px;background:#3A8C4E;'></div>
+  <div style='background:#D8EDD0;color:#5A7A62;border-radius:50%;width:28px;height:28px;
+              display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;
+              flex-shrink:0;'>2</div>
+  <div style='height:2px;width:40px;background:#D8EDD0;'></div>
+  <div style='background:#D8EDD0;color:#5A7A62;border-radius:50%;width:28px;height:28px;
+              display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;
+              flex-shrink:0;'>3</div>
+  <div style='margin-left:12px;font-size:0.82rem;color:#5A7A62;'>
+    <strong style='color:#1E5C32;'>Household</strong> → Grocer Prices → Generate Plan
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Demo load banner ──────────────────────────────────────────────────────────
+with st.expander("✨ First time? Load a sample household to explore the full app →", expanded=False):
+    st.caption("Loads Tim, Abby & Chas — a real pilot household with celiac and peanut allergy constraints. "
+               "You can edit any field after loading.")
+    if st.button("🌿 Load demo household", type="primary"):
+        try:
+            from app.data.sample_data import load_all_demo_data
+            demo = load_all_demo_data()
+            hh = demo["household"]
+            for k, v in demo.items():
+                st.session_state[k] = v
+            # Rebuild member_list from loaded household
+            st.session_state["member_list"] = [
+                {
+                    "name":       m.name,
+                    "age":        m.age or 0,
+                    "allergies":  m.allergies,
+                    "diagnoses":  [d.value for d in m.diagnoses],
+                    "lifestyle":  [t.value for t in m.lifestyle_tags],
+                    "exclusions": "\n".join(m.custom_exclusions),
+                }
+                for m in hh.members
+            ]
+            st.success("Demo household loaded! Review below and hit Save to confirm, or go straight to Grocer Hub.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Could not load demo data: {e}")
 
 household = st.session_state.get("household")
 
@@ -198,3 +250,17 @@ with col_msg:
             f"{household.meals_per_week} dinners · {household.servings_per_meal} servings each",
             icon="✅",
         )
+
+if household:
+    st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='background:#F4FAF5;border:1px solid #D8EDD0;border-radius:10px;padding:16px 20px;
+                display:flex;align-items:center;justify-content:space-between;'>
+      <div>
+        <div style='font-weight:600;color:#1E5C32;font-size:0.95rem;'>✅ Household profile saved</div>
+        <div style='font-size:0.82rem;color:#5A7A62;margin-top:2px;'>Next: connect your grocery stores and load this week's prices.</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("🏪 Continue to Grocer Hub →", type="primary"):
+        st.switch_page("pages/2_Grocer_Hub.py")
