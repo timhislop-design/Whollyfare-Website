@@ -272,10 +272,11 @@ def sidebar_nav():
     # ── Wordmark & tagline ────────────────────────────────────────────────────
     st.markdown(
         """<div style="margin-top:-4px; margin-bottom:4px;">
-          <span style="font-size:1.25rem; font-weight:700; color:#ffffff;
-                       font-family:Arial,sans-serif; letter-spacing:0.02em;">
+          <a href="/" style="font-size:1.25rem; font-weight:700; color:#ffffff;
+                       font-family:Arial,sans-serif; letter-spacing:0.02em;
+                       text-decoration:none; display:inline-block;">
             WhollyFare
-          </span><br>
+          </a><br>
           <span style="font-size:0.75rem; color:#9FD9A8;
                        font-family:Arial,sans-serif; font-style:italic;">
             Eat well. Spend less.

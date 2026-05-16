@@ -15,7 +15,7 @@ st.set_page_config(
     page_title="WhollyFare — Smart Grocery Planning",
     page_icon="🌿",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 state.init()
@@ -44,8 +44,8 @@ with st.sidebar:
       </svg>
     </div>
     <!-- Wordmark under the leaf -->
-    <div style='font-size:15px;font-weight:700;color:white;letter-spacing:0.02em;
-                padding:0 0 4px 4px;'>WhollyFare</div>
+    <a href='/' style='font-size:15px;font-weight:700;color:white;letter-spacing:0.02em;
+                padding:0 0 4px 4px;text-decoration:none;display:block;'>WhollyFare</a>
     <div style='font-size:10px;color:#9FD9A8;padding:0 0 18px 4px;'>Eat well. Spend less.</div>
     """, unsafe_allow_html=True)
 
@@ -111,7 +111,7 @@ if not state.is_setup_complete():
 
     # ── Brand header ──────────────────────────────────────────────────────────
     st.markdown("""
-    <div style='display:flex;align-items:center;gap:10px;margin-bottom:16px;
+    <div style='display:flex;align-items:center;gap:10px;margin-top:10px;margin-bottom:16px;
                 padding:10px 18px;background:rgba(255,255,255,0.55);
                 backdrop-filter:blur(6px);border-radius:10px;
                 border:1px solid rgba(93,170,106,0.22);'>
@@ -144,6 +144,19 @@ if not state.is_setup_complete():
         <line x1="110" y1="340" x2="240" y2="155" stroke="white" stroke-width="2.5" opacity="0.7"/>
         <line x1="200" y1="290" x2="330" y2="155" stroke="white" stroke-width="2.5" opacity="0.7"/>
       </svg>
+
+      <!-- Fork + leaf icon -->
+      <div style='margin-bottom:18px;'>
+        <svg width="54" height="54" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
+             aria-label="WhollyFare fork and leaf" role="img">
+          <line x1="14" y1="46" x2="14" y2="10" stroke="#9FD9A8" stroke-width="2.8" stroke-linecap="round"/>
+          <line x1="9"  y1="10" x2="9"  y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
+          <line x1="14" y1="10" x2="14" y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
+          <line x1="19" y1="10" x2="19" y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
+          <ellipse cx="36" cy="26" rx="13" ry="8.5" fill="#5DAA6A" transform="rotate(-28 36 26)"/>
+          <line x1="24" y1="35" x2="46" y2="18" stroke="rgba(255,255,255,0.6)" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+      </div>
 
       <!-- Small top badge -->
       <div style='display:inline-flex;align-items:center;gap:7px;
