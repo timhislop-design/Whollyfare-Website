@@ -1,4 +1,20 @@
-"""5_Shopping_List.py — Shopping list by store and item."""
+"""5_Shopping_List.py — Shopping list by store and item.
+
+Design bar: usable on a phone in a grocery store aisle.
+- Centered layout (not wide) so it fits a phone without horizontal scrolling
+- Large text and generous tap targets
+- Interactive checkboxes so you can tick off items as you shop
+- One section per store, clearly separated
+- Download as text file for offline use
+
+POC vs. PRODUCTION
+-------------------
+POC:  Checked-off items stored in session_state — cleared on browser refresh.
+      Layout is Streamlit native; no progressive web app (PWA) shell.
+PROD: Checked state persisted to DB per household + week + item.
+      Push notification when all items for a store are checked.
+      PWA manifest so the list can be added to the home screen.
+"""
 
 import sys
 from pathlib import Path
@@ -8,7 +24,8 @@ import streamlit as st
 import ui.state as state
 import ui.style as style
 
-st.set_page_config(page_title="Shopping List · WhollyFare", page_icon="🛒", layout="wide")
+# centered keeps content in a readable column width on phones
+st.set_page_config(page_title="Shopping List · WhollyFare", page_icon="🛒", layout="centered")
 state.init()
 
 with st.sidebar:
@@ -24,9 +41,17 @@ if not plan:
     st.page_link("pages/2_Grocer_Hub.py", label="→ Go to Grocer Hub", icon="🏪")
     st.stop()
 
+# POC: STORE_NAMES covers Charlottesville pilot stores + normalised chain names.
+# PROD: Resolved from the household's configured store list.
 STORE_NAMES = {
-    "kroger_palmyra":    "Kroger",
-    "food_lion_palmyra": "Food Lion",
+    "kroger_palmyra":           "Kroger",
+    "food_lion_palmyra":        "Food Lion",
+    "aldi_rio":                 "Aldi",
+    "harris_teeter_barracks":   "Harris Teeter",
+    "Kroger":                   "Kroger",
+    "Food Lion":                "Food Lion",
+    "Aldi":                     "Aldi",
+    "Harris Teeter":            "Harris Teeter",
 }
 
 meals    = plan["meals"]
@@ -53,59 +78,106 @@ for meal in meals:
                 "meals": [meal["day"]],
             }
 
-total_items = sum(len(items) for items in store_items.values())
-st.markdown(
-    f"**Week of {week}** · {total_items} unique items · {len(meals)} dinners · {servings} servings each"
+total_items   = sum(len(items) for items in store_items.values())
+total_checked = sum(
+    1 for sid, items in store_items.items()
+    for item_name in items
+    if st.session_state.get(f"check_{sid}_{item_name}", False)
 )
+
+# ── Week header + progress ────────────────────────────────────────────────────
+st.markdown(
+    f"**Week of {week}** · {total_items} items · {len(meals)} dinners · {servings} servings each"
+)
+
+if total_items > 0:
+    pct = int(total_checked / total_items * 100)
+    st.progress(pct / 100, text=f"{total_checked} of {total_items} items checked off")
+
 st.divider()
 
 # ── Display by store ──────────────────────────────────────────────────────────
+# POC: Interactive checkboxes stored in session_state (cleared on refresh).
+# PROD: Checked state persisted to DB. "Clear all" resets the DB row.
 for sid, items in store_items.items():
     store_label  = STORE_NAMES.get(sid, sid)
     store_total  = sum(v["cost"] for v in items.values())
     item_count   = len(items)
+    store_checked = sum(
+        1 for item_name in items
+        if st.session_state.get(f"check_{sid}_{item_name}", False)
+    )
 
+    all_done = store_checked == item_count
+
+    # Store header
+    done_badge = " ✓" if all_done else f" · {store_checked}/{item_count}"
     st.markdown(
-        f"""<div style='background:#1E5C32;color:#FFFFFF;border-radius:8px 8px 0 0;
-                        padding:10px 16px;margin-top:16px;'>
-          <span style='font-size:1rem;font-weight:700;'>🏪 {store_label}</span>
-          <span style='font-size:0.85rem;color:#9FD9A8;margin-left:10px;'>{item_count} items</span>
+        f"""<div style='background:{"#3A8C4E" if all_done else "#1E5C32"};
+                        color:#FFFFFF;border-radius:8px 8px 0 0;
+                        padding:12px 18px;margin-top:20px;'>
+          <span style='font-size:1.05rem;font-weight:700;'>🏪 {store_label}</span>
+          <span style='font-size:0.85rem;color:#9FD9A8;margin-left:10px;'>
+            {item_count} items{done_badge}
+          </span>
+          <span style='float:right;font-size:0.9rem;font-weight:600;color:#D8EDD0;'>
+            ${store_total:.2f}
+          </span>
         </div>""",
         unsafe_allow_html=True,
     )
 
-    # Table header
-    st.markdown(
-        """<div style='display:grid;grid-template-columns:2fr 80px 120px 80px;
-                        background:#D8EDD0;padding:6px 14px;
-                        font-size:11px;font-weight:700;color:#1E5C32;'>
-          <div>ITEM</div><div style='text-align:center;'>QTY</div>
-          <div style='text-align:left;'>USED IN</div>
-          <div style='text-align:right;'>COST</div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
-
+    # Items — one per row using st.columns for phone-friendly layout
     for item_name, data in items.items():
+        check_key = f"check_{sid}_{item_name}"
+        checked   = st.session_state.get(check_key, False)
         meals_str = ", ".join(data["meals"])
-        row_bg = "#FFFFFF" if list(items.keys()).index(item_name) % 2 == 0 else "#FAFAF7"
+
+        col_check, col_info, col_cost = st.columns([0.5, 5, 1.5])
+
+        with col_check:
+            new_val = st.checkbox(
+                label=item_name,
+                value=checked,
+                key=check_key,
+                label_visibility="collapsed",
+            )
+
+        with col_info:
+            name_style  = "text-decoration:line-through;color:#9AA8A0;" if new_val else "color:#1A2E1D;"
+            meta_style  = "color:#9AA8A0;" if new_val else "color:#5A7A62;"
+            st.markdown(
+                f"<div style='padding:6px 0;'>"
+                f"<div style='font-size:1rem;font-weight:600;{name_style}'>{item_name}</div>"
+                f"<div style='font-size:0.78rem;{meta_style}'>{data['qty']} · {meals_str}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+        with col_cost:
+            cost_style = "color:#9AA8A0;text-decoration:line-through;" if new_val else "color:#1E5C32;font-weight:700;"
+            st.markdown(
+                f"<div style='padding:6px 0;text-align:right;font-size:1rem;{cost_style}'>"
+                f"${data['cost']:.2f}"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+        # Thin divider between items
         st.markdown(
-            f"""<div style='display:grid;grid-template-columns:2fr 80px 120px 80px;
-                             background:{row_bg};padding:7px 14px;
-                             border-bottom:1px solid #EEF3EE;font-size:13px;color:#1E5C32;'>
-              <div>□&nbsp; <strong>{item_name}</strong></div>
-              <div style='text-align:center;color:#5A7A62;'>{data['qty']}</div>
-              <div style='text-align:left;font-size:11px;color:#5A7A62;'>{meals_str}</div>
-              <div style='text-align:right;font-weight:600;'>${data['cost']:.2f}</div>
-            </div>""",
+            "<hr style='margin:0;border:none;border-top:1px solid #EEF3EE;'>",
             unsafe_allow_html=True,
         )
 
+    # Store subtotal footer
     st.markdown(
-        f"""<div style='background:#E3F4E8;border-radius:0 0 8px 8px;padding:8px 16px;
-                        text-align:right;font-size:13px;font-weight:700;color:#1E5C32;
-                        border-top:2px solid #5DAA6A;'>
-          {store_label} subtotal: ${store_total:.2f}
+        f"""<div style='background:#E3F4E8;border-radius:0 0 8px 8px;padding:10px 18px;
+                        display:flex;justify-content:space-between;align-items:center;
+                        border-top:2px solid #5DAA6A;margin-bottom:4px;'>
+          <span style='font-size:0.85rem;color:#3A8C4E;'>
+            {"✅ All done at " + store_label if all_done else store_label + " subtotal"}
+          </span>
+          <span style='font-size:1rem;font-weight:700;color:#1E5C32;'>${store_total:.2f}</span>
         </div>""",
         unsafe_allow_html=True,
     )
@@ -113,47 +185,52 @@ for sid, items in store_items.items():
 st.divider()
 
 # ── Summary footer ────────────────────────────────────────────────────────────
-sf1, sf2, sf3 = st.columns(3)
+sf1, sf2 = st.columns(2)
 with sf1:
     st.metric("Total estimated cost", f"${totals['whollyfare_plan']:.2f}")
 with sf2:
-    st.metric("Found Money 💚", f"${totals['found_money']:.2f}", delta="saved vs. single store")
-with sf3:
-    st.metric("vs. HelloFresh", f"${totals['vs_hellofresh']:.2f}", delta="you keep this")
+    st.metric("Found Money 💚", f"${totals['found_money']:.2f}", delta="saved vs. one store")
 
 st.divider()
 
-# ── Download button ───────────────────────────────────────────────────────────
-lines = [f"WhollyFare Shopping List — Week of {week}", "=" * 50, ""]
+# ── Utility buttons ───────────────────────────────────────────────────────────
+btn_col1, btn_col2 = st.columns(2)
 
-for sid, items in store_items.items():
-    store_label = STORE_NAMES.get(sid, sid)
-    store_total = sum(v["cost"] for v in items.values())
-    lines.append(f"{'=' * 30}")
-    lines.append(f"  {store_label.upper()}")
-    lines.append(f"{'=' * 30}")
-    for item_name, data in items.items():
-        lines.append(f"  □  {item_name:<35} {data['qty']:<12} ${data['cost']:.2f}")
-    lines.append(f"  {'Subtotal':>47} ${store_total:.2f}")
-    lines.append("")
+with btn_col1:
+    # Build plain-text export
+    lines = [f"WhollyFare Shopping List — Week of {week}", "=" * 48, ""]
+    for sid, items in store_items.items():
+        store_label = STORE_NAMES.get(sid, sid)
+        store_total = sum(v["cost"] for v in items.values())
+        lines.append(f"{'=' * 30}")
+        lines.append(f"  {store_label.upper()}")
+        lines.append(f"{'=' * 30}")
+        for item_name, data in items.items():
+            lines.append(f"  □  {item_name:<32} {data['qty']:<10} ${data['cost']:.2f}")
+        lines.append(f"  {'Subtotal':>44} ${store_total:.2f}")
+        lines.append("")
+    lines += [
+        "=" * 48,
+        f"  Total estimated cost:   ${totals['whollyfare_plan']:.2f}",
+        f"  Found Money this week:  ${totals['found_money']:.2f}",
+        f"  vs. HelloFresh:         ${totals['vs_hellofresh']:.2f}",
+        "",
+        "Generated by WhollyFare — Eat well. Spend less.",
+    ]
+    st.download_button(
+        label="📥 Save list as text file",
+        data="\n".join(lines),
+        file_name=f"whollyfare_shopping_{week}.txt",
+        mime="text/plain",
+        use_container_width=True,
+    )
 
-lines += [
-    "=" * 50,
-    f"  Total estimated cost:   ${totals['whollyfare_plan']:.2f}",
-    f"  Found Money this week:  ${totals['found_money']:.2f}",
-    f"  vs. HelloFresh:         ${totals['vs_hellofresh']:.2f}",
-    "",
-    "Generated by WhollyFare — Eat well. Spend less.",
-]
-
-export_text = "\n".join(lines)
-
-st.download_button(
-    label="📥 Download shopping list (.txt)",
-    data=export_text,
-    file_name=f"whollyfare_shopping_{week}.txt",
-    mime="text/plain",
-)
+with btn_col2:
+    if st.button("↺ Clear all check marks", use_container_width=True):
+        for sid, items in store_items.items():
+            for item_name in items:
+                st.session_state[f"check_{sid}_{item_name}"] = False
+        st.rerun()
 
 st.markdown("<br>", unsafe_allow_html=True)
 st.page_link("pages/6_Ledger.py", label="→ View Found Money History")

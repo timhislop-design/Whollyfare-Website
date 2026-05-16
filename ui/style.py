@@ -316,3 +316,4 @@ def sidebar_nav():
     )
     st.page_link("pages/6_Ledger.py",   label="💰 Found Money Ledger")
     st.page_link("pages/7_Investor.py", label="📈 Investor Brief")
+    st.page_link("pages/8_Roadmap.py",  label="🗺️ Product Roadmap")

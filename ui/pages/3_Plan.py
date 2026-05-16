@@ -1,4 +1,16 @@
-"""3_Plan.py — This Week's Plan"""
+"""3_Plan.py — This Week's Plan
+
+Shows the five-dinner plan the engine built, with full cost breakdown, ingredient
+detail, and constraint compliance. Designed so a pilot friend can understand the
+plan without Tim present — no jargon, no assumed knowledge.
+
+POC vs. PRODUCTION
+-------------------
+POC:  Plan data lives in session_state["plan"] — lost on browser refresh.
+      best_store field may be "—" when the engine doesn't set it.
+PROD: Plan persisted to DB (plan_id, household_id, week_id).
+      best_store resolved from ingredient.source_store in the optimizer output.
+"""
 
 import sys
 from pathlib import Path
@@ -16,7 +28,7 @@ with st.sidebar:
 
 style.page_header(
     "This Week's Plan",
-    "Every ingredient chosen on merit — sale price, safety, budget. Every decision shown.",
+    "Five dinners built from your stores' actual sale prices, filtered for your household.",
 )
 
 # ── Progress breadcrumb ───────────────────────────────────────────────────────
@@ -52,7 +64,6 @@ meals    = plan["meals"]
 servings = plan["servings"]
 
 # ── Summary bar ───────────────────────────────────────────────────────────────
-st.markdown("<div style='margin-bottom:8px;'>", unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
 with c1:
     st.metric("Plan cost", f"${totals['whollyfare_plan']:.2f}")
@@ -60,19 +71,27 @@ with c2:
     st.metric(
         "Found Money 💚",
         f"${totals['found_money']:.2f}",
-        delta=f"saved vs. single store",
+        delta="saved vs. one store",
         delta_color="normal",
     )
 with c3:
     st.metric("vs. HelloFresh", f"${totals['vs_hellofresh']:.2f}", delta="you keep this")
 with c4:
     st.metric("Dinners planned", len(meals))
-st.markdown("</div>", unsafe_allow_html=True)
 
-# ── Cross-store breakdown ─────────────────────────────────────────────────────
+# ── Cross-store summary callout ───────────────────────────────────────────────
+# POC: STORE_NAMES covers Charlottesville pilot stores + raw chain names as fallback.
+# PROD: Resolved from the household's configured store list.
 STORE_NAMES = {
-    "kroger_palmyra":     "Kroger",
-    "food_lion_palmyra":  "Food Lion",
+    "kroger_palmyra":           "Kroger",
+    "food_lion_palmyra":        "Food Lion",
+    "aldi_rio":                 "Aldi",
+    "harris_teeter_barracks":   "Harris Teeter",
+    # Normalised chain names used when store IDs aren't set
+    "Kroger":                   "Kroger",
+    "Food Lion":                "Food Lion",
+    "Aldi":                     "Aldi",
+    "Harris Teeter":            "Harris Teeter",
 }
 
 store_counts: dict[str, int] = {}
@@ -81,15 +100,25 @@ for meal in meals:
         sid = ing["store"]
         store_counts[sid] = store_counts.get(sid, 0) + 1
 
-store_parts = "  |  ".join(
+num_stores = len(store_counts)
+store_parts = "  ·  ".join(
     f"🏪 {STORE_NAMES.get(sid, sid)}: {count} items"
     for sid, count in store_counts.items()
 )
+
+if num_stores > 1:
+    callout_text = (
+        f"{store_parts}  &nbsp;·&nbsp;  "
+        f"<strong style='color:#BF5E00;'>Shopping across {num_stores} stores "
+        f"saves you ${totals['found_money']:.2f} this week</strong>"
+    )
+else:
+    callout_text = store_parts
+
 st.markdown(
     f"""<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;
-                    padding:10px 16px;margin-bottom:20px;font-size:0.9rem;color:#5A3A00;'>
-      {store_parts}  &nbsp;·&nbsp;
-      <strong style='color:#BF5E00;'>Multi-store arbitrage saves you ${totals['found_money']:.2f}</strong>
+                    padding:10px 16px;margin:12px 0 20px 0;font-size:0.9rem;color:#5A3A00;'>
+      {callout_text}
     </div>""",
     unsafe_allow_html=True,
 )
@@ -99,14 +128,19 @@ DAY_COLORS = ["#1E5C32", "#3A8C4E", "#5DAA6A", "#F28B30", "#BF5E00"]
 
 card_cols = st.columns(5)
 for idx, meal in enumerate(meals):
-    color        = DAY_COLORS[idx % len(DAY_COLORS)]
-    cost         = meal["meal_cost"]
-    per_serving  = cost / servings if servings else 0
-    store_label  = STORE_NAMES.get(meal.get("best_store", ""), meal.get("best_store", ""))
-    gf_badge     = (
+    color       = DAY_COLORS[idx % len(DAY_COLORS)]
+    cost        = meal["meal_cost"]
+    per_serving = cost / servings if servings else 0
+    raw_store   = meal.get("best_store", "")
+    store_label = STORE_NAMES.get(raw_store, raw_store) if raw_store and raw_store != "—" else ""
+    gf_badge    = (
         "<span style='background:#E3F4E8;color:#1E5C32;border-radius:10px;"
         "padding:2px 7px;font-size:10px;font-weight:600;'>GF</span> "
         if meal.get("gluten_free") else ""
+    )
+    store_line = (
+        f"<div style='font-size:11px;color:#5A7A62;margin-bottom:4px;'>🏪 {store_label}</div>"
+        if store_label else ""
     )
     with card_cols[idx]:
         st.markdown(
@@ -122,8 +156,7 @@ for idx, meal in enumerate(meals):
               <div style='font-size:1.25rem;font-weight:800;color:#1E5C32;'>${cost:.2f}</div>
               <div style='font-size:11px;color:#5A7A62;margin-bottom:6px;'>
                 ${per_serving:.2f}/serving</div>
-              <div style='font-size:11px;color:#5A7A62;margin-bottom:4px;'>
-                🏪 {store_label}</div>
+              {store_line}
               <div>{gf_badge}</div>
             </div>""",
             unsafe_allow_html=True,
@@ -133,6 +166,7 @@ st.divider()
 
 # ── Meal detail expanders ─────────────────────────────────────────────────────
 st.subheader("Meal details")
+st.caption("Tap any meal to see exactly which ingredients the engine chose and where to buy them.")
 
 for meal in meals:
     with st.expander(f"**{meal['day']}** — {meal['name']}", expanded=False):
@@ -155,13 +189,14 @@ for meal in meals:
 
             for ing in ings:
                 c1, c2, c3, c4 = st.columns([3, 1, 2, 1])
-                store_name = STORE_NAMES.get(ing.get("store", ""), ing.get("store", ""))
+                raw   = ing.get("store", "")
+                sname = STORE_NAMES.get(raw, raw) if raw and raw != "—" else "—"
                 with c1:
                     st.caption(ing["item"])
                 with c2:
                     st.caption(ing["qty"])
                 with c3:
-                    st.caption(store_name)
+                    st.caption(sname)
                 with c4:
                     st.caption(f"${ing['cost']:.2f}")
 
@@ -177,34 +212,39 @@ for meal in meals:
 st.divider()
 
 # ── Constraint compliance ─────────────────────────────────────────────────────
+# Shows pilot friends exactly which rules were applied — radical transparency.
 household = st.session_state.get("household")
 _constraint_parts = []
 if household:
-    _allergens = set()
-    _diagnoses = set()
-    _lifestyle = set()
-    for _m in household.members:
-        _allergens.update(_m.allergies)
-        _diagnoses.update(d.value for d in _m.diagnoses)
-        _lifestyle.update(t.value for t in _m.lifestyle_tags)
+    try:
+        _allergens = set()
+        _diagnoses = set()
+        _lifestyle = set()
+        for _m in household.members:
+            _allergens.update(_m.allergies)
+            _diagnoses.update(d.value for d in _m.diagnoses)
+            _lifestyle.update(t.value for t in _m.lifestyle_tags)
 
-    if "celiac" in _diagnoses:
-        _constraint_parts.append("Gluten-free compliant")
-    if _allergens:
-        _allergen_str = ", ".join(
-            a.replace("_", " ").capitalize() for a in sorted(_allergens)
-        )
-        _constraint_parts.append(f"No {_allergen_str}")
-    if "type1_diabetes" in _diagnoses or "type2_diabetes" in _diagnoses:
-        _constraint_parts.append("Diabetes-aware")
-    if "ibs_low_fodmap" in _diagnoses:
-        _constraint_parts.append("Low-FODMAP")
-    if "ckd" in _diagnoses:
-        _constraint_parts.append("CKD-safe")
-    if "hypertension" in _diagnoses:
-        _constraint_parts.append("Low-sodium")
-    for _t in sorted(_lifestyle):
-        _constraint_parts.append(_t.replace("_", "-").capitalize())
+        if "celiac" in _diagnoses:
+            _constraint_parts.append("Gluten-free compliant")
+        if _allergens:
+            _allergen_str = ", ".join(
+                a.replace("_", " ").capitalize() for a in sorted(_allergens)
+            )
+            _constraint_parts.append(f"No {_allergen_str}")
+        if "type1_diabetes" in _diagnoses or "type2_diabetes" in _diagnoses:
+            _constraint_parts.append("Diabetes-aware")
+        if "ibs_low_fodmap" in _diagnoses:
+            _constraint_parts.append("Low-FODMAP")
+        if "ckd" in _diagnoses:
+            _constraint_parts.append("CKD-safe")
+        if "hypertension" in _diagnoses:
+            _constraint_parts.append("Low-sodium")
+        for _t in sorted(_lifestyle):
+            _constraint_parts.append(_t.replace("_", "-").capitalize())
+    except AttributeError:
+        # household may be in an unexpected shape — degrade gracefully
+        pass
 
 _constraint_str = " · ".join(_constraint_parts) if _constraint_parts else "Standard filtering applied"
 
@@ -222,5 +262,5 @@ st.markdown(
 )
 
 # ── CTA ───────────────────────────────────────────────────────────────────────
-if st.button("✅ Go to Sunday Buy-Off — approve this week →", type="primary", use_container_width=True):
+if st.button("✅ Go to Sunday Buy-Off — confirm this week →", type="primary", use_container_width=True):
     st.switch_page("pages/4_Sunday_BuyOff.py")
