@@ -136,27 +136,25 @@ if not state.is_setup_complete():
                 background:linear-gradient(140deg,#142B1C 0%,#1E5C32 55%,#2D7A45 100%);
                 border-radius:18px;padding:54px 52px 50px;margin-bottom:10px;'>
 
-      <!-- Decorative leaf watermark (bottom-right) -->
-      <svg style='position:absolute;right:-60px;bottom:-60px;opacity:0.06;pointer-events:none;'
-           width="420" height="420" viewBox="0 0 420 420" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="210" cy="210" rx="180" ry="120" fill="white" transform="rotate(-28 210 210)"/>
-        <line x1="80"  y1="310" x2="330" y2="120" stroke="white" stroke-width="5"/>
-        <line x1="110" y1="340" x2="240" y2="155" stroke="white" stroke-width="2.5" opacity="0.7"/>
-        <line x1="200" y1="290" x2="330" y2="155" stroke="white" stroke-width="2.5" opacity="0.7"/>
+      <!-- Decorative fork+leaf — right side, vertically centred in text block, background only -->
+      <svg style='position:absolute;right:60px;top:50%;transform:translateY(-55%);
+                  opacity:0.22;pointer-events:none;'
+           width="200" height="200" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
+           aria-hidden="true">
+        <!-- Fork handle -->
+        <line x1="14" y1="46" x2="14" y2="10" stroke="#9FD9A8" stroke-width="2.8" stroke-linecap="round"/>
+        <!-- Fork tines -->
+        <line x1="9"  y1="10" x2="9"  y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
+        <line x1="14" y1="10" x2="14" y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
+        <line x1="19" y1="10" x2="19" y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
+        <!-- Leaf body -->
+        <ellipse cx="36" cy="26" rx="13" ry="8.5" fill="#5DAA6A" transform="rotate(-28 36 26)"/>
+        <!-- Leaf midrib -->
+        <line x1="24" y1="35" x2="46" y2="18" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+        <!-- Leaf veins -->
+        <line x1="30" y1="32" x2="40" y2="20" stroke="white" stroke-width="0.7" stroke-linecap="round" opacity="0.6"/>
+        <line x1="35" y1="28" x2="44" y2="23" stroke="white" stroke-width="0.7" stroke-linecap="round" opacity="0.6"/>
       </svg>
-
-      <!-- Fork + leaf icon -->
-      <div style='margin-bottom:18px;'>
-        <svg width="54" height="54" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
-             aria-label="WhollyFare fork and leaf" role="img">
-          <line x1="14" y1="46" x2="14" y2="10" stroke="#9FD9A8" stroke-width="2.8" stroke-linecap="round"/>
-          <line x1="9"  y1="10" x2="9"  y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-          <line x1="14" y1="10" x2="14" y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-          <line x1="19" y1="10" x2="19" y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-          <ellipse cx="36" cy="26" rx="13" ry="8.5" fill="#5DAA6A" transform="rotate(-28 36 26)"/>
-          <line x1="24" y1="35" x2="46" y2="18" stroke="rgba(255,255,255,0.6)" stroke-width="1.3" stroke-linecap="round"/>
-        </svg>
-      </div>
 
       <!-- Small top badge -->
       <div style='display:inline-flex;align-items:center;gap:7px;
