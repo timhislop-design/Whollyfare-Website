@@ -138,7 +138,7 @@ if not state.is_setup_complete():
 
       <!-- Decorative fork+leaf — right side, vertically centred in text block, background only -->
       <svg style='position:absolute;right:60px;top:50%;transform:translateY(-55%);
-                  opacity:0.22;pointer-events:none;'
+                  opacity:0.80;pointer-events:none;'
            width="200" height="200" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
            aria-hidden="true">
         <!-- Fork handle -->
