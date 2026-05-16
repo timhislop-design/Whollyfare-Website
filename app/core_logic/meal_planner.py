@@ -21,8 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-from core_logic.budget_optimizer import ScoredIngredient
-from core_logic.profile_schema import HouseholdProfile
+from .budget_optimizer import ScoredIngredient
+from .profile_schema import HouseholdProfile
 
 
 # ── Flavor Plugins ────────────────────────────────────────────────────────────

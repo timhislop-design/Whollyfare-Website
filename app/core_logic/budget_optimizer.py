@@ -11,7 +11,7 @@ Scoring philosophy (Sincere Strategy):
 """
 
 from dataclasses import dataclass
-from core_logic.constraint_engine import IngredientCandidate
+from .constraint_engine import IngredientCandidate
 
 
 @dataclass

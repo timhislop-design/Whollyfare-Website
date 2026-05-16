@@ -10,7 +10,7 @@ dashboard can show users *exactly* why an ingredient was removed — no black bo
 
 from dataclasses import dataclass, field
 from typing import Optional
-from core_logic.profile_schema import HouseholdProfile, MemberProfile
+from .profile_schema import HouseholdProfile, MemberProfile
 
 
 @dataclass

@@ -14,7 +14,7 @@ v2 roadmap: direct grocer API integrations (Kroger, Publix, Aldi, etc.)
 import json
 from pathlib import Path
 from typing import Optional
-from core_logic.constraint_engine import IngredientCandidate
+from app.core_logic.constraint_engine import IngredientCandidate
 
 
 class FlyerIngestor:
