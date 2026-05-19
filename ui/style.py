@@ -287,34 +287,62 @@ def sidebar_nav():
 
     st.markdown("<hr style='border-color:#3A8C4E; margin:10px 0;'>", unsafe_allow_html=True)
 
+    def _section(label: str):
+        st.markdown(
+            f"<div style='font-size:0.65rem; font-weight:700; color:#9FD9A8; "
+            f"letter-spacing:0.08em; margin-top:14px; margin-bottom:4px;'>{label}</div>",
+            unsafe_allow_html=True,
+        )
+
+    def _coming_soon(label: str):
+        st.markdown(
+            f"<div style='font-size:0.85rem; color:#6aaa7a; padding:4px 8px; "
+            f"opacity:0.6; cursor:default;'>{label} "
+            f"<span style='font-size:0.6rem; background:#2e7d4f; color:#9FD9A8; "
+            f"padding:1px 5px; border-radius:8px; vertical-align:middle;'>SOON</span></div>",
+            unsafe_allow_html=True,
+        )
+
     # ── Home ─────────────────────────────────────────────────────────────────
     st.page_link("Home.py", label="🏠 Home")
 
-    # ── Section: GET STARTED ──────────────────────────────────────────────────
-    st.markdown(
-        "<div style='font-size:0.65rem; font-weight:700; color:#9FD9A8; "
-        "letter-spacing:0.08em; margin-top:14px; margin-bottom:4px;'>GET STARTED</div>",
-        unsafe_allow_html=True,
-    )
+    # ── GET STARTED ───────────────────────────────────────────────────────────
+    _section("GET STARTED")
     st.page_link("pages/1_Household.py",  label="👨‍👩‍👧 Household Setup")
     st.page_link("pages/2_Grocer_Hub.py", label="🏪 Grocer Hub")
 
-    # ── Section: WEEKLY PLAN ──────────────────────────────────────────────────
-    st.markdown(
-        "<div style='font-size:0.65rem; font-weight:700; color:#9FD9A8; "
-        "letter-spacing:0.08em; margin-top:14px; margin-bottom:4px;'>WEEKLY PLAN</div>",
-        unsafe_allow_html=True,
-    )
+    # ── WEEKLY PLAN ───────────────────────────────────────────────────────────
+    _section("WEEKLY PLAN")
     st.page_link("pages/3_Plan.py",           label="🍽️ This Week's Plan")
     st.page_link("pages/4_Sunday_BuyOff.py",  label="✅ Sunday Buy-Off")
     st.page_link("pages/5_Shopping_List.py",  label="🛒 Shopping List")
 
-    # ── Section: HISTORY & INFO ───────────────────────────────────────────────
-    st.markdown(
-        "<div style='font-size:0.65rem; font-weight:700; color:#9FD9A8; "
-        "letter-spacing:0.08em; margin-top:14px; margin-bottom:4px;'>HISTORY &amp; INFO</div>",
-        unsafe_allow_html=True,
-    )
-    st.page_link("pages/6_Ledger.py",   label="💰 Found Money Ledger")
+    # ── SAVINGS INTELLIGENCE ──────────────────────────────────────────────────
+    _section("SAVINGS INTELLIGENCE")
+    st.page_link("pages/6_Ledger.py", label="💰 Found Money Ledger")
+    _coming_soon("🎟️ Coupon Vault")
+    _coming_soon("📊 Price Intelligence")
+
+    # ── HEALTH GUARD ──────────────────────────────────────────────────────────
+    _section("HEALTH GUARD")
+    _coming_soon("🛡️ Health Guard Dashboard")
+
+    # ── DELIVERY ──────────────────────────────────────────────────────────────
+    _section("DELIVERY")
+    _coming_soon("🚚 Delivery Hub")
+
+    # ── PLATFORM ──────────────────────────────────────────────────────────────
+    _section("PLATFORM")
     st.page_link("pages/7_Investor.py", label="📈 Investor Brief")
     st.page_link("pages/8_Roadmap.py",  label="🗺️ Product Roadmap")
+    _coming_soon("❓ Help & FAQ")
+    _coming_soon("⚙️ Account")
+
+    # ── Auth widget ───────────────────────────────────────────────────────────
+    # POC: sign-in / sign-up / sign-out panel at the bottom of the sidebar.
+    # Import here (not at module level) to avoid circular import with state.py.
+    try:
+        from ui.components.auth import auth_sidebar
+        auth_sidebar()
+    except Exception:
+        pass  # Silently skip if auth component is unavailable

@@ -14,10 +14,83 @@ plan            : WeeklyPlan | None
 approved_weeks  : list[str]   — ISO date strings of approved week starts
 ledger_history  : list[dict]  — {week, total_cost, savings_vs_single, savings_vs_hellofresh}
 active_week     : str         — ISO date (YYYY-MM-DD) for the current planning week
+
+DB layer keys (added when Supabase is wired)
+----
+user            : dict | None   — Supabase auth user object (id, email)
+household_id    : str | None    — UUID of the household row in DB
 """
 
 import streamlit as st
 from datetime import date, timedelta
+
+# DB layer import — safe to import even if DB is unreachable; functions degrade gracefully
+try:
+    from app.db.client import get_client
+    _DB_AVAILABLE = True
+except Exception:
+    _DB_AVAILABLE = False
+
+# Profile schema import for conversion helpers (optional — pages may use HouseholdProfile directly)
+try:
+    from app.core_logic.profile_schema import (
+        HouseholdProfile, MemberProfile, Diagnosis, LifestyleTag,
+    )
+    _PROFILE_SCHEMA_AVAILABLE = True
+except Exception:
+    _PROFILE_SCHEMA_AVAILABLE = False
+
+
+def db_dict_to_profile(d: dict) -> "HouseholdProfile | None":
+    """
+    Convert a household DB dict (as stored in session_state["household_db"]) back
+    into a HouseholdProfile Pydantic object for the constraint engine and existing pages.
+
+    Returns None if profile_schema is unavailable or conversion fails.
+
+    POC:  birth_year → age is not round-tripped (DB stores birth_year, profile stores age).
+          Age is set to None on restore. This is fine for constraint purposes — age is
+          only used for serving-size guidance, not for hard constraints.
+    PROD: Store age or birth_year consistently in one place.
+    """
+    if not _PROFILE_SCHEMA_AVAILABLE or not d:
+        return None
+    try:
+        members = []
+        for m in d.get("members", []):
+            # Diagnoses and lifestyle tags: skip unrecognised values silently
+            diagnoses = []
+            for val in m.get("diagnoses", []):
+                try:
+                    diagnoses.append(Diagnosis(val))
+                except ValueError:
+                    pass
+
+            lifestyle = []
+            for val in m.get("lifestyle", []):
+                try:
+                    lifestyle.append(LifestyleTag(val))
+                except ValueError:
+                    pass
+
+            members.append(MemberProfile(
+                name=m["name"],
+                age=None,
+                allergies=m.get("allergies", []),
+                diagnoses=diagnoses,
+                lifestyle_tags=lifestyle,
+                custom_exclusions=m.get("exclusions", []),
+            ))
+
+        return HouseholdProfile(
+            household_name=d.get("name", "My Household"),
+            members=members,
+            weekly_budget_usd=float(d.get("weekly_budget_usd", 120.0)),
+            servings_per_meal=int(d.get("servings_per_meal", 4)),
+            meals_per_week=int(d.get("meals_per_week", 5)),
+        )
+    except Exception:
+        return None
 
 
 def _next_sunday() -> str:
@@ -38,6 +111,10 @@ def init():
         "approved_weeks":  [],
         "ledger_history":  [],
         "active_week":     _next_sunday(),
+        # DB layer
+        "user":            None,   # Supabase auth user dict
+        "household_id":    None,   # UUID string of households row
+        "household_db":    None,   # plain dict loaded from DB (complement to HouseholdProfile)
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -109,3 +186,525 @@ def approve_week():
             "stores_used":       2,
         })
         st.session_state["ledger_history"] = history
+
+
+# ── Auth layer ────────────────────────────────────────────────────────────────
+# POC:  Email/password auth via Supabase Auth.
+#       The JWT returned by sign-in is automatically attached to the supabase
+#       client for all subsequent calls, which lets auth.uid() work in RLS.
+# PROD: Add OAuth providers (Google, Apple), magic links, session refresh
+#       tokens stored server-side, and a proper logout/timeout flow.
+
+def sign_up(email: str, password: str) -> tuple[bool, str]:
+    """
+    Create a new Supabase auth account.
+
+    Returns (success: bool, message: str).
+    On success, also signs the user in and populates st.session_state["user"].
+    """
+    if not _DB_AVAILABLE:
+        return False, "Database not available."
+    try:
+        db = get_client()
+        resp = db.auth.sign_up({"email": email, "password": password})
+        if resp.user:
+            st.session_state["user"] = {"id": resp.user.id, "email": resp.user.email}
+            return True, "Account created. Check your email to confirm, then sign in."
+        return False, "Sign-up failed — no user returned."
+    except Exception as e:
+        return False, str(e)
+
+
+def sign_in(email: str, password: str) -> tuple[bool, str]:
+    """
+    Sign in with email + password.
+
+    Returns (success: bool, message: str).
+    On success, populates st.session_state["user"] and loads household from DB.
+    """
+    if not _DB_AVAILABLE:
+        return False, "Database not available."
+    try:
+        db = get_client()
+        resp = db.auth.sign_in_with_password({"email": email, "password": password})
+        if resp.user:
+            st.session_state["user"] = {"id": resp.user.id, "email": resp.user.email}
+            # Attempt to load the household that belongs to this user
+            _load_household_from_db()
+            return True, "Signed in."
+        return False, "Invalid email or password."
+    except Exception as e:
+        return False, str(e)
+
+
+def sign_out():
+    """Sign out and clear all session state."""
+    if _DB_AVAILABLE:
+        try:
+            get_client().auth.sign_out()
+        except Exception:
+            pass
+    # Clear everything — init() will re-populate defaults on next page load
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+
+
+def is_authenticated() -> bool:
+    """True if a user is signed in this session."""
+    return st.session_state.get("user") is not None
+
+
+def current_user_id() -> str | None:
+    """Return the Supabase auth user UUID, or None if not signed in."""
+    user = st.session_state.get("user")
+    return user["id"] if user else None
+
+
+# ── Household DB layer ────────────────────────────────────────────────────────
+# POC:  Household is saved/loaded on the Household Setup page.
+#       Session_state is the working copy; DB is the persistent store.
+#       load → session_state on sign-in; save → DB on form submit.
+# PROD: Add optimistic updates, conflict resolution, and multi-device sync.
+
+def _load_household_from_db():
+    """
+    Internal: load household + members from DB into session_state.
+    Called automatically on sign-in and on the Household page.
+    Silently no-ops if the user has no household yet.
+    """
+    if not _DB_AVAILABLE or not is_authenticated():
+        return
+
+    db = get_client()
+    uid = current_user_id()
+
+    # Find the household this user belongs to
+    rows = (
+        db.table("household_users")
+        .select("household_id, role")
+        .eq("user_id", uid)
+        .limit(1)
+        .execute()
+        .data
+    )
+    if not rows:
+        return
+
+    hid = rows[0]["household_id"]
+    st.session_state["household_id"] = hid
+
+    # Load household record
+    hh_rows = (
+        db.table("households")
+        .select("*")
+        .eq("id", hid)
+        .limit(1)
+        .execute()
+        .data
+    )
+    if not hh_rows:
+        return
+
+    hh = hh_rows[0]
+
+    # Load members with their constraints
+    members_rows = (
+        db.table("members")
+        .select("id, name, role, birth_year")
+        .eq("household_id", hid)
+        .execute()
+        .data
+    )
+
+    members = []
+    for m in members_rows:
+        mid = m["id"]
+
+        allergies = [
+            r["allergen"]
+            for r in db.table("member_allergies")
+            .select("allergen")
+            .eq("member_id", mid)
+            .execute()
+            .data
+        ]
+        diagnoses = [
+            r["condition"]
+            for r in db.table("member_diagnoses")
+            .select("condition")
+            .eq("member_id", mid)
+            .execute()
+            .data
+        ]
+        lifestyle = [
+            r["tag"]
+            for r in db.table("member_lifestyle_tags")
+            .select("tag")
+            .eq("member_id", mid)
+            .execute()
+            .data
+        ]
+        exclusions = [
+            r["ingredient_name"]
+            for r in db.table("member_custom_exclusions")
+            .select("ingredient_name")
+            .eq("member_id", mid)
+            .execute()
+            .data
+        ]
+
+        members.append({
+            "id":         mid,
+            "name":       m["name"],
+            "role":       m["role"],
+            "birth_year": m["birth_year"],
+            "allergies":  allergies,
+            "diagnoses":  diagnoses,
+            "lifestyle":  lifestyle,
+            "exclusions": exclusions,
+        })
+
+    # Write into session_state in the shape save_household() expects
+    # (a plain dict — pages that need HouseholdProfile call _dict_to_profile())
+    st.session_state["household_db"] = {
+        "id":                hid,
+        "name":              hh.get("name", ""),
+        "weekly_budget_usd": float(hh.get("weekly_budget_usd", 120.0)),
+        "servings_per_meal": int(hh.get("servings_per_meal", 4)),
+        "meals_per_week":    int(hh.get("meals_per_week", 5)),
+        "zip_code":          hh.get("primary_zip", ""),
+        "city":              hh.get("city", ""),
+        "state":             hh.get("state", ""),
+        "members":           members,
+    }
+
+
+def load_household():
+    """
+    Public: refresh household from DB into session_state.
+    Call at the top of the Household Setup page to ensure data is current.
+    """
+    _load_household_from_db()
+
+
+def save_household(household_dict: dict) -> tuple[bool, str]:
+    """
+    Upsert household + members to DB, then update session_state.
+
+    Args:
+        household_dict: dict with keys matching the household session_state shape:
+            {name, zip_code, city, state, members: [{name, role, birth_year,
+             allergies, diagnoses, lifestyle, exclusions}]}
+
+    Returns (success: bool, message: str).
+
+    POC:  Simple upsert — deletes and re-inserts all member constraints on each save.
+          This is fine for a pilot household; PROD needs delta-tracking.
+    PROD: Diff members + constraints, apply only changes, write audit log entry.
+    """
+    if not _DB_AVAILABLE or not is_authenticated():
+        # Graceful degradation — keep working in session_state only
+        st.session_state["household_db"] = household_dict
+        return True, "Saved to session only (no DB connection)."
+
+    db = get_client()
+    uid = current_user_id()
+
+    try:
+        hid = st.session_state.get("household_id")
+
+        # ── Upsert household row ──────────────────────────────────────────────
+        hh_payload = {
+            "name":              household_dict.get("name", "My Household"),
+            "weekly_budget_usd": household_dict.get("weekly_budget_usd", 120.0),
+            "servings_per_meal": household_dict.get("servings_per_meal", 4),
+            "meals_per_week":    household_dict.get("meals_per_week", 5),
+            "primary_zip":       household_dict.get("zip_code", ""),
+            "city":              household_dict.get("city", ""),
+            "state":             household_dict.get("state", "VA"),
+            "created_by":        uid,
+        }
+        if hid:
+            hh_payload["id"] = hid
+            # created_by is set only on insert; remove from update payload
+            update_payload = {k: v for k, v in hh_payload.items() if k not in ("id", "created_by")}
+            db.table("households").update(update_payload).eq("id", hid).execute()
+        else:
+            result = db.table("households").insert(hh_payload).execute()
+            hid = result.data[0]["id"]
+            st.session_state["household_id"] = hid
+
+            # Link user to household
+            db.table("household_users").insert({
+                "household_id": hid,
+                "user_id":      uid,
+                "role":         "owner",
+            }).execute()
+
+        # ── Upsert members ────────────────────────────────────────────────────
+        # POC: fetch existing member IDs by name to detect add/remove
+        existing = (
+            db.table("members")
+            .select("id, name")
+            .eq("household_id", hid)
+            .execute()
+            .data
+        )
+        existing_by_name = {r["name"]: r["id"] for r in existing}
+        incoming_names = {m["name"] for m in household_dict.get("members", [])}
+
+        # Remove members no longer in the list
+        for name, mid in existing_by_name.items():
+            if name not in incoming_names:
+                db.table("members").delete().eq("id", mid).execute()
+
+        # Upsert each incoming member
+        for m in household_dict.get("members", []):
+            name = m["name"]
+            if name in existing_by_name:
+                mid = existing_by_name[name]
+                db.table("members").update({
+                    "role":       m.get("role", "adult"),
+                    "birth_year": m.get("birth_year"),
+                }).eq("id", mid).execute()
+            else:
+                result = db.table("members").insert({
+                    "household_id": hid,
+                    "name":         name,
+                    "role":         m.get("role", "adult"),
+                    "birth_year":   m.get("birth_year"),
+                }).execute()
+                mid = result.data[0]["id"]
+
+            # ── Constraints: delete-and-replace (POC) ────────────────────────
+            db.table("member_allergies").delete().eq("member_id", mid).execute()
+            db.table("member_diagnoses").delete().eq("member_id", mid).execute()
+            db.table("member_lifestyle_tags").delete().eq("member_id", mid).execute()
+            db.table("member_custom_exclusions").delete().eq("member_id", mid).execute()
+
+            for allergen in m.get("allergies", []):
+                db.table("member_allergies").insert({
+                    "member_id": mid, "allergen": allergen, "severity": "unknown"
+                }).execute()
+
+            for condition in m.get("diagnoses", []):
+                db.table("member_diagnoses").insert({
+                    "member_id": mid, "condition": condition
+                }).execute()
+
+            for tag in m.get("lifestyle", []):
+                db.table("member_lifestyle_tags").insert({
+                    "member_id": mid, "tag": tag
+                }).execute()
+
+            for ingredient in m.get("exclusions", []):
+                db.table("member_custom_exclusions").insert({
+                    "member_id": mid, "ingredient_name": ingredient
+                }).execute()
+
+        # Update session_state to include the resolved IDs
+        household_dict["id"] = hid
+        st.session_state["household_db"] = household_dict
+        return True, "Saved."
+
+    except Exception as e:
+        # Degrade gracefully — session_state still has the data
+        st.session_state["household"] = household_dict
+        return False, f"DB save failed: {e}. Data saved to session only."
+
+
+# ── Ledger DB layer ───────────────────────────────────────────────────────────
+# POC:  Write one ledger_entry per approved week.
+# PROD: Tie entries to specific plan_id + receipt_id; add deduplication.
+
+def _get_or_create_plan_id(db, hid: str, week_start: str) -> str | None:
+    """
+    Return the meal_plans.id for this household + week_start.
+    Creates a stub row if none exists yet (POC shortcut).
+
+    POC:  plan_id is required by ledger_entries (NOT NULL FK).
+          We create a minimal placeholder meal_plans row if the engine
+          hasn't written one yet (e.g. receipt logged after session refresh).
+    PROD: plan_id is set when the weekly plan is generated; this helper is
+          only needed for backfill or cross-session reconciliation.
+    """
+    rows = (
+        db.table("meal_plans")
+        .select("id")
+        .eq("household_id", hid)
+        .eq("week_start_date", week_start)
+        .limit(1)
+        .execute()
+        .data
+    )
+    if rows:
+        return rows[0]["id"]
+
+    # Create a stub plan row so the ledger entry FK constraint is satisfied
+    try:
+        result = db.table("meal_plans").insert({
+            "household_id":   hid,
+            "week_start_date": week_start,
+        }).execute()
+        return result.data[0]["id"] if result.data else None
+    except Exception:
+        return None
+
+
+def save_ledger_entry(entry: dict) -> tuple[bool, str]:
+    """
+    Write a ledger entry to the DB.
+
+    Args:
+        entry: dict with app-side keys (see ledger_history shape):
+            {week, whollyfare_cost, single_store_cost, found_money,
+             vs_hellofresh, meals_planned, stores_used,
+             actual_receipt?, actual_found_money?, accuracy_delta?, notes?}
+
+    Returns (success: bool, message: str).
+    Session_state ledger_history is the source of truth for the POC;
+    DB is a durable backup that survives browser refresh.
+
+    POC:  Column names differ between app-side dicts and the DB schema;
+          this function handles the mapping.
+    """
+    if not _DB_AVAILABLE or not is_authenticated():
+        return True, "Session only."
+
+    hid = st.session_state.get("household_id")
+    if not hid:
+        return False, "No household_id — save household first."
+
+    week_start = entry.get("week")
+    if not week_start:
+        return False, "No week date in entry."
+
+    try:
+        db = get_client()
+
+        # Ensure we have a plan_id (FK is NOT NULL in schema)
+        plan_id = _get_or_create_plan_id(db, hid, week_start)
+        if not plan_id:
+            return False, "Could not resolve plan_id — ledger entry not saved to DB."
+
+        payload = {
+            "household_id":       hid,
+            "plan_id":            plan_id,
+            "week_start_date":    week_start,
+            "meals_planned":      entry.get("meals_planned", 0),
+            "stores_used":        entry.get("stores_used", 0),   # smallint in schema
+            "whollyfare_cost_est": entry.get("whollyfare_cost", 0),
+            "found_money_est":    entry.get("found_money", 0),
+            "hellofresh_equiv":   entry.get("vs_hellofresh", 0),
+        }
+
+        # Receipt actuals — only set when present
+        if entry.get("actual_receipt") is not None:
+            payload["actual_receipt"]       = entry["actual_receipt"]
+            payload["single_store_actual"]  = entry.get("single_store_cost", 0)
+            payload["found_money_actual"]   = entry.get("actual_found_money", 0)
+            payload["vs_hellofresh_actual"] = entry.get("vs_hellofresh", 0)
+            payload["accuracy_delta"]       = entry.get("accuracy_delta", 0)
+            payload["notes"]                = entry.get("notes", "")
+            payload["receipt_logged_at"]    = "now()"
+
+        db.table("ledger_entries").upsert(
+            payload, on_conflict="household_id,week_start_date"
+        ).execute()
+        return True, "Saved."
+    except Exception as e:
+        return False, str(e)
+
+
+def load_ledger() -> list[dict]:
+    """
+    Load ledger entries from DB into session_state["ledger_history"].
+
+    Returns the list of entries (also available in session_state).
+    Falls back to existing session_state if DB is unavailable.
+    """
+    if not _DB_AVAILABLE or not is_authenticated():
+        return st.session_state.get("ledger_history", [])
+
+    hid = st.session_state.get("household_id")
+    if not hid:
+        return st.session_state.get("ledger_history", [])
+
+    try:
+        db = get_client()
+        rows = (
+            db.table("ledger_entries")
+            .select("*")
+            .eq("household_id", hid)
+            .order("week_start_date", desc=True)
+            .execute()
+            .data
+        )
+        # Normalise DB column names → app-side dict shape
+        history = []
+        for r in rows:
+            e = {
+                "week":              r["week_start_date"],
+                "whollyfare_cost":   float(r.get("whollyfare_cost_est") or 0),
+                "single_store_cost": float(r.get("single_store_actual") or 0),
+                "found_money":       float(r.get("found_money_est") or 0),
+                "vs_hellofresh":     float(r.get("hellofresh_equiv") or 0),
+                "meals_planned":     r.get("meals_planned") or 0,
+                "stores_used":       r.get("stores_used") or 0,
+            }
+            # Include actuals if present
+            if r.get("actual_receipt") is not None:
+                e["actual_receipt"]      = float(r["actual_receipt"])
+                e["actual_found_money"]  = float(r.get("found_money_actual") or 0)
+                e["vs_hf_actual"]        = float(r.get("vs_hellofresh_actual") or 0)
+                e["accuracy_delta"]      = float(r.get("accuracy_delta") or 0)
+                e["notes"]               = r.get("notes", "")
+            history.append(e)
+        st.session_state["ledger_history"] = history
+        return history
+    except Exception:
+        return st.session_state.get("ledger_history", [])
+
+
+# ── Plan approval DB layer ────────────────────────────────────────────────────
+
+def approve_week_db():
+    """
+    Extended version of approve_week() that also persists to DB.
+
+    Writes:
+      1. meal_plans.approved_at — stamps the approval timestamp
+      2. ledger_entries — via save_ledger_entry()
+
+    Call this instead of approve_week() once DB is wired.
+    Falls back to session_only approve_week() if DB unavailable.
+    """
+    # Always update session state first
+    approve_week()
+
+    if not _DB_AVAILABLE or not is_authenticated():
+        return
+
+    hid = st.session_state.get("household_id")
+    if not hid:
+        return
+
+    w = st.session_state.get("active_week", "")
+    plan = st.session_state.get("plan")
+    history = st.session_state.get("ledger_history", [])
+
+    try:
+        db = get_client()
+
+        # Stamp approval on meal_plan row if one exists for this week
+        db.table("meal_plans").update({"approved_at": "now()"}).eq(
+            "household_id", hid
+        ).eq("week_start_date", w).is_("approved_at", "null").execute()
+
+        # Save the ledger entry that approve_week() just appended to history
+        latest = next((e for e in reversed(history) if e.get("week") == w), None)
+        if latest:
+            save_ledger_entry(latest)
+
+    except Exception:
+        pass  # POC: silently degrade — session_state already updated

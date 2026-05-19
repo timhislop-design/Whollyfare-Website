@@ -37,6 +37,20 @@ from app.core_logic.profile_schema import (
 st.set_page_config(page_title="Household Setup · WhollyFare", page_icon="👨‍👩‍👧", layout="wide")
 state.init()
 
+# ── DB load ───────────────────────────────────────────────────────────────────
+# If authenticated and household not yet in session_state, load from DB.
+# This restores the profile after a browser refresh.
+# POC: runs on every page load but DB call is cheap (one row, indexed on user_id).
+if state.is_authenticated() and st.session_state.get("household_db") is None:
+    state.load_household()
+
+# If DB returned data but session_state["household"] (HouseholdProfile) is missing,
+# convert the dict back so the constraint engine and other pages work correctly.
+if st.session_state.get("household_db") and st.session_state.get("household") is None:
+    profile = state.db_dict_to_profile(st.session_state["household_db"])
+    if profile:
+        st.session_state["household"] = profile
+
 with st.sidebar:
     style.sidebar_nav()
 
@@ -351,10 +365,40 @@ if save_pressed:
             servings_per_meal=int(servings),
             meals_per_week=int(meals_per_week),
         )
+
+        # ── Persist to DB ─────────────────────────────────────────────────────
+        # POC: save_household() degrades gracefully if not authenticated or DB down.
+        # PROD: show a "not saved" indicator if DB write fails.
+        db_ok, db_msg = state.save_household({
+            "name":              hh_name.strip(),
+            "weekly_budget_usd": weekly_budget,
+            "servings_per_meal": int(servings),
+            "meals_per_week":    int(meals_per_week),
+            "members": [
+                {
+                    "name":       m.name,
+                    "role":       "child" if (m.age or 99) < 18 else "adult",
+                    "birth_year": None,  # profile stores age, not birth_year
+                    "allergies":  m.allergies,
+                    "diagnoses":  [d.value for d in m.diagnoses],
+                    "lifestyle":  [t.value for t in m.lifestyle_tags],
+                    "exclusions": m.custom_exclusions,
+                }
+                for m in members
+            ],
+        })
+
         # Clear member_list cache so it reloads from the saved profile
         if "member_list" in st.session_state:
             del st.session_state["member_list"]
-        st.success(f"✅ {hh_name.strip()} saved — {len(members)} member(s), {meals_per_week} dinners/week.")
+
+        if db_ok:
+            st.success(f"✅ {hh_name.strip()} saved — {len(members)} member(s), {meals_per_week} dinners/week.")
+        else:
+            st.warning(
+                f"⚠️ Profile saved to this session, but could not save to database: {db_msg}  \n"
+                "Sign in to save permanently."
+            )
         st.rerun()
 
 

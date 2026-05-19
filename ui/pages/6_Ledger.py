@@ -43,7 +43,9 @@ style.page_header(
     "Real savings. Real receipts. Every week, auditable and honest.",
 )
 
-ledger: list[dict] = st.session_state.get("ledger_history", [])
+# Load from DB if authenticated; falls back to session_state if not.
+# This means the ledger survives browser refresh once the user is signed in.
+ledger: list[dict] = state.load_ledger()
 grocers: list[dict] = st.session_state.get("grocers", [])
 
 # ── Store names (dynamic from session, not hardcoded) ────────────────────────
@@ -139,6 +141,8 @@ if approved_without_receipt:
                 ledger[idx]["stores_list"] = [g.get("chain", "?") for g in grocers]
 
             st.session_state["ledger_history"] = ledger
+            # Also persist to DB (degrades gracefully if not authenticated)
+            state.save_ledger_entry(ledger[idx])
             st.success(f"✅ Receipt logged — ${found_actual:.2f} in real Found Money this week.")
             st.rerun()
 
@@ -371,6 +375,7 @@ for entry in sorted(ledger, key=lambda e: e.get("week", ""), reverse=True):
                         ledger[idx]["accuracy_delta"]      = round(q_actual - plan_cost, 2)
                         ledger[idx]["notes"]               = q_notes.strip()
                         st.session_state["ledger_history"] = ledger
+                        state.save_ledger_entry(ledger[idx])
                         st.rerun()
 
 st.divider()

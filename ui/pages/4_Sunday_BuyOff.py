@@ -77,9 +77,9 @@ st.markdown(
 )
 
 # ── Cumulative savings banner (shown once there's prior history) ──────────────
-# POC: Reads from ledger_history in session_state — lost on refresh.
-# PROD: Fetched from DB (household_id, sum of found_money over all approved weeks).
-ledger = st.session_state.get("ledger_history", [])
+# Load ledger from DB if authenticated; falls back to session_state if not.
+# POC: session_state is the primary working store; DB is the durable backup.
+ledger = state.load_ledger()
 if ledger:
     cumulative = sum(e.get("found_money", 0) for e in ledger)
     num_weeks  = len(ledger)
@@ -239,7 +239,9 @@ else:
         type="primary",
         use_container_width=True,
     ):
-        state.approve_week()
+        # approve_week_db() stamps session_state AND writes to DB (if authenticated).
+        # POC: silently degrades to session-only if DB unavailable.
+        state.approve_week_db()
         st.rerun()
 
     st.caption(
