@@ -3,27 +3,24 @@
 ===================================
 Weekly price data entry for all configured stores.
 
-Three data paths (in order of reliability for the POC):
-  1. Manual item entry  — type items in directly; always works; investor-demo safe
-  2. PDF upload         — parse sale circulars automatically; heuristic, review required
-  3. Kroger API         — live pull when credentials are available
+Store selection is a first-class onboarding moment: four tiers (Value,
+Full-Service, Specialty, Local) so every household — from SNAP-budget
+families to organic-only shoppers — finds their stores immediately.
 
-Store management:
-  - 20+ national chain presets (one-click add)
-  - Add any custom/local chain by name
-  - No hard limit on number of stores
+Data paths (in order of POC reliability):
+  1. Manual item entry  — type items in directly; always works
+  2. PDF upload         — parse sale circulars; heuristic, review required
+  3. Kroger API         — live pull when credentials are available
 
 POC vs. PRODUCTION
 -------------------
 POC:  Data lives in Streamlit session_state. Cleared on browser refresh.
-      Manual entry is the primary path for the pilot weeks.
-PROD: Items persist to PostgreSQL (user_id + week_id + store_id foreign keys).
-      PDF parsing runs in a background worker (Celery / Lambda).
-      Kroger API is the primary path; PDF/manual are fallbacks.
+PROD: Items persist to PostgreSQL. PDF parsing runs in a background worker.
+      Store selection persists to user profile; zip-code resolver suggests
+      nearby stores automatically (Kroger Locations API + Google Places).
 """
 
 import sys
-import json
 import datetime
 import tempfile
 from pathlib import Path
@@ -45,20 +42,22 @@ if "manual_items" not in st.session_state:
 with st.sidebar:
     style.sidebar_nav()
     st.html("<hr style='border-color:#3A8C4E;margin:10px 0;'>")
-    st.html("<div style='font-size:0.7rem;font-weight:700;color:#9FD9A8;letter-spacing:0.08em;'>CONFIGURED STORES</div>")
     grocers = st.session_state.get("grocers", [])
     if grocers:
+        st.html("<div style='font-size:0.7rem;font-weight:700;color:#9FD9A8;"
+                "letter-spacing:0.08em;margin-bottom:6px;'>YOUR STORES</div>")
         for g in grocers:
-            src  = g.get("source", "manual_pdf")
-            icon = "🔗" if "api" in src else "📄"
-            primary = " ⭐" if g.get("is_primary") else ""
-            st.caption(f"{icon} {g.get('chain','?')}{primary}")
-    else:
-        st.caption("No stores yet — add below")
+            src    = g.get("source", "manual_pdf")
+            icon   = "🔗" if "api" in src else "📄"
+            star   = " ⭐" if g.get("is_primary") else ""
+            tier_c = {"discount": "#F28B30", "mainstream": "#9FD9A8",
+                      "specialty": "#81C784", "local": "#FFCC80"}.get(g.get("tier",""), "#9FD9A8")
+            st.html(f"<div style='font-size:0.82rem;color:#e8f5ec;padding:2px 0;'>"
+                    f"<span style='color:{tier_c};'>{icon}</span> {g.get('chain','?')}{star}</div>")
 
 style.page_header(
     "Grocer Hub",
-    "Load this week's prices — type items in, upload a circular PDF, or pull from Kroger.",
+    "Tell us where you shop. We'll track prices across every store and find your savings.",
 )
 
 # ── Progress stepper ──────────────────────────────────────────────────────────
@@ -80,189 +79,420 @@ st.html("""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# KNOWN CHAINS REGISTRY
-# POC: Static list covering the major US grocery chains.
-# PROD: Pulled from a store registry DB (chain_id, name, logo, api_available,
-#       pdf_parser_available, regional_coverage). User's zip code filters to
-#       chains within 30 miles.
+# STORE TIER REGISTRY
+#
+# Four tiers reflecting how real households actually shop:
+#   1. Value & Discount  — ALDI, Walmart, Lidl, Dollar General
+#   2. Full-Service      — Kroger, Food Lion, Harris Teeter, Wegmans
+#   3. Specialty         — Whole Foods, Trader Joe's, Sprouts, Fresh Market
+#   4. Local & Regional  — EW Thomas, Foods of All Nations, independent markets
+#
+# POC: Static list. The "local" tier is pre-seeded for the Charlottesville
+#      pilot area plus a free-entry form for any chain we haven't listed.
+# PROD: Store registry backed by a DB table (chain_id, tier, name, logo_url,
+#       api_available, pdf_parser_quality, regional_states[]). User's zip
+#       resolves to nearby stores automatically; unknown chains go into a
+#       "community-submitted" queue for parser dev prioritisation.
 # ══════════════════════════════════════════════════════════════════════════════
-KNOWN_CHAINS: list[dict] = [
-    # ── Charlottesville pilot stores (shown first) ──
-    {"chain": "Kroger",         "source": "manual_pdf+api", "rewards": True,  "delivery": False, "flyer": "https://www.kroger.com/weeklyad"},
-    {"chain": "Food Lion",      "source": "manual_pdf",     "rewards": True,  "delivery": False, "flyer": "https://stores.foodlion.com"},
-    {"chain": "Aldi",           "source": "manual_pdf",     "rewards": False, "delivery": False, "flyer": "https://www.aldi.us/en/weekly-specials/"},
-    {"chain": "Harris Teeter",  "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.harristeeter.com/weeklyad"},
-    # ── National ──
-    {"chain": "Walmart",        "source": "manual_pdf",     "rewards": False, "delivery": True,  "flyer": "https://www.walmart.com/store/finder"},
-    {"chain": "Target",         "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.target.com/c/weekly-ad-target/-/N-brgaj"},
-    {"chain": "Costco",         "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.costco.com/warehouse-savings.html"},
-    {"chain": "Sam's Club",     "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.samsclub.com/savings"},
-    {"chain": "Whole Foods",    "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.wholefoodsmarket.com/sales-flyer"},
-    {"chain": "Trader Joe's",   "source": "manual_pdf",     "rewards": False, "delivery": False, "flyer": "https://www.traderjoes.com/home/fearless-flyer"},
-    {"chain": "Publix",         "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.publix.com/savings/weekly-ad"},
-    {"chain": "Safeway",        "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.safeway.com/weeklyad"},
-    {"chain": "Albertsons",     "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.albertsons.com/weeklyad"},
-    {"chain": "Wegmans",        "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.wegmans.com/weeklyad"},
-    {"chain": "Giant Food",     "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://stores.giantfood.com"},
-    {"chain": "Giant Eagle",    "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.gianteagle.com/save/weekly-circular"},
-    {"chain": "H-E-B",          "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.heb.com/static-page/weekly-ad"},
-    {"chain": "Sprouts",        "source": "manual_pdf",     "rewards": False, "delivery": True,  "flyer": "https://www.sprouts.com/deals/weekly-ad/"},
-    {"chain": "WinCo Foods",    "source": "manual_pdf",     "rewards": False, "delivery": False, "flyer": "https://www.wincofoods.com/weekly-ad"},
-    {"chain": "Meijer",         "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.meijer.com/shopping/weekly-deals.html"},
-    {"chain": "Hy-Vee",         "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.hy-vee.com/weekly-deals/"},
-    {"chain": "Stop & Shop",    "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://stopandshop.com/weeklyCircular/"},
-    {"chain": "ShopRite",       "source": "manual_pdf",     "rewards": True,  "delivery": True,  "flyer": "https://www.shoprite.com/sm/planning/rsid/5002/weekly-specials"},
-    {"chain": "Lidl",           "source": "manual_pdf",     "rewards": False, "delivery": False, "flyer": "https://www.lidl.com/en/weekly-specials"},
-    {"chain": "Dollar General", "source": "manual_pdf",     "rewards": True,  "delivery": False, "flyer": "https://www.dollargeneral.com/weekly-ad"},
+
+STORE_TIERS = [
+    {
+        "key":     "discount",
+        "label":   "Value & Discount",
+        "icon":    "💰",
+        "tagline": "Deepest per-unit prices on staples. ALDI and Lidl in particular consistently beat full-service chains on produce and dairy. These are your savings anchors.",
+        "color":   "#BF5E00",
+        "bg":      "#FFF8F0",
+        "border":  "#FFCC80",
+        "pill_bg": "#FFF3E0",
+        "stores": [
+            {"chain": "ALDI",           "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "flyer": "https://www.aldi.us/en/weekly-specials/",
+             "note": "No loyalty card. Weekly Specialbuys rotate — download flyer Sunday."},
+            {"chain": "Lidl",           "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "flyer": "https://www.lidl.com/en/weekly-specials",
+             "note": "Similar model to ALDI. Check 'Lidl Surprises' for deep cuts."},
+            {"chain": "Walmart",        "source": "manual_pdf",  "rewards": False, "delivery": True,
+             "flyer": "https://www.walmart.com/store/finder",
+             "note": "Rollback prices change without a fixed flyer cycle. Manual entry works best."},
+            {"chain": "Dollar General", "source": "manual_pdf",  "rewards": True,  "delivery": False,
+             "flyer": "https://www.dollargeneral.com/weekly-ad",
+             "note": "Strong on canned goods, pasta, and pantry staples."},
+            {"chain": "Dollar Tree",    "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "flyer": "https://www.dollartree.com/deals",
+             "note": "$1.25 flat pricing. Great for spices, canned tomatoes, condiments."},
+            {"chain": "WinCo Foods",    "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "flyer": "https://www.wincofoods.com/weekly-ad",
+             "note": "Employee-owned. Consistently lowest prices in markets where it operates."},
+            {"chain": "Save-A-Lot",     "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "flyer": "https://www.savealot.com/savings/weekly-ad",
+             "note": "Deep-discount regional chain. Strong in Southeast and Midwest."},
+            {"chain": "Food 4 Less",    "source": "manual_pdf",  "rewards": True,  "delivery": False,
+             "flyer": "https://www.food4less.com/weeklyad",
+             "note": "Kroger warehouse banner. No-frills pricing, full selection."},
+        ],
+    },
+    {
+        "key":     "mainstream",
+        "label":   "Full-Service Grocers",
+        "icon":    "🏪",
+        "tagline": "Your regular weekly shop. Loyalty cards, digital coupons, and consistent weekly ads make these the backbone of most WhollyFare plans. The more you add, the more we can route across them.",
+        "color":   "#1E5C32",
+        "bg":      "#F0FAF2",
+        "border":  "#D8EDD0",
+        "pill_bg": "#E3F4E8",
+        "stores": [
+            {"chain": "Kroger",         "source": "manual_pdf+api", "rewards": True,  "delivery": True,
+             "flyer": "https://www.kroger.com/weeklyad",
+             "note": "API available. Loyalty card unlocks digital coupons stacked on sale prices."},
+            {"chain": "Food Lion",      "source": "manual_pdf",     "rewards": True,  "delivery": False,
+             "flyer": "https://stores.foodlion.com",
+             "note": "MVP Card deals often beat Kroger on produce. Strong in Southeast."},
+            {"chain": "Harris Teeter",  "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.harristeeter.com/weeklyad",
+             "note": "VIC card + e-VIC digital coupons. Super Double coupon events quarterly."},
+            {"chain": "Giant Food",     "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://stores.giantfood.com",
+             "note": "Giant Card + Gas Rewards. Mid-Atlantic staple."},
+            {"chain": "Wegmans",        "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.wegmans.com/weeklyad",
+             "note": "Club card + Wegmans app coupons. Known for quality and price on store brand."},
+            {"chain": "Publix",         "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.publix.com/savings/weekly-ad",
+             "note": "BOGO deals are a Publix signature. Plus Card digital coupons."},
+            {"chain": "Safeway",        "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.safeway.com/weeklyad",
+             "note": "Just for U digital coupons stack on Club Card pricing."},
+            {"chain": "Albertsons",     "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.albertsons.com/weeklyad",
+             "note": "Same ownership as Safeway. For Just U coupons, strong BOGO weeks."},
+            {"chain": "Meijer",         "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.meijer.com/shopping/weekly-deals.html",
+             "note": "Midwest supercenter. mPerks digital coupons stack on weekly sales."},
+            {"chain": "Hy-Vee",         "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.hy-vee.com/weekly-deals/",
+             "note": "Employee-owned Midwest chain. Fuel Saver + Perks program."},
+            {"chain": "Stop & Shop",    "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://stopandshop.com/weeklyCircular/",
+             "note": "Gas Points program. Northeast regional staple."},
+            {"chain": "ShopRite",       "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.shoprite.com/sm/planning/rsid/5002/weekly-specials",
+             "note": "Price Plus card. Can-Can Sale in January is legendary for savings."},
+            {"chain": "Giant Eagle",    "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.gianteagle.com/save/weekly-circular",
+             "note": "fuelperks+ program. Strong in Ohio, Pennsylvania, West Virginia."},
+            {"chain": "H-E-B",          "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.heb.com/static-page/weekly-ad",
+             "note": "Texas institution. H-E-B Combo deals are a local savings fixture."},
+            {"chain": "Weis Markets",   "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "flyer": "https://www.weismarkets.com/weeklyad",
+             "note": "Mid-Atlantic regional. Weis Club card + digital deals."},
+            {"chain": "Ingles Markets", "source": "manual_pdf",     "rewards": True,  "delivery": False,
+             "flyer": "https://www.ingles-markets.com/weeklyad",
+             "note": "Southeast regional. Advantage Card savings + gas discounts."},
+        ],
+    },
+    {
+        "key":     "specialty",
+        "label":   "Specialty & Natural",
+        "icon":    "🌿",
+        "tagline": "Premium, organic, and specialty options. Worth checking for their sale weeks — Whole Foods 365 brand and Trader Joe's store brand often match mainstream prices on key items.",
+        "color":   "#1565C0",
+        "bg":      "#EEF4FB",
+        "border":  "#BBDEFB",
+        "pill_bg": "#E3F2FD",
+        "stores": [
+            {"chain": "Whole Foods",    "source": "manual_pdf",  "rewards": True,  "delivery": True,
+             "flyer": "https://www.wholefoodsmarket.com/sales-flyer",
+             "note": "Prime members get extra 10% off sale items. 365 brand is price-competitive."},
+            {"chain": "Trader Joe's",   "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "flyer": "https://www.traderjoes.com/home/fearless-flyer",
+             "note": "No loyalty card, no weekly sale cycle. Fearless Flyer runs monthly. Stable pricing."},
+            {"chain": "Sprouts",        "source": "manual_pdf",  "rewards": False, "delivery": True,
+             "flyer": "https://www.sprouts.com/deals/weekly-ad/",
+             "note": "Produce-forward. Double Ad Wednesdays overlap two sale weeks."},
+            {"chain": "The Fresh Market","source": "manual_pdf",  "rewards": True,  "delivery": False,
+             "flyer": "https://www.thefreshmarket.com/weekly-specials",
+             "note": "Premium meats and produce. Weekly specials often include protein deals."},
+            {"chain": "Earth Fare",     "source": "manual_pdf",  "rewards": True,  "delivery": False,
+             "flyer": "https://www.earthfare.com/deals/",
+             "note": "No artificial ingredients policy. Regional natural chain, Southeast focus."},
+            {"chain": "Natural Grocers","source": "manual_pdf",  "rewards": True,  "delivery": False,
+             "flyer": "https://www.naturalgrocers.com/weekly-ad",
+             "note": "100% organic produce, always. {N}power card unlocks member pricing."},
+        ],
+    },
+    {
+        "key":     "local",
+        "label":   "Local & Independent",
+        "icon":    "📍",
+        "tagline": "Your community stores — the ones your neighbors shop at, that know your town, and run deals you won't find in a national app. This is what makes your plan yours.",
+        "color":   "#5D4037",
+        "bg":      "#FBF8F5",
+        "border":  "#D7CCC8",
+        "pill_bg": "#EFEBE9",
+        "stores": [
+            # Charlottesville / Palmyra VA pilot area — pre-seeded for Tim's household
+            {"chain": "EW Thomas Grocery",        "source": "manual_pdf", "rewards": False, "delivery": False,
+             "flyer": "",
+             "note": "Palmyra, VA. Local institution — meat counter, produce, and weekly specials."},
+            {"chain": "Foods of All Nations",     "source": "manual_pdf", "rewards": False, "delivery": False,
+             "flyer": "",
+             "note": "Charlottesville, VA. International specialty market. Unique ingredients, fair prices."},
+            {"chain": "Integral Yoga Natural",    "source": "manual_pdf", "rewards": False, "delivery": False,
+             "flyer": "",
+             "note": "Charlottesville, VA. Natural and organic co-op. Bulk bins, local produce."},
+            {"chain": "The Fresh Marketplace",    "source": "manual_pdf", "rewards": False, "delivery": False,
+             "flyer": "",
+             "note": "Charlottesville, VA area. Check locally for current weekly specials."},
+            {"chain": "Reid's Country Store",     "source": "manual_pdf", "rewards": False, "delivery": False,
+             "flyer": "",
+             "note": "Local farm-country store. Seasonal produce, local meats, unbeatable eggs."},
+        ],
+    },
 ]
 
-CHAIN_FLYER_URLS = {c["chain"].lower(): c["flyer"] for c in KNOWN_CHAINS}
+# Build lookup maps
+CHAIN_FLYER_URLS: dict[str, str] = {}
+CHAIN_TIER:       dict[str, str] = {}
+CHAIN_NOTES:      dict[str, str] = {}
+CHAIN_DATA:       dict[str, dict] = {}
+for tier in STORE_TIERS:
+    for s in tier["stores"]:
+        key = s["chain"].lower()
+        CHAIN_FLYER_URLS[key] = s.get("flyer", "")
+        CHAIN_TIER[key]       = tier["key"]
+        CHAIN_NOTES[key]      = s.get("note", "")
+        CHAIN_DATA[key]       = {**s, "tier": tier["key"]}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STORE MANAGEMENT
+# "WHERE DO YOU LIKE TO SHOP?" — Tiered store selection
 # ══════════════════════════════════════════════════════════════════════════════
 grocers = st.session_state.get("grocers", [])
 existing_chains_lower = {g.get("chain", "").lower() for g in grocers}
 
-st.html("""
-<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-color:#3A8C4E;margin-bottom:8px;'>YOUR STORES</div>
-""")
-
+# Intro banner (shown until at least one store is configured)
 if not grocers:
-    st.info("Add your grocery stores below, then load prices for this week.", icon="🏪")
+    st.html("""
+    <div style='background:linear-gradient(135deg,#E8F5E9,#F0FAF2);
+                border:1px solid #D8EDD0;border-radius:12px;
+                padding:20px 24px;margin-bottom:24px;'>
+      <div style='font-size:1.15rem;font-weight:700;color:#1E5C32;margin-bottom:6px;'>
+        Where do you like to shop?
+      </div>
+      <div style='font-size:0.88rem;color:#3A8C4E;line-height:1.5;'>
+        Add the stores you actually visit. WhollyFare will compare prices across all of them —
+        routing each ingredient to wherever it's cheapest that week.
+        The more stores, the more Found Money.
+      </div>
+    </div>""")
 
-# ── Store preset browser ───────────────────────────────────────────────────────
-with st.expander(
-    f"{'＋ Add stores' if not grocers else '＋ Add another store'} — pick from 25 major chains",
-    expanded=not grocers,
-):
-    # Search/filter
-    search = st.text_input(
-        "Search chains",
-        placeholder="e.g. Kroger, Publix, Walmart…",
-        key="chain_search",
-        label_visibility="collapsed",
-    )
+# ── Tier cards ────────────────────────────────────────────────────────────────
+for tier in STORE_TIERS:
+    tier_stores     = tier["stores"]
+    tier_added      = [s for s in tier_stores if s["chain"].lower() in existing_chains_lower]
+    tier_available  = [s for s in tier_stores if s["chain"].lower() not in existing_chains_lower]
+    added_count     = len(tier_added)
+    total_count     = len(tier_stores)
+    is_local        = tier["key"] == "local"
 
-    filtered = [
-        c for c in KNOWN_CHAINS
-        if search.lower() in c["chain"].lower() and c["chain"].lower() not in existing_chains_lower
-    ] if search else [
-        c for c in KNOWN_CHAINS if c["chain"].lower() not in existing_chains_lower
-    ]
+    # Collapse if all stores already added and not local (local always stays open for custom adds)
+    default_open = (added_count < total_count) or is_local
 
-    if not filtered:
-        st.caption("All chains from this list are already added. Use 'Add a local or custom store' below to add more.")
-    else:
-        # Show in a 4-column grid
-        COLS = 4
-        for row_start in range(0, len(filtered), COLS):
-            row = filtered[row_start:row_start + COLS]
-            cols = st.columns(COLS)
-            for col, chain_def in zip(cols, row):
-                with col:
-                    src_label = "API + PDF" if chain_def["source"] == "manual_pdf+api" else "PDF / manual"
-                    badges = []
-                    if chain_def["rewards"]:   badges.append("🎟 Rewards")
-                    if chain_def["delivery"]:  badges.append("🚚 Delivery")
-                    badge_str = " · ".join(badges)
-                    st.html(f"""
-                    <div style='background:white;border:1px solid #D8EDD0;border-top:3px solid #3A8C4E;
-                                border-radius:8px;padding:10px;min-height:80px;margin-bottom:2px;'>
-                      <div style='font-weight:700;color:#1E5C32;font-size:0.9rem;'>{chain_def['chain']}</div>
-                      <div style='font-size:0.7rem;color:#9AA8A0;margin-top:4px;'>{src_label}</div>
-                      <div style='font-size:0.68rem;color:#5A7A62;margin-top:2px;'>{badge_str}</div>
-                    </div>""")
-                    if st.button(f"Add", key=f"preset_{chain_def['chain']}", use_container_width=True):
-                        new_store = {k: v for k, v in chain_def.items() if k != "flyer"}
-                        new_store["location"] = ""
-                        new_store["is_primary"] = len(grocers) == 0
-                        grocers.append(new_store)
+    with st.expander(
+        f"{tier['icon']} **{tier['label']}** — {added_count} of {total_count} added",
+        expanded=default_open,
+    ):
+        st.html(
+            f"<div style='font-size:0.83rem;color:#5A7A62;margin-bottom:14px;"
+            f"border-left:3px solid {tier['border']};padding-left:10px;'>"
+            f"{tier['tagline']}</div>"
+        )
+
+        if tier_available:
+            # Responsive 3-column grid
+            COLS = 3
+            for row_start in range(0, len(tier_available), COLS):
+                row = tier_available[row_start:row_start + COLS]
+                cols = st.columns(COLS)
+                for col, store_def in zip(cols, row):
+                    with col:
+                        note = store_def.get("note", "")
+                        badges = []
+                        if store_def.get("rewards"):   badges.append("🎟 Rewards")
+                        if store_def.get("delivery"):  badges.append("🚚 Delivery")
+                        if "api" in store_def.get("source", ""): badges.append("🔗 API")
+                        badge_str = " · ".join(badges) if badges else ""
+                        flyer_link = store_def.get("flyer", "")
+
+                        st.html(f"""
+                        <div style='background:white;border:1px solid {tier["border"]};
+                                    border-top:3px solid {tier["color"]};
+                                    border-radius:8px;padding:12px;min-height:90px;
+                                    margin-bottom:2px;'>
+                          <div style='font-weight:700;color:{tier["color"]};font-size:0.92rem;'>
+                            {store_def['chain']}
+                          </div>
+                          <div style='font-size:0.72rem;color:#5A7A62;margin-top:4px;
+                                      line-height:1.4;'>{note}</div>
+                          <div style='font-size:0.68rem;color:#9AA8A0;margin-top:6px;'>
+                            {badge_str}
+                          </div>
+                        </div>""")
+
+                        btn_label = "Add"
+                        if st.button(btn_label, key=f"add_{tier['key']}_{store_def['chain']}",
+                                     use_container_width=True):
+                            new_store = {
+                                "chain":      store_def["chain"],
+                                "location":   "",
+                                "source":     store_def["source"],
+                                "rewards":    store_def.get("rewards", False),
+                                "delivery":   store_def.get("delivery", False),
+                                "is_primary": len(grocers) == 0,
+                                "tier":       tier["key"],
+                            }
+                            grocers.append(new_store)
+                            st.session_state["grocers"] = grocers
+                            st.rerun()
+
+        if tier_added:
+            names = ", ".join(s["chain"] for s in tier_added)
+            st.html(
+                f"<div style='font-size:0.75rem;color:{tier['color']};margin-top:6px;'>"
+                f"✓ Added: {names}</div>"
+            )
+
+        # ── Local tier: custom store form ─────────────────────────────────────
+        if is_local:
+            st.html("<hr style='border-color:#D7CCC8;margin:14px 0 10px 0;'>")
+            st.html("<div style='font-size:0.82rem;font-weight:600;color:#5D4037;"
+                    "margin-bottom:8px;'>Add your own local store</div>")
+            st.html("<div style='font-size:0.78rem;color:#8D6E63;margin-bottom:10px;'>"
+                    "Any store, co-op, farm stand, or butcher — if they run specials, "
+                    "WhollyFare can track them.</div>")
+
+            lc1, lc2 = st.columns([2, 1])
+            with lc1:
+                local_name = st.text_input("Store name", placeholder="e.g. Blue Ridge Co-op, Murphy's Market",
+                                           key="local_custom_name", label_visibility="collapsed")
+            with lc2:
+                local_loc = st.text_input("Town / zip (optional)", placeholder="Crozet VA",
+                                          key="local_custom_loc", label_visibility="collapsed")
+
+            lc3, lc4 = st.columns(2)
+            with lc3:
+                local_rewards = st.checkbox("Has loyalty / rewards card", key="local_rewards")
+            with lc4:
+                local_delivery = st.checkbox("Offers delivery", key="local_delivery")
+
+            if st.button("Add local store", type="primary", key="add_local_custom"):
+                if local_name.strip():
+                    grocers.append({
+                        "chain":      local_name.strip(),
+                        "location":   local_loc.strip(),
+                        "source":     "manual_pdf",
+                        "rewards":    local_rewards,
+                        "delivery":   local_delivery,
+                        "is_primary": len(grocers) == 0,
+                        "tier":       "local",
+                    })
+                    st.session_state["grocers"] = grocers
+                    st.rerun()
+                else:
+                    st.warning("Enter a store name.")
+
+        # Non-local custom stores (discount/mainstream/specialty chains not on the list)
+        if not is_local:
+            with st.expander(f"My {tier['label'].lower()} store isn't listed", expanded=False):
+                cc1, cc2 = st.columns([2, 1])
+                with cc1:
+                    c_name = st.text_input("Store name", key=f"custom_name_{tier['key']}",
+                                           label_visibility="collapsed",
+                                           placeholder=f"e.g. My regional {tier['label'].lower()} chain")
+                with cc2:
+                    c_loc = st.text_input("Location (optional)", key=f"custom_loc_{tier['key']}",
+                                          label_visibility="collapsed", placeholder="City, State")
+                if st.button(f"Add to {tier['label']}", key=f"add_custom_{tier['key']}", type="primary"):
+                    if c_name.strip():
+                        grocers.append({
+                            "chain":      c_name.strip(),
+                            "location":   c_loc.strip(),
+                            "source":     "manual_pdf",
+                            "rewards":    False,
+                            "delivery":   False,
+                            "is_primary": len(grocers) == 0,
+                            "tier":       tier["key"],
+                        })
                         st.session_state["grocers"] = grocers
                         st.rerun()
+                    else:
+                        st.warning("Enter a store name.")
 
-    st.html("<hr style='border-color:#D8EDD0;margin:12px 0 8px 0;'>")
-    st.html("<div style='font-size:0.78rem;font-weight:600;color:#1E5C32;margin-bottom:8px;'>Add a local or custom store</div>")
 
-    ca, cb, cc = st.columns([2, 2, 1])
-    with ca:
-        custom_chain = st.text_input("Store name", placeholder="e.g. Bloom, Market 32, Your Co-op", key="custom_chain")
-    with cb:
-        custom_loc   = st.text_input("Location / zip (optional)", placeholder="Richmond VA 23220", key="custom_loc")
-    with cc:
-        custom_src = st.selectbox(
-            "Data source",
-            options=["manual_pdf", "manual_pdf+api"],
-            format_func=lambda x: {"manual_pdf": "PDF / manual", "manual_pdf+api": "API + PDF"}[x],
-            key="custom_src",
-            label_visibility="visible",
-        )
-    cd, ce = st.columns(2)
-    with cd:
-        custom_rewards  = st.checkbox("Has loyalty / rewards program", key="custom_rewards")
-    with ce:
-        custom_delivery = st.checkbox("Offers delivery", key="custom_delivery")
-
-    if st.button("Add custom store", type="primary", key="add_custom"):
-        if custom_chain.strip():
-            grocers.append({
-                "chain":      custom_chain.strip(),
-                "location":   custom_loc.strip(),
-                "source":     custom_src,
-                "rewards":    custom_rewards,
-                "delivery":   custom_delivery,
-                "is_primary": len(grocers) == 0,
-            })
-            st.session_state["grocers"] = grocers
-            st.rerun()
-        else:
-            st.warning("Enter a store name.")
-
-# ── Configured store list with remove buttons ─────────────────────────────────
+# ── Active store list ─────────────────────────────────────────────────────────
 if grocers:
-    st.html("""
-    <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-    color:#3A8C4E;margin:16px 0 8px 0;'>ACTIVE STORES THIS WEEK</div>
-    """)
+    # Group by tier for display
+    tier_order  = ["discount", "mainstream", "specialty", "local", ""]
+    tier_labels = {"discount": "💰 Value", "mainstream": "🏪 Full-Service",
+                   "specialty": "🌿 Specialty", "local": "📍 Local", "": "Other"}
+    tier_colors = {"discount": "#F28B30", "mainstream": "#3A8C4E",
+                   "specialty": "#1565C0", "local": "#5D4037", "": "#5A7A62"}
+
+    st.html("<hr style='border-color:#D8EDD0;margin:20px 0 14px 0;'>")
+    st.html("<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;"
+            "text-transform:uppercase;color:#3A8C4E;margin-bottom:10px;'>"
+            "YOUR ACTIVE STORES THIS WEEK</div>")
+
     to_remove = None
     for idx, g in enumerate(grocers):
-        primary_badge = " ⭐" if g.get("is_primary") else ""
-        src_icon = "🔗" if "api" in g.get("source","") else "📄"
-        loc_txt  = f" · {g['location']}" if g.get("location") else ""
-        rc1, rc2, rc3 = st.columns([4, 1, 0.7])
-        with rc1:
+        t      = g.get("tier", "")
+        tcolor = tier_colors.get(t, "#5A7A62")
+        tlabel = tier_labels.get(t, "Other")
+        star   = " ⭐" if g.get("is_primary") else ""
+        loc    = f" · {g['location']}" if g.get("location") else ""
+        src_ic = "🔗" if "api" in g.get("source","") else "📄"
+
+        ra, rb, rc = st.columns([5, 1.2, 0.7])
+        with ra:
             st.html(
-                f"<div style='padding:6px 0;font-size:0.9rem;color:#1E5C32;font-weight:600;'>"
-                f"{src_icon} {g['chain']}{primary_badge}"
-                f"<span style='font-weight:400;color:#5A7A62;font-size:0.8rem;'>{loc_txt}</span>"
+                f"<div style='padding:5px 0;'>"
+                f"<span style='font-size:0.88rem;font-weight:700;color:#1E5C32;'>"
+                f"{src_ic} {g['chain']}{star}</span>"
+                f"<span style='font-size:0.75rem;color:{tcolor};font-weight:600;"
+                f" margin-left:8px;background:{tier_colors.get(t, '#eee')}22;"
+                f" padding:1px 7px;border-radius:10px;'>{tlabel}</span>"
+                f"<span style='font-size:0.78rem;color:#5A7A62;'>{loc}</span>"
                 f"</div>"
             )
-        with rc2:
-            if not g.get("is_primary") and st.button("Set primary", key=f"primary_{idx}", use_container_width=True):
-                for gg in grocers:
-                    gg["is_primary"] = False
-                grocers[idx]["is_primary"] = True
-                st.session_state["grocers"] = grocers
-                st.rerun()
-        with rc3:
+        with rb:
+            if not g.get("is_primary"):
+                if st.button("Set primary", key=f"primary_{idx}", use_container_width=True):
+                    for gg in grocers:
+                        gg["is_primary"] = False
+                    grocers[idx]["is_primary"] = True
+                    st.session_state["grocers"] = grocers
+                    st.rerun()
+        with rc:
             if st.button("✕", key=f"remove_{idx}", help=f"Remove {g['chain']}"):
                 to_remove = idx
+
     if to_remove is not None:
         grocers.pop(to_remove)
         st.session_state["grocers"] = grocers
         st.rerun()
 
-st.divider()
-
-if not grocers:
-    st.stop()
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # WEEK SELECTOR + STATUS
 # ══════════════════════════════════════════════════════════════════════════════
+
+if not grocers:
+    st.stop()
+
+st.html("<hr style='border-color:#D8EDD0;margin:20px 0 16px 0;'>")
+
 col_w, col_status, col_pull = st.columns([2, 2, 1])
 with col_w:
     active_week = st.date_input(
@@ -288,16 +518,16 @@ with col_pull:
     _pull_all_api = st.button("Pull API stores", use_container_width=True)
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Stores loaded",  len(loaded))
+c1.metric("Stores",         len(grocers))
 c2.metric("Items loaded",   state.total_items_loaded())
 c3.metric("Manual entries", len(st.session_state.get("manual_items", [])))
-c4.metric("API connected",  sum(1 for g in grocers if g.get("source") in ("api", "manual_pdf+api")))
+c4.metric("API-connected",  sum(1 for g in grocers if g.get("source") in ("api", "manual_pdf+api")))
 
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# HELPER FUNCTIONS
+# HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _chain_name(g: dict) -> str:
@@ -321,11 +551,6 @@ def _status_badge(chain: str) -> str:
 
 
 def _manual_items_as_candidates(store: str) -> list[IngredientCandidate]:
-    """Convert session manual_items for a store into IngredientCandidate objects.
-
-    POC: Reads from session_state. Allergen data is user-declared, not USDA-verified.
-    PROD: Fetch from DB. Run USDA FDC enrichment async. Flag items lacking FDC ID.
-    """
     out = []
     for item in st.session_state.get("manual_items", []):
         if item["store"] != store:
@@ -354,13 +579,7 @@ def _merge_manual_into_flyer(store: str):
     st.session_state["flyer_data"] = flyer
 
 
-def _load_pdf_flyer(chain: str, pdf_bytes: bytes) -> tuple[int, list[IngredientCandidate]]:
-    """Run the chain-specific PDF parser. Returns (item_count, candidates).
-
-    POC: Food Lion has a dedicated parser; all others use the improved generic parser.
-    PROD: Each supported chain gets a trained parser. Accuracy monitored; low-confidence
-          items flagged for human review before reaching the engine.
-    """
+def _load_pdf_flyer(chain: str, pdf_bytes: bytes) -> tuple[int, list]:
     ingestor = FlyerIngestor()
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         tmp.write(pdf_bytes)
@@ -380,7 +599,6 @@ def _load_pdf_flyer(chain: str, pdf_bytes: bytes) -> tuple[int, list[IngredientC
                 parser.save(result, out)
                 candidates = ingestor.from_json(out)
             except Exception:
-                # Fall back to generic parser if Food Lion parser fails
                 candidates = ingestor.from_pdf(tmp_path, chain=chain)
         else:
             candidates = ingestor.from_pdf(tmp_path, chain=chain)
@@ -398,12 +616,6 @@ def _load_pdf_flyer(chain: str, pdf_bytes: bytes) -> tuple[int, list[IngredientC
 
 
 def _pull_kroger(chain: str, location_id: str) -> int:
-    """Pull live sale data from the Kroger Developer API.
-
-    POC: Requires KROGER_CLIENT_ID + KROGER_CLIENT_SECRET env vars.
-    PROD: OAuth2 client_credentials. Credentials in AWS Secrets Manager.
-          Rate limit: 10,000 calls/day on free tier; production tier negotiated.
-    """
     import os
     client_id     = os.environ.get("KROGER_CLIENT_ID", "")
     client_secret = os.environ.get("KROGER_CLIENT_SECRET", "")
@@ -427,40 +639,43 @@ def _pull_kroger(chain: str, location_id: str) -> int:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STORE CARDS — per-store price entry
+# STORE CARDS — price entry per store
 # ══════════════════════════════════════════════════════════════════════════════
 
-CATEGORIES = ["produce", "protein", "dairy", "grain", "legume", "pantry", "bakery", "frozen", "beverage", "other"]
-UNITS       = ["lb", "oz", "each", "pkg", "bunch", "bag", "dozen", "gal", "qt", "can", "jar", "box"]
-ALLERGENS   = ["peanuts", "tree_nuts", "milk", "eggs", "wheat", "soy", "fish", "shellfish",
-               "sesame", "mustard", "celery", "sulphites"]
+CATEGORIES = ["produce", "protein", "dairy", "grain", "legume", "pantry",
+               "bakery", "frozen", "beverage", "other"]
+UNITS      = ["lb", "oz", "each", "pkg", "bunch", "bag", "dozen",
+               "gal", "qt", "can", "jar", "box"]
+ALLERGENS  = ["peanuts", "tree_nuts", "milk", "eggs", "wheat", "soy",
+               "fish", "shellfish", "sesame", "mustard", "celery", "sulphites"]
 
 api_stores    = [g for g in grocers if _source(g) in ("api", "manual_pdf+api")]
 manual_stores = [g for g in grocers if _source(g) not in ("api",)]
 
-# ── API-connected stores ──────────────────────────────────────────────────────
+# ── API stores ────────────────────────────────────────────────────────────────
 if api_stores:
-    st.html("""
-    <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-    color:#3A8C4E;margin-bottom:10px;'>API-connected stores</div>""")
+    st.html("<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;"
+            "text-transform:uppercase;color:#3A8C4E;margin-bottom:10px;'>"
+            "API-connected stores</div>")
 
     for g in api_stores:
         chain = _chain_name(g)
         is_ok = chain in loaded
         with st.container(border=True):
-            col_icon, col_info, col_act = st.columns([0.5, 3, 2])
-            with col_icon:
+            ci, cinfo, cact = st.columns([0.5, 3, 2])
+            with ci:
                 st.html("🔗" if is_ok else "⚡")
-            with col_info:
+            with cinfo:
                 st.markdown(f"**{chain}** &nbsp; {_status_badge(chain)}", unsafe_allow_html=True)
                 meta = g.get("location", "")
                 if g.get("rewards"):    meta += "  · 🎟 Rewards"
                 if g.get("is_primary"): meta += "  · ⭐ Primary"
                 st.caption(meta)
-            with col_act:
+            with cact:
                 b1, b2 = st.columns(2)
                 with b1:
-                    if st.button("Re-pull" if is_ok else "Pull from API", key=f"pull_{chain}", use_container_width=True):
+                    if st.button("Re-pull" if is_ok else "Pull from API",
+                                 key=f"pull_{chain}", use_container_width=True):
                         with st.spinner(f"Pulling {chain}…"):
                             n = _pull_kroger(chain, g.get("location", ""))
                         if n:
@@ -481,49 +696,51 @@ if api_stores:
 
     st.divider()
 
-
 # ── Manual / PDF stores ───────────────────────────────────────────────────────
 if manual_stores:
-    st.html("""
-    <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-    color:#3A8C4E;margin-bottom:10px;'>Manual entry &amp; PDF upload</div>""")
+    st.html("<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;"
+            "text-transform:uppercase;color:#3A8C4E;margin-bottom:10px;'>"
+            "Manual entry &amp; PDF upload</div>")
 
 for g in manual_stores:
     chain  = _chain_name(g)
     is_ok  = chain in loaded or any(m["store"] == chain for m in st.session_state.get("manual_items", []))
     dl_url = CHAIN_FLYER_URLS.get(chain.lower(), "")
+    note   = CHAIN_NOTES.get(chain.lower(), "")
 
     with st.container(border=True):
-        col_icon, col_info, col_link = st.columns([0.5, 4, 1.5])
-        with col_icon:
+        ci, cinfo, clink = st.columns([0.5, 4, 1.5])
+        with ci:
             st.html("✅" if is_ok else "📋")
-        with col_info:
+        with cinfo:
             st.markdown(f"**{chain}** &nbsp; {_status_badge(chain)}", unsafe_allow_html=True)
             loc = g.get("location", "")
             if g.get("is_primary"): loc += "  · ⭐ Primary"
+            if note: loc = (loc + "  · " if loc else "") + f"*{note}*"
             st.caption(loc)
-        with col_link:
+        with clink:
             if dl_url:
                 st.html(f"<a href='{dl_url}' target='_blank' style='font-size:0.78rem;"
-                        f"color:#3A8C4E;font-weight:600;text-decoration:none;'>↗ Weekly circular</a>")
+                        f"color:#3A8C4E;font-weight:600;text-decoration:none;'>"
+                        f"↗ Weekly circular</a>")
 
         tab_manual, tab_pdf = st.tabs(["✏️ Manual entry", "📄 PDF upload"])
 
-        # ── TAB 1: MANUAL ENTRY ───────────────────────────────────────────────
         with tab_manual:
             st.html("<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:10px;'>"
                     "Type items directly from the weekly circular or store visit.</div>")
-
             with st.form(key=f"manual_form_{chain}", clear_on_submit=True):
                 f1, f2, f3 = st.columns([3, 1.5, 1.5])
                 with f1:
-                    item_name = st.text_input("Item name", placeholder="e.g. Chicken Breast, Boneless Skinless",
+                    item_name = st.text_input("Item name",
+                                              placeholder="e.g. Chicken Breast, Boneless Skinless",
                                               label_visibility="collapsed")
                 with f2:
-                    item_cat  = st.selectbox("Category", options=CATEGORIES, label_visibility="collapsed")
+                    item_cat  = st.selectbox("Category", options=CATEGORIES,
+                                             label_visibility="collapsed")
                 with f3:
-                    item_unit = st.selectbox("Unit", options=UNITS, label_visibility="collapsed")
-
+                    item_unit = st.selectbox("Unit", options=UNITS,
+                                             label_visibility="collapsed")
                 f4, f5, f6 = st.columns([1.5, 1.5, 3])
                 with f4:
                     sale_price = st.number_input("Sale price ($)", min_value=0.0, max_value=500.0,
@@ -531,11 +748,11 @@ for g in manual_stores:
                 with f5:
                     reg_price  = st.number_input("Regular price ($)", min_value=0.0, max_value=500.0,
                                                  step=0.01, format="%.2f",
-                                                 help="Optional — calculates % savings in the Ledger")
+                                                 help="Optional — shows % savings in the Ledger")
                 with f6:
                     item_allergens = st.multiselect("Allergens (if any)", options=ALLERGENS)
-
-                submitted = st.form_submit_button("＋ Add item", type="primary", use_container_width=True)
+                submitted = st.form_submit_button("＋ Add item", type="primary",
+                                                  use_container_width=True)
                 if submitted and item_name.strip():
                     st.session_state["manual_items"].append({
                         "store":      chain,
@@ -554,7 +771,8 @@ for g in manual_stores:
                 elif submitted:
                     st.warning("Item name is required.")
 
-            store_items = [m for m in st.session_state.get("manual_items", []) if m["store"] == chain]
+            store_items = [m for m in st.session_state.get("manual_items", [])
+                           if m["store"] == chain]
             if store_items:
                 st.html(f"<div style='font-size:0.78rem;font-weight:700;color:#1E5C32;"
                         f"margin-bottom:6px;margin-top:8px;'>{len(store_items)} items entered</div>")
@@ -563,8 +781,8 @@ for g in manual_stores:
                     with ra:
                         st.html(f"<div style='font-size:0.88rem;color:#1A2E1D;padding:4px 0;'>"
                                 f"<strong>{item['name']}</strong> "
-                                f"<span style='color:#9AA8A0;font-size:0.75rem;'>· {item['category']}</span>"
-                                f"</div>")
+                                f"<span style='color:#9AA8A0;font-size:0.75rem;'>"
+                                f"· {item['category']}</span></div>")
                     with rb:
                         st.html(f"<div style='font-size:0.88rem;color:#F28B30;font-weight:700;"
                                 f"padding:4px 0;'>${item['sale_price']:.2f}/{item['unit']}</div>")
@@ -573,11 +791,13 @@ for g in manual_stores:
                             pct = round((1 - item["sale_price"] / item["reg_price"]) * 100)
                             st.html(f"<div style='font-size:0.78rem;color:#5A7A62;padding:4px 0;'>"
                                     f"was ${item['reg_price']:.2f} "
-                                    f"<span style='color:#3A8C4E;font-weight:600;'>↓{pct}%</span></div>")
+                                    f"<span style='color:#3A8C4E;font-weight:600;'>↓{pct}%</span>"
+                                    f"</div>")
                         else:
                             st.html("<div style='padding:4px 0;'>—</div>")
                     with rd:
-                        full_idx = next((i for i, m in enumerate(st.session_state["manual_items"]) if m is item), None)
+                        full_idx = next((i for i, m in enumerate(st.session_state["manual_items"])
+                                         if m is item), None)
                         if full_idx is not None and st.button("✕", key=f"del_{chain}_{full_idx}"):
                             st.session_state["manual_items"].pop(full_idx)
                             _merge_manual_into_flyer(chain)
@@ -586,21 +806,22 @@ for g in manual_stores:
                 st.html("<div style='font-size:0.82rem;color:#9AA8A0;padding:8px 0;'>"
                         "No items yet — add your first item above, or upload the PDF circular.</div>")
 
-        # ── TAB 2: PDF UPLOAD ─────────────────────────────────────────────────
         with tab_pdf:
             if dl_url:
                 st.html(f"<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:8px;'>"
                         f"Download the weekly circular from "
                         f"<a href='{dl_url}' target='_blank' style='color:#3A8C4E;font-weight:600;'>"
                         f"{chain}'s website</a>, then upload it here.</div>")
+            elif g.get("tier") == "local":
+                st.html("<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:8px;'>"
+                        "If this store prints a paper flyer, scan or photograph it and upload the PDF. "
+                        "Or use Manual Entry — works just as well.</div>")
 
             st.html("<div style='font-size:0.75rem;color:#9AA8A0;margin-bottom:8px;'>"
-                    "⚠ PDF parsing is heuristic. Review what was extracted before running the engine — "
-                    "add missing items via Manual Entry."
-                    "</div>")
+                    "⚠ PDF parsing is heuristic. Review what was extracted before running the engine.")
 
             uploaded = st.file_uploader(
-                f"Upload {chain} circular (PDF)",
+                f"Upload {chain} circular (PDF or JSON)",
                 type=["pdf", "json"],
                 key=f"upload_{chain}",
                 label_visibility="collapsed",
@@ -614,7 +835,8 @@ for g in manual_stores:
                             tmp.write(uploaded.read())
                             candidates = ingestor.from_json(Path(tmp.name))
                         flyer = st.session_state.get("flyer_data", {})
-                        existing_manual = [c for c in flyer.get(chain, []) if getattr(c, "_manual", False)]
+                        existing_manual = [c for c in flyer.get(chain, [])
+                                           if getattr(c, "_manual", False)]
                         flyer[chain] = candidates + existing_manual
                         st.session_state["flyer_data"] = flyer
                         n = len(candidates)
@@ -623,15 +845,9 @@ for g in manual_stores:
 
                 if n:
                     st.success(f"✅ {n} items parsed from **{uploaded.name}**.")
-                    # ── Parse review ─────────────────────────────────────────
                     st.html("<div style='font-size:0.8rem;font-weight:600;color:#1E5C32;"
-                            "margin:10px 0 6px 0;'>Review parsed items — remove anything that looks wrong</div>")
-                    st.html("<div style='font-size:0.75rem;color:#5A7A62;margin-bottom:8px;'>"
-                            "Items marked ✕ will be removed before the engine runs. "
-                            "Use Manual Entry to add anything that was missed."
-                            "</div>")
+                            "margin:10px 0 4px 0;'>Review — remove anything that looks wrong</div>")
 
-                    # Use session state to track which parsed items to keep
                     review_key = f"pdf_review_{chain}"
                     if review_key not in st.session_state:
                         st.session_state[review_key] = {i: True for i in range(n)}
@@ -639,56 +855,53 @@ for g in manual_stores:
                     flyer_items = st.session_state.get("flyer_data", {}).get(chain, [])
                     pdf_items   = [c for c in flyer_items if not getattr(c, "_manual", False)]
 
-                    for i, item in enumerate(pdf_items[:50]):  # cap at 50 for UI performance
-                        name  = getattr(item, "name", "?") if not isinstance(item, dict) else item.get("name", "?")
-                        price = getattr(item, "sale_price_per_unit", 0) if not isinstance(item, dict) else item.get("sale_price_per_unit", 0)
-                        unit  = getattr(item, "unit", "each") if not isinstance(item, dict) else item.get("unit", "each")
-                        cat   = getattr(item, "category", "other") if not isinstance(item, dict) else item.get("category", "other")
+                    for i, item in enumerate(pdf_items[:50]):
+                        name  = item.name if hasattr(item, "name") else item.get("name", "?")
+                        price = item.sale_price_per_unit if hasattr(item, "sale_price_per_unit") else item.get("sale_price_per_unit", 0)
+                        unit  = item.unit if hasattr(item, "unit") else item.get("unit", "each")
+                        cat   = item.category if hasattr(item, "category") else item.get("category", "other")
                         keep  = st.session_state[review_key].get(i, True)
 
-                        ri_a, ri_b, ri_c, ri_d = st.columns([3, 1, 1, 0.5])
+                        ri_a, ri_b, ri_d = st.columns([4, 1.5, 0.5])
                         with ri_a:
-                            color = "#1A2E1D" if keep else "#9AA8A0"
-                            st.html(f"<div style='font-size:0.85rem;color:{color};padding:3px 0;'>"
+                            col = "#1A2E1D" if keep else "#9AA8A0"
+                            st.html(f"<div style='font-size:0.85rem;color:{col};padding:2px 0;'>"
                                     f"{'<s>' if not keep else ''}{name}{'</s>' if not keep else ''}"
                                     f" <span style='color:#9AA8A0;font-size:0.72rem;'>· {cat}</span>"
                                     f"</div>")
                         with ri_b:
-                            st.html(f"<div style='font-size:0.85rem;color:#F28B30;padding:3px 0;'>"
+                            st.html(f"<div style='font-size:0.85rem;color:#F28B30;padding:2px 0;'>"
                                     f"${price:.2f}/{unit}</div>")
-                        with ri_c:
-                            st.html("")
                         with ri_d:
-                            if keep:
-                                if st.button("✕", key=f"reject_{chain}_{i}", help="Remove this item"):
-                                    st.session_state[review_key][i] = False
-                                    # Remove from flyer_data
-                                    flyer = st.session_state.get("flyer_data", {})
-                                    kept  = [c for j, c in enumerate(
-                                        [x for x in flyer.get(chain, []) if not getattr(x, "_manual", False)]
-                                    ) if st.session_state[review_key].get(j, True)]
-                                    manual = [c for c in flyer.get(chain, []) if getattr(c, "_manual", False)]
-                                    flyer[chain] = kept + manual
-                                    st.session_state["flyer_data"] = flyer
-                                    st.rerun()
-
+                            if keep and st.button("✕", key=f"reject_{chain}_{i}"):
+                                st.session_state[review_key][i] = False
+                                flyer = st.session_state.get("flyer_data", {})
+                                all_pdf = [c for c in flyer.get(chain, [])
+                                           if not getattr(c, "_manual", False)]
+                                kept    = [c for j, c in enumerate(all_pdf)
+                                           if st.session_state[review_key].get(j, True)]
+                                manual  = [c for c in flyer.get(chain, [])
+                                           if getattr(c, "_manual", False)]
+                                flyer[chain] = kept + manual
+                                st.session_state["flyer_data"] = flyer
+                                st.rerun()
                     if n > 50:
-                        st.caption(f"Showing first 50 of {n} items. All {n} are loaded into the engine.")
+                        st.caption(f"Showing first 50 of {n} items. All {n} are in the engine.")
                 else:
                     st.warning(
-                        "Parser returned 0 items — the PDF format may not be supported yet. "
-                        "Switch to Manual Entry and type in the key sale items.",
+                        "Parser returned 0 items — this PDF format may not be supported yet. "
+                        "Use Manual Entry to add the key sale items.",
                         icon="⚠️",
                     )
 
 
-# ── Item drill-down (triggered by "View items" on API stores) ─────────────────
+# ── Item drill-down ───────────────────────────────────────────────────────────
 view_store = st.session_state.pop("_view_store", None)
 if view_store:
     flyer_items = st.session_state.get("flyer_data", {}).get(view_store, [])
     if flyer_items:
         st.divider()
-        st.markdown(f"**{view_store} — all items loaded this week** ({len(flyer_items)} total)")
+        st.markdown(f"**{view_store} — {len(flyer_items)} items loaded this week**")
         rows = []
         for c in flyer_items:
             is_manual = getattr(c, "_manual", False)
@@ -707,19 +920,15 @@ if view_store:
 
 
 # ── Demo load ─────────────────────────────────────────────────────────────────
-with st.expander("✨ Load a sample week of Charlottesville prices (for demo only)", expanded=False):
-    st.caption(
-        "Pre-loads realistic Kroger Barracks Road + Food Lion Pantops sale prices "
-        "for the week of May 11, 2026. Use this to walk through the full flow before "
-        "you have real flyer data. Do not use this week in your actual Found Money ledger."
-    )
+with st.expander("✨ Load sample Charlottesville prices (demo only)", expanded=False):
+    st.caption("Pre-loads Kroger Barracks Road + Food Lion Pantops data for May 11, 2026. "
+               "Do not use in your actual Found Money ledger.")
     if st.button("Load sample week", key="load_demo"):
         try:
             from app.data.sample_data import load_all_demo_data
             demo = load_all_demo_data()
-            raw_grocers = demo["grocers"]
             norm_grocers = []
-            for g in raw_grocers:
+            for g in demo["grocers"]:
                 src = g.get("source") or ("api" if g.get("source_type") == "api" else "manual_pdf")
                 norm_grocers.append({
                     "chain":      g.get("chain") or g.get("name", "?"),
@@ -728,20 +937,22 @@ with st.expander("✨ Load a sample week of Charlottesville prices (for demo onl
                     "rewards":    g.get("rewards", False),
                     "delivery":   g.get("delivery", False),
                     "is_primary": g.get("is_primary", False),
+                    "tier":       "mainstream",
                 })
             raw_flyer = demo["flyer_data"]
+            norm_flyer = {}
             if "stores" in raw_flyer:
-                norm_flyer = {}
                 for _sid, _sdata in raw_flyer["stores"].items():
-                    _display = _sdata.get("store_name", _sid)
-                    norm_flyer[_display] = _sdata.get("items", [])
+                    norm_flyer[_sdata.get("store_name", _sid)] = _sdata.get("items", [])
             else:
                 norm_flyer = raw_flyer
-            st.session_state["grocers"]        = norm_grocers
-            st.session_state["flyer_data"]     = norm_flyer
-            st.session_state["plan"]           = demo["plan"]
-            st.session_state["ledger_history"] = demo["ledger_history"]
-            st.session_state["active_week"]    = demo["active_week"]
+            st.session_state.update({
+                "grocers":        norm_grocers,
+                "flyer_data":     norm_flyer,
+                "plan":           demo["plan"],
+                "ledger_history": demo["ledger_history"],
+                "active_week":    demo["active_week"],
+            })
             st.success("Sample prices loaded! Scroll down to run the engine.")
             st.rerun()
         except Exception as e:
@@ -753,10 +964,8 @@ st.divider()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RUN THE ENGINE
-# POC: Runs synchronously in the Streamlit request cycle. Fine for a
-#      single-household demo. Will time out with large item pools (200+).
-# PROD: Engine runs as a background task (Celery worker). User sees a
-#       "Plan generating…" status screen. Results pushed via WebSocket or polling.
+# POC: Synchronous. Fine for single-household demo.
+# PROD: Background Celery worker; user polls for status.
 # ══════════════════════════════════════════════════════════════════════════════
 all_candidates = [c for v in st.session_state.get("flyer_data", {}).values() for c in v]
 can_run = len(all_candidates) > 0 and st.session_state.get("household") is not None
@@ -773,7 +982,7 @@ if not can_run:
             st.switch_page("pages/1_Household.py")
 
 run_btn = st.button(
-    f"⚙️ Run the engine — {len(all_candidates)} items loaded",
+    f"⚙️ Run the engine — {len(all_candidates)} items across {len(grocers)} stores",
     type="primary",
     use_container_width=True,
     disabled=not can_run,
@@ -805,8 +1014,7 @@ if run_btn:
             hero_ingredients=selected,
             flyer_week=st.session_state["active_week"],
         )
-        n_meals = len(raw_plan.meals)
-
+        n_meals    = len(raw_plan.meals)
         plan_meals = []
         plan_total = 0.0
         for meal in raw_plan.meals:
@@ -815,32 +1023,25 @@ if run_btn:
             for scored_ing in meal.ingredients:
                 ing  = scored_ing.ingredient
                 cost = ing.sale_price_per_unit
-                ing_list.append({
-                    "item":  ing.name,
-                    "qty":   f"1 {ing.unit}",
-                    "store": getattr(ing, "source_store", "—"),
-                    "cost":  round(cost, 2),
-                })
+                ing_list.append({"item": ing.name, "qty": f"1 {ing.unit}",
+                                  "store": getattr(ing, "source_store", "—"),
+                                  "cost": round(cost, 2)})
                 meal_cost += cost
             plan_meals.append({
-                "day":            meal.day,
-                "name":           meal.name,
-                "gluten_free":    False,
-                "allergen_notes": "",
-                "best_store":     "—",
-                "ingredients":    ing_list,
-                "meal_cost":      round(meal_cost, 2),
+                "day": meal.day, "name": meal.name,
+                "gluten_free": False, "allergen_notes": "",
+                "best_store": "—", "ingredients": ing_list,
+                "meal_cost": round(meal_cost, 2),
             })
             plan_total += meal_cost
 
         total_servings = n_meals * household.servings_per_meal
         single_est     = round(plan_total * 1.18, 2)
         hf_equiv       = round(total_servings * 9.99, 2)
-
         st.session_state["plan"] = {
-            "week":     st.session_state["active_week"],
+            "week": st.session_state["active_week"],
             "servings": household.servings_per_meal,
-            "meals":    plan_meals,
+            "meals": plan_meals,
             "totals": {
                 "whollyfare_plan":   round(plan_total, 2),
                 "single_store_best": single_est,
@@ -850,12 +1051,10 @@ if run_btn:
             },
         }
 
-    n_passed   = len(result.passed)
-    n_rejected = len(result.rejected)
     st.success(
         f"✅  {n_meals} dinners planned · "
-        f"{n_passed} ingredients cleared · "
-        f"{n_rejected} rejected by safety rules."
+        f"{len(result.passed)} ingredients cleared · "
+        f"{len(result.rejected)} rejected by safety rules."
     )
     c1, c2 = st.columns(2)
     with c1:
