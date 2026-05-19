@@ -377,8 +377,7 @@ if save_pressed:
             "members": [
                 {
                     "name":       m.name,
-                    "role":       "child" if (m.age or 99) < 18 else "adult",
-                    "birth_year": None,  # profile stores age, not birth_year
+                    "age":        m.age,
                     "allergies":  m.allergies,
                     "diagnoses":  [d.value for d in m.diagnoses],
                     "lifestyle":  [t.value for t in m.lifestyle_tags],

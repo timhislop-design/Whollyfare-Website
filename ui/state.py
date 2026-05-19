@@ -75,7 +75,7 @@ def db_dict_to_profile(d: dict) -> "HouseholdProfile | None":
 
             members.append(MemberProfile(
                 name=m["name"],
-                age=None,
+                age=m.get("age"),
                 allergies=m.get("allergies", []),
                 diagnoses=diagnoses,
                 lifestyle_tags=lifestyle,
@@ -310,8 +310,9 @@ def _load_household_from_db():
     # Load members with their constraints
     members_rows = (
         db.table("members")
-        .select("id, name, role, birth_year")
+        .select("id, name, age, display_order")
         .eq("household_id", hid)
+        .order("display_order")
         .execute()
         .data
     )
@@ -329,9 +330,9 @@ def _load_household_from_db():
             .data
         ]
         diagnoses = [
-            r["condition"]
+            r["diagnosis"]                          # DB column: diagnosis
             for r in db.table("member_diagnoses")
-            .select("condition")
+            .select("diagnosis")
             .eq("member_id", mid)
             .execute()
             .data
@@ -345,9 +346,9 @@ def _load_household_from_db():
             .data
         ]
         exclusions = [
-            r["ingredient_name"]
+            r["exclusion_text"]                     # DB column: exclusion_text
             for r in db.table("member_custom_exclusions")
-            .select("ingredient_name")
+            .select("exclusion_text")
             .eq("member_id", mid)
             .execute()
             .data
@@ -356,8 +357,7 @@ def _load_household_from_db():
         members.append({
             "id":         mid,
             "name":       m["name"],
-            "role":       m["role"],
-            "birth_year": m["birth_year"],
+            "age":        m.get("age"),
             "allergies":  allergies,
             "diagnoses":  diagnoses,
             "lifestyle":  lifestyle,
@@ -459,20 +459,20 @@ def save_household(household_dict: dict) -> tuple[bool, str]:
                 db.table("members").delete().eq("id", mid).execute()
 
         # Upsert each incoming member
-        for m in household_dict.get("members", []):
+        for order_idx, m in enumerate(household_dict.get("members", [])):
             name = m["name"]
             if name in existing_by_name:
                 mid = existing_by_name[name]
                 db.table("members").update({
-                    "role":       m.get("role", "adult"),
-                    "birth_year": m.get("birth_year"),
+                    "age":           m.get("age"),
+                    "display_order": order_idx,
                 }).eq("id", mid).execute()
             else:
                 result = db.table("members").insert({
-                    "household_id": hid,
-                    "name":         name,
-                    "role":         m.get("role", "adult"),
-                    "birth_year":   m.get("birth_year"),
+                    "household_id":  hid,
+                    "name":          name,
+                    "age":           m.get("age"),
+                    "display_order": order_idx,
                 }).execute()
                 mid = result.data[0]["id"]
 
@@ -484,12 +484,12 @@ def save_household(household_dict: dict) -> tuple[bool, str]:
 
             for allergen in m.get("allergies", []):
                 db.table("member_allergies").insert({
-                    "member_id": mid, "allergen": allergen, "severity": "unknown"
+                    "member_id": mid, "allergen": allergen
                 }).execute()
 
-            for condition in m.get("diagnoses", []):
+            for diagnosis in m.get("diagnoses", []):
                 db.table("member_diagnoses").insert({
-                    "member_id": mid, "condition": condition
+                    "member_id": mid, "diagnosis": diagnosis  # DB column: diagnosis
                 }).execute()
 
             for tag in m.get("lifestyle", []):
@@ -497,9 +497,9 @@ def save_household(household_dict: dict) -> tuple[bool, str]:
                     "member_id": mid, "tag": tag
                 }).execute()
 
-            for ingredient in m.get("exclusions", []):
+            for exclusion in m.get("exclusions", []):
                 db.table("member_custom_exclusions").insert({
-                    "member_id": mid, "ingredient_name": ingredient
+                    "member_id": mid, "exclusion_text": exclusion  # DB column: exclusion_text
                 }).execute()
 
         # Update session_state to include the resolved IDs

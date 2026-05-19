@@ -15,53 +15,23 @@ st.set_page_config(
     page_title="WhollyFare — Smart Grocery Planning",
     page_icon="🌿",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="collapsed",   # collapsed on landing, full nav opens on click
 )
 
 state.init()
 
-# ── Sidebar brand mark ────────────────────────────────────────────────────────
+# ── DB load on home page ───────────────────────────────────────────────────────
+# If authenticated and no household in session yet, restore from DB.
+if state.is_authenticated() and st.session_state.get("household_db") is None:
+    state.load_household()
+if st.session_state.get("household_db") and st.session_state.get("household") is None:
+    profile = state.db_dict_to_profile(st.session_state["household_db"])
+    if profile:
+        st.session_state["household"] = profile
+
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("""
-    <style>
-      /* Hide Streamlit's auto-generated page nav so our custom nav is the only one */
-      [data-testid="stSidebarNav"] { display: none !important; }
-    </style>
-
-    <!-- Leaf mark — sits above Home / all nav items -->
-    <div style='padding: 18px 0 6px 4px;'>
-      <svg width="52" height="52" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
-        <!-- Fork handle -->
-        <line x1="14" y1="46" x2="14" y2="10" stroke="#9FD9A8" stroke-width="2.8" stroke-linecap="round"/>
-        <!-- Fork tines -->
-        <line x1="9"  y1="10" x2="9"  y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-        <line x1="14" y1="10" x2="14" y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-        <line x1="19" y1="10" x2="19" y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-        <!-- Leaf body -->
-        <ellipse cx="36" cy="26" rx="13" ry="8.5" fill="#5DAA6A" transform="rotate(-28 36 26)"/>
-        <!-- Leaf midrib -->
-        <line x1="24" y1="35" x2="46" y2="18" stroke="#9FD9A8" stroke-width="1.3" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <!-- Wordmark under the leaf -->
-    <a href='/' style='font-size:15px;font-weight:700;color:white;letter-spacing:0.02em;
-                padding:0 0 4px 4px;text-decoration:none;display:block;'>WhollyFare</a>
-    <div style='font-size:10px;color:#9FD9A8;padding:0 0 18px 4px;'>Eat well. Spend less.</div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.markdown("<div style='color:#9FD9A8;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;'>Get started</div>", unsafe_allow_html=True)
-    st.page_link("pages/1_Household.py",    label="👨‍👩‍👧 Household Setup",   help="Set up your family profile, allergies, and budget")
-    st.page_link("pages/2_Grocer_Hub.py",   label="🏪 Grocer Hub",           help="Connect your stores and load weekly prices")
-
-    st.markdown("<div style='color:#9FD9A8;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:14px;margin-bottom:8px;'>Weekly plan</div>", unsafe_allow_html=True)
-    st.page_link("pages/3_Plan.py",         label="🍽️ This Week's Plan",     help="View your generated meal plan and ingredient picks")
-    st.page_link("pages/4_Sunday_BuyOff.py",label="✅ Sunday Buy-Off",        help="Review, approve, and send your shopping list")
-    st.page_link("pages/5_Shopping_List.py",label="🛒 Shopping List",         help="Your organised list by store and category")
-
-    st.markdown("<div style='color:#9FD9A8;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-top:14px;margin-bottom:8px;'>History & info</div>", unsafe_allow_html=True)
-    st.page_link("pages/6_Ledger.py",       label="💰 Found Money Ledger",    help="Your running savings record week over week")
-    st.page_link("pages/7_Investor.py",     label="📈 Investor Brief",        help="Who we are, why we matter, the opportunity")
+    style.sidebar_nav()   # full branded nav + auth widget — same on every page
 
 style.inject()
 
