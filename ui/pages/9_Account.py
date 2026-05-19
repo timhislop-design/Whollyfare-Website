@@ -1,0 +1,409 @@
+"""
+9_Account.py — WhollyFare Account Page
+=======================================
+Handles sign-in, account creation, and (when signed in) basic account management.
+
+This page is reached three ways:
+  1. "Get started free" button on the homepage → lands on Create Account tab
+  2. "Sign in" button on the homepage → lands on Sign In tab (?auth=signin)
+  3. Sidebar "Account" link → shows appropriate tab based on auth state
+
+POC vs. PRODUCTION
+-------------------
+POC:  Email/password auth only. No email confirmation required (disabled in
+      Supabase settings for the pilot). Password reset is manual via Supabase dashboard.
+PROD: Add Google/Apple OAuth, magic link option, email verification enforcement,
+      password reset flow (self-serve), MFA, session management, and account deletion
+      per GDPR/CCPA requirements.
+"""
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+import streamlit as st
+import ui.state as state
+import ui.style as style
+
+st.set_page_config(
+    page_title="Account · WhollyFare",
+    page_icon="🔐",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+state.init()
+
+with st.sidebar:
+    style.sidebar_nav()
+
+# ── CSS ───────────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+.wf-auth-card {
+  background: #ffffff;
+  border: 1px solid #D8EDD0;
+  border-radius: 14px;
+  padding: 36px 40px;
+  max-width: 480px;
+  margin: 0 auto;
+  box-shadow: 0 4px 32px rgba(30,92,50,0.08);
+}
+.wf-auth-logo {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.wf-auth-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #1E5C32;
+  text-align: center;
+  margin-bottom: 6px;
+}
+.wf-auth-sub {
+  font-size: 0.85rem;
+  color: #5A7A62;
+  text-align: center;
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+.wf-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #A8C5B0;
+  font-size: 0.78rem;
+}
+.wf-auth-divider::before,
+.wf-auth-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid #D8EDD0;
+}
+.wf-promise {
+  background: #F4FAF5;
+  border: 1px solid #D8EDD0;
+  border-left: 3px solid #3A8C4E;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.8rem;
+  color: #3A5C40;
+  margin-top: 20px;
+  line-height: 1.55;
+}
+.wf-acct-section {
+  background: #ffffff;
+  border: 1px solid #D8EDD0;
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+.wf-acct-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #3A8C4E;
+  margin-bottom: 8px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SIGNED-IN VIEW — account management
+# ════════════════════════════════════════════════════════════════════════════
+if state.is_authenticated():
+    user = st.session_state.get("user", {})
+    email = user.get("email", "")
+    hh = st.session_state.get("household")
+    hh_db = st.session_state.get("household_db", {})
+
+    style.page_header("My Account", "Manage your WhollyFare profile and preferences.")
+
+    # ── Account summary ───────────────────────────────────────────────────────
+    col_main, col_side = st.columns([3, 1])
+
+    with col_main:
+        st.markdown('<div class="wf-acct-label">Your account</div>', unsafe_allow_html=True)
+        st.markdown(
+            f"""<div class="wf-acct-section">
+              <div style="font-size:1.05rem;font-weight:700;color:#1E5C32;margin-bottom:4px;">
+                {email}
+              </div>
+              <div style="font-size:0.82rem;color:#5A7A62;">
+                WhollyFare account · Charlottesville pilot
+              </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+        # Household summary
+        if hh or hh_db:
+            hh_name    = hh.household_name if hh else hh_db.get("name", "My Household")
+            members    = hh.members if hh else []
+            budget     = hh.weekly_budget_usd if hh else hh_db.get("weekly_budget_usd", 0)
+            meals      = hh.meals_per_week if hh else hh_db.get("meals_per_week", 5)
+            servings   = hh.servings_per_meal if hh else hh_db.get("servings_per_meal", 4)
+            n_members  = len(members) if members else len(hh_db.get("members", []))
+            n_constraints = sum(
+                len(m.allergies) + len(m.diagnoses) + len(m.lifestyle_tags)
+                for m in members
+            ) if members else 0
+
+            st.markdown('<div class="wf-acct-label" style="margin-top:16px;">Household</div>',
+                        unsafe_allow_html=True)
+            st.markdown(
+                f"""<div class="wf-acct-section">
+                  <div style="font-size:1rem;font-weight:700;color:#1E5C32;margin-bottom:8px;">
+                    {hh_name}
+                  </div>
+                  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+                    <div>
+                      <div style="font-size:1.3rem;font-weight:800;color:#3A8C4E;">{n_members}</div>
+                      <div style="font-size:0.72rem;color:#5A7A62;">members</div>
+                    </div>
+                    <div>
+                      <div style="font-size:1.3rem;font-weight:800;color:#3A8C4E;">${budget:.0f}</div>
+                      <div style="font-size:0.72rem;color:#5A7A62;">weekly budget</div>
+                    </div>
+                    <div>
+                      <div style="font-size:1.3rem;font-weight:800;color:#3A8C4E;">{meals}</div>
+                      <div style="font-size:0.72rem;color:#5A7A62;">dinners/week</div>
+                    </div>
+                    <div>
+                      <div style="font-size:1.3rem;font-weight:800;color:#3A8C4E;">{servings}</div>
+                      <div style="font-size:0.72rem;color:#5A7A62;">servings/meal</div>
+                    </div>
+                    {f'<div><div style="font-size:1.3rem;font-weight:800;color:#F28B30;">{n_constraints}</div><div style="font-size:0.72rem;color:#5A7A62;">active constraints</div></div>' if n_constraints else ''}
+                  </div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
+            if st.button("✏️ Edit household profile", use_container_width=False):
+                st.switch_page("pages/1_Household.py")
+        else:
+            st.info("No household set up yet.", icon="🏠")
+            if st.button("👨‍👩‍👧 Set up household", type="primary"):
+                st.switch_page("pages/1_Household.py")
+
+        # Savings summary
+        ledger = state.load_ledger()
+        if ledger:
+            total_found = sum(e.get("found_money", 0) for e in ledger)
+            st.markdown('<div class="wf-acct-label" style="margin-top:16px;">Savings to date</div>',
+                        unsafe_allow_html=True)
+            st.markdown(
+                f"""<div class="wf-acct-section"
+                         style="display:flex;align-items:center;gap:24px;">
+                  <div>
+                    <div style="font-size:2rem;font-weight:800;color:#BF5E00;line-height:1;">
+                      ${total_found:,.2f}
+                    </div>
+                    <div style="font-size:0.8rem;color:#5A7A62;margin-top:4px;">
+                      Found Money across {len(ledger)} week(s)
+                    </div>
+                  </div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+            if st.button("💰 View full ledger"):
+                st.switch_page("pages/6_Ledger.py")
+
+        # Subscription tier
+        st.markdown('<div class="wf-acct-label" style="margin-top:16px;">Current plan</div>',
+                    unsafe_allow_html=True)
+        st.markdown(
+            """<div class="wf-acct-section">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="background:#D8EDD0;color:#1E5C32;font-size:0.7rem;font-weight:700;
+                            letter-spacing:0.08em;padding:4px 12px;border-radius:20px;">
+                  PILOT ACCESS
+                </div>
+                <div style="font-size:0.85rem;color:#5A7A62;">
+                  All features active · Charlottesville pilot program
+                </div>
+              </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+    with col_side:
+        st.markdown("<div style='height:36px;'></div>", unsafe_allow_html=True)
+        if st.button("🚪 Sign out", use_container_width=True):
+            state.sign_out()
+            st.rerun()
+
+        st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+        st.markdown(
+            """<div style='font-size:0.75rem;color:#5A7A62;line-height:1.6;
+                          background:#F4FAF5;border-radius:8px;padding:12px;'>
+              <strong style='color:#1E5C32;'>Your data promise</strong><br>
+              Your health data and grocery data are never sold, shared, or used for targeting.
+              WhollyFare's only revenue is your subscription.
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+    st.stop()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SIGNED-OUT VIEW — sign in or create account
+# ════════════════════════════════════════════════════════════════════════════
+
+# Determine which tab to open by default — ?auth=signin routes to Sign In
+_default_tab = st.query_params.get("auth", "create")
+# Clear the param so navigating away and back starts fresh
+if "auth" in st.query_params:
+    st.query_params.clear()
+
+# Centred card layout
+_, card_col, _ = st.columns([1, 2, 1])
+
+with card_col:
+
+    # Logo / brand mark inside the card
+    st.markdown("""
+    <div class="wf-auth-logo">
+      <svg width="52" height="52" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
+           aria-label="WhollyFare" role="img">
+        <line x1="14" y1="46" x2="14" y2="10" stroke="#3A8C4E" stroke-width="2.8" stroke-linecap="round"/>
+        <line x1="9"  y1="10" x2="9"  y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
+        <line x1="14" y1="10" x2="14" y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
+        <line x1="19" y1="10" x2="19" y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
+        <ellipse cx="36" cy="26" rx="13" ry="8.5" fill="#5DAA6A" transform="rotate(-28 36 26)"/>
+        <line x1="24" y1="35" x2="46" y2="18" stroke="#9FD9A8" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+      <div style="font-size:1.3rem;font-weight:800;color:#1E5C32;margin-top:6px;">WhollyFare</div>
+      <div style="font-size:0.78rem;color:#5A7A62;font-style:italic;">Eat well. Spend less.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Tabs — Create Account is default for new visitors, Sign In for returning ─
+    if _default_tab == "signin":
+        tab_in, tab_up = st.tabs(["🔐 Sign in", "✨ Create account"])
+    else:
+        tab_up, tab_in = st.tabs(["✨ Create account", "🔐 Sign in"])
+
+    # ── CREATE ACCOUNT TAB ────────────────────────────────────────────────────
+    with tab_up:
+        st.markdown(
+            "<div style='font-size:0.92rem;color:#5A7A62;margin:12px 0 20px;line-height:1.55;'>"
+            "Free forever for Price Finder. No credit card needed.<br>"
+            "Takes about two minutes to get your first week's plan."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        with st.form("create_account_form", clear_on_submit=False):
+            new_email = st.text_input(
+                "Email address",
+                placeholder="you@example.com",
+                help="This is your WhollyFare login. We won't send you marketing email.",
+            )
+            new_pw = st.text_input(
+                "Choose a password",
+                type="password",
+                placeholder="8 or more characters",
+                help="Pick something you'll remember — no password rules, just make it decent.",
+            )
+            new_pw2 = st.text_input(
+                "Confirm password",
+                type="password",
+                placeholder="Same password again",
+            )
+            create_btn = st.form_submit_button(
+                "Create my WhollyFare account →",
+                type="primary",
+                use_container_width=True,
+            )
+
+        if create_btn:
+            if not new_email or not new_pw:
+                st.error("Enter your email and choose a password.")
+            elif new_pw != new_pw2:
+                st.error("Passwords don't match — try again.")
+            elif len(new_pw) < 8:
+                st.error("Password must be at least 8 characters.")
+            else:
+                with st.spinner("Creating your account…"):
+                    ok, msg = state.sign_up(new_email.strip(), new_pw)
+                if ok:
+                    # sign_up also signs the user in on success
+                    st.success("✅ Account created! Setting you up…")
+                    st.balloons()
+                    # Short pause so user sees the success state, then forward
+                    import time; time.sleep(1.2)
+                    st.switch_page("pages/1_Household.py")
+                else:
+                    if "already registered" in msg.lower() or "already exists" in msg.lower():
+                        st.error("That email is already registered. Use the Sign In tab.")
+                    else:
+                        st.error(f"Couldn't create account: {msg}")
+
+        st.markdown(
+            """<div class="wf-promise">
+              🔐 <strong>Your data promise:</strong> WhollyFare never sells your data, shares
+              your health information, or shows you ads. Revenue is subscriptions only — that's
+              the Sincere Strategy, and it's non-negotiable.
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+    # ── SIGN IN TAB ───────────────────────────────────────────────────────────
+    with tab_in:
+        st.markdown(
+            "<div style='font-size:0.92rem;color:#5A7A62;margin:12px 0 20px;'>"
+            "Welcome back. Sign in to restore your household and savings history."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        with st.form("sign_in_form", clear_on_submit=False):
+            si_email = st.text_input(
+                "Email address",
+                placeholder="you@example.com",
+                key="si_email",
+            )
+            si_pw = st.text_input(
+                "Password",
+                type="password",
+                placeholder="Your password",
+                key="si_pw",
+            )
+            si_btn = st.form_submit_button(
+                "Sign in →",
+                type="primary",
+                use_container_width=True,
+            )
+
+        if si_btn:
+            if not si_email or not si_pw:
+                st.error("Enter your email and password.")
+            else:
+                with st.spinner("Signing in…"):
+                    ok, msg = state.sign_in(si_email.strip(), si_pw)
+                if ok:
+                    st.success("✅ Signed in! Loading your household…")
+                    import time; time.sleep(0.8)
+                    # If household exists go to plan flow, otherwise to setup
+                    if st.session_state.get("household") or st.session_state.get("household_db"):
+                        st.switch_page("pages/1_Household.py")
+                    else:
+                        st.switch_page("pages/1_Household.py")
+                else:
+                    if "invalid" in msg.lower() or "credentials" in msg.lower():
+                        st.error("Email or password not recognised. Check your details and try again.")
+                    else:
+                        st.error(f"Sign in failed: {msg}")
+
+        st.markdown(
+            "<div style='font-size:0.8rem;color:#5A7A62;margin-top:16px;text-align:center;'>"
+            "Forgot your password? Email "
+            "<a href='mailto:tim.hislop@gmail.com' style='color:#3A8C4E;'>tim.hislop@gmail.com</a> "
+            "during the pilot — self-serve reset coming in Phase 2."
+            "</div>",
+            unsafe_allow_html=True,
+        )

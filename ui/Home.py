@@ -184,14 +184,28 @@ if not state.is_setup_complete():
     </div>
     """, unsafe_allow_html=True)
 
-    # CTA buttons sit flush below the hero
-    h1, h2, h3 = st.columns([2, 2, 3])
-    with h1:
-        if st.button("🌿 Get started free", type="primary", use_container_width=True):
-            st.switch_page("pages/1_Household.py")
-    with h2:
-        if st.button("📈 Investor brief", use_container_width=True):
-            st.switch_page("pages/7_Investor.py")
+    # CTA buttons — Get Started, Sign In, Create Account, Investor Brief
+    # Show auth state-aware labels: if already signed in, skip the auth buttons
+    if state.is_authenticated():
+        h1, h2, _ = st.columns([2, 2, 3])
+        with h1:
+            if st.button("🌿 Go to my household", type="primary", use_container_width=True):
+                st.switch_page("pages/1_Household.py")
+        with h2:
+            if st.button("📈 Investor brief", use_container_width=True):
+                st.switch_page("pages/7_Investor.py")
+    else:
+        h1, h2, h3, h4 = st.columns([2, 2, 2, 1])
+        with h1:
+            if st.button("🌿 Get started free", type="primary", use_container_width=True):
+                st.switch_page("pages/9_Account.py")
+        with h2:
+            if st.button("🔐 Sign in", use_container_width=True):
+                st.query_params["auth"] = "signin"
+                st.switch_page("pages/9_Account.py")
+        with h3:
+            if st.button("📈 Investor brief", use_container_width=True):
+                st.switch_page("pages/7_Investor.py")
 
     st.markdown("<div style='height:36px;'></div>", unsafe_allow_html=True)
 

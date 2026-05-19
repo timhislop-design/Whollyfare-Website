@@ -336,7 +336,7 @@ def sidebar_nav():
     st.page_link("pages/7_Investor.py", label="📈 Investor Brief")
     st.page_link("pages/8_Roadmap.py",  label="🗺️ Product Roadmap")
     _coming_soon("❓ Help & FAQ")
-    _coming_soon("⚙️ Account")
+    st.page_link("pages/9_Account.py", label="⚙️ Account")
 
     # ── Auth widget ───────────────────────────────────────────────────────────
     # POC: sign-in / sign-up / sign-out panel at the bottom of the sidebar.

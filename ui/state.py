@@ -209,7 +209,9 @@ def sign_up(email: str, password: str) -> tuple[bool, str]:
         resp = db.auth.sign_up({"email": email, "password": password})
         if resp.user:
             st.session_state["user"] = {"id": resp.user.id, "email": resp.user.email}
-            return True, "Account created. Check your email to confirm, then sign in."
+            # POC: email confirmation is disabled in Supabase settings so the user
+            # is active immediately. PROD: enforce email confirmation before granting access.
+            return True, "Account created."
         return False, "Sign-up failed — no user returned."
     except Exception as e:
         return False, str(e)

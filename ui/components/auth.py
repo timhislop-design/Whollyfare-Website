@@ -22,6 +22,28 @@ import ui.state as state
 
 _AUTH_CSS = """
 <style>
+/* ── Force readable text colour inside the dark sidebar ── */
+[data-testid="stSidebar"] input,
+[data-testid="stSidebar"] input::placeholder,
+[data-testid="stSidebar"] .stTextInput label,
+[data-testid="stSidebar"] .stTextInput input {
+  color: #1A2E1D !important;
+  background-color: #ffffff !important;
+}
+[data-testid="stSidebar"] .stTabs [data-baseweb="tab"] {
+  color: #e8f5ec !important;
+}
+[data-testid="stSidebar"] .stTabs [aria-selected="true"] {
+  color: #ffffff !important;
+  border-bottom-color: #5DAA6A !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] {
+  background: rgba(255,255,255,0.08) !important;
+  border: 1px solid rgba(93,170,106,0.35) !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+  color: #e8f5ec !important;
+}
 .wf-auth-wrap {
   margin-top: 16px;
   padding-top: 12px;
