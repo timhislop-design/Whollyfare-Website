@@ -44,16 +44,18 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- Used throughout RLS policies to gate access to household-scoped tables.
 CREATE OR REPLACE FUNCTION is_household_member(hid uuid)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
 AS $$
-  SELECT EXISTS (
+BEGIN
+  RETURN EXISTS (
     SELECT 1
     FROM household_users
     WHERE household_id = hid
       AND user_id = auth.uid()
   );
+END;
 $$;
 
 -- Automatically sets updated_at = now() on any row update.
@@ -241,21 +243,12 @@ CREATE TABLE IF NOT EXISTS public.household_users (
 
 ALTER TABLE public.household_users ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can read their household memberships"
-  ON public.household_users FOR SELECT
-  USING (user_id = auth.uid());
-
-CREATE POLICY "Owners can manage household memberships"
+-- POC: users can see and manage only their own membership rows.
+-- Phase 3: owner-manages-member logic can be added here once multi-user households go live.
+CREATE POLICY "Users can manage their own household memberships"
   ON public.household_users FOR ALL
-  USING (
-    user_id = auth.uid()
-    OR EXISTS (
-      SELECT 1 FROM public.household_users hu
-      WHERE hu.household_id = household_users.household_id
-        AND hu.user_id = auth.uid()
-        AND hu.role = 'owner'
-    )
-  );
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
 
 
 -- =============================================================================
@@ -737,10 +730,9 @@ CREATE POLICY "Household members can manage adherence log"
 
 -- =============================================================================
 -- LAYER 12 — EVIDENCE SOURCES & MEDICAL TRANSPARENCY
--- Must exist before constraint_rejections references it.
--- Note: Table created here; constraint_rejections.evidence_source_id FK
--- references this table (already defined in Layer 6 above — FK is valid
--- because Postgres defers FK validation until commit, or we use DEFERRABLE).
+-- constraint_rejections.evidence_source_id was declared as a plain uuid column
+-- in Layer 6 (no inline FK) because this table didn't exist yet.
+-- The FK constraint is added via ALTER TABLE immediately after this table is created.
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS public.constraint_evidence_sources (
