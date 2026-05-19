@@ -86,7 +86,7 @@ total_checked = sum(
 )
 
 # ── Week header + progress ────────────────────────────────────────────────────
-st.markdown(
+st.html(
     f"**Week of {week}** · {total_items} items · {len(meals)} dinners · {servings} servings each"
 )
 
@@ -123,9 +123,7 @@ for sid, items in store_items.items():
           <span style='float:right;font-size:0.9rem;font-weight:600;color:#D8EDD0;'>
             ${store_total:.2f}
           </span>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+        </div>""")
 
     # Items — one per row using st.columns for phone-friendly layout
     for item_name, data in items.items():
@@ -146,31 +144,25 @@ for sid, items in store_items.items():
         with col_info:
             name_style  = "text-decoration:line-through;color:#9AA8A0;" if new_val else "color:#1A2E1D;"
             meta_style  = "color:#9AA8A0;" if new_val else "color:#5A7A62;"
-            st.markdown(
+            st.html(
                 f"<div style='padding:6px 0;'>"
                 f"<div style='font-size:1rem;font-weight:600;{name_style}'>{item_name}</div>"
                 f"<div style='font-size:0.78rem;{meta_style}'>{data['qty']} · {meals_str}</div>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
+                f"</div>")
 
         with col_cost:
             cost_style = "color:#9AA8A0;text-decoration:line-through;" if new_val else "color:#1E5C32;font-weight:700;"
-            st.markdown(
+            st.html(
                 f"<div style='padding:6px 0;text-align:right;font-size:1rem;{cost_style}'>"
                 f"${data['cost']:.2f}"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
+                f"</div>")
 
         # Thin divider between items
-        st.markdown(
-            "<hr style='margin:0;border:none;border-top:1px solid #EEF3EE;'>",
-            unsafe_allow_html=True,
-        )
+        st.html(
+            "<hr style='margin:0;border:none;border-top:1px solid #EEF3EE;'>")
 
     # Store subtotal footer
-    st.markdown(
+    st.html(
         f"""<div style='background:#E3F4E8;border-radius:0 0 8px 8px;padding:10px 18px;
                         display:flex;justify-content:space-between;align-items:center;
                         border-top:2px solid #5DAA6A;margin-bottom:4px;'>
@@ -178,9 +170,7 @@ for sid, items in store_items.items():
             {"✅ All done at " + store_label if all_done else store_label + " subtotal"}
           </span>
           <span style='font-size:1rem;font-weight:700;color:#1E5C32;'>${store_total:.2f}</span>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+        </div>""")
 
 st.divider()
 
@@ -232,5 +222,5 @@ with btn_col2:
                 st.session_state[f"check_{sid}_{item_name}"] = False
         st.rerun()
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.html("<br>")
 st.page_link("pages/6_Ledger.py", label="→ View Found Money History")

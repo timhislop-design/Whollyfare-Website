@@ -65,16 +65,14 @@ STORE_NAMES = {
 approved = state.week_approved()
 
 # ── Week banner ───────────────────────────────────────────────────────────────
-st.markdown(
+st.html(
     f"""<div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;
                     padding:12px 20px;margin-bottom:20px;font-size:1rem;color:#1E5C32;
                     font-weight:600;'>
       Week of {week}
       &nbsp;·&nbsp; {len(meals)} dinners planned
       &nbsp;·&nbsp; {servings} servings each
-    </div>""",
-    unsafe_allow_html=True,
-)
+    </div>""")
 
 # ── Cumulative savings banner (shown once there's prior history) ──────────────
 # Load ledger from DB if authenticated; falls back to session_state if not.
@@ -84,30 +82,26 @@ if ledger:
     cumulative = sum(e.get("found_money", 0) for e in ledger)
     num_weeks  = len(ledger)
     week_word  = "week" if num_weeks == 1 else "weeks"
-    st.markdown(
+    st.html(
         f"""<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;
                         padding:10px 18px;margin-bottom:18px;font-size:0.92rem;color:#5A3A00;'>
           You've found <strong style='color:#BF5E00;font-size:1.05rem;'>${cumulative:.2f}</strong>
           across {num_weeks} {week_word} with WhollyFare. This week adds to that.
-        </div>""",
-        unsafe_allow_html=True,
-    )
+        </div>""")
 
 # ── Found Money hero ──────────────────────────────────────────────────────────
 col_left, col_hero, col_right = st.columns([1, 2, 1])
 with col_hero:
-    st.markdown(
+    st.html(
         f"""<div class='found-money-box'>
           <div class='found-money-amount'>${totals['found_money']:.2f}</div>
           <div class='found-money-label'>Found Money this week</div>
           <div style='font-size:12px;color:#BF5E00;margin-top:6px;'>
             vs. buying everything at one store
           </div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+        </div>""")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.html("<br>")
 
 # ── Comparison table ──────────────────────────────────────────────────────────
 num_servings_total = len(meals) * servings if meals and servings else 1
@@ -123,7 +117,7 @@ hf_per     = hf_cost / num_servings_total
 found_money = totals["found_money"]
 vs_hf       = totals["vs_hellofresh"]
 
-st.markdown("**Your plan vs. the alternatives**")
+st.html("**Your plan vs. the alternatives**")
 st.markdown(
     f"""<table style='width:100%;border-collapse:collapse;font-size:0.9rem;
                        font-family:Arial,sans-serif;margin-bottom:20px;'>
@@ -165,9 +159,7 @@ st.markdown(
           </td>
         </tr>
       </tbody>
-    </table>""",
-    unsafe_allow_html=True,
-)
+    </table>""")
 
 # ── Meal preview expander ─────────────────────────────────────────────────────
 with st.expander("📅 Review this week's dinners", expanded=False):
@@ -175,14 +167,12 @@ with st.expander("📅 Review this week's dinners", expanded=False):
         cost_per       = meal["meal_cost"] / servings if servings else 0
         allergen_short = meal.get("allergen_notes", "")
         gf_label       = " · GF" if meal.get("gluten_free") else ""
-        st.markdown(
+        st.html(
             f"**{meal['day']}** — {meal['name']} &nbsp;&nbsp;"
             f"<span style='color:#5A7A62;font-size:12px;'>"
             f"${cost_per:.2f}/serving{gf_label}"
             f"{' · ' + allergen_short if allergen_short else ''}"
-            f"</span>",
-            unsafe_allow_html=True,
-        )
+            f"</span>")
 
 # ── Shopping split expander ───────────────────────────────────────────────────
 with st.expander("🛒 Shopping split by store", expanded=False):
@@ -195,24 +185,18 @@ with st.expander("🛒 Shopping split by store", expanded=False):
     for sid, items in store_items.items():
         store_label = STORE_NAMES.get(sid, sid)
         store_total = sum(i["cost"] for i in items)
-        st.markdown(
+        st.html(
             f"<div style='font-weight:700;color:#1E5C32;font-size:0.95rem;"
-            f"margin:12px 0 4px 0;'>🏪 {store_label} — {len(items)} items</div>",
-            unsafe_allow_html=True,
-        )
+            f"margin:12px 0 4px 0;'>🏪 {store_label} — {len(items)} items</div>")
         for ing in items:
-            st.markdown(
+            st.html(
                 f"<div style='font-size:12px;color:#5A7A62;padding:2px 0 2px 12px;'>"
                 f"□ {ing['item']} &nbsp; <span style='color:#1E5C32;'>${ing['cost']:.2f}</span>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-        st.markdown(
+                f"</div>")
+        st.html(
             f"<div style='font-size:12px;font-weight:600;color:#3A8C4E;"
-            f"text-align:right;margin-top:4px;'>{store_label} subtotal: ${store_total:.2f}</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown("<hr style='border-color:#D8EDD0;margin:8px 0;'>", unsafe_allow_html=True)
+            f"text-align:right;margin-top:4px;'>{store_label} subtotal: ${store_total:.2f}</div>")
+        st.html("<hr style='border-color:#D8EDD0;margin:8px 0;'>")
 
 st.divider()
 
@@ -245,6 +229,4 @@ else:
         st.rerun()
 
     st.caption(
-        "Locking the plan generates your final shopping list. "
-        "You can still review everything above before you decide."
-    )
+     

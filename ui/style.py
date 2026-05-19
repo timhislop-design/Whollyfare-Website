@@ -221,20 +221,19 @@ div[data-testid="stDownloadButton"] > button:hover {
 
 
 def inject():
-    st.markdown(CSS, unsafe_allow_html=True)
+    st.html(CSS)
 
 
 def page_header(title: str, subtitle: str = ""):
     inject()
-    st.markdown(
+    st.html(
         f"""<div class="wf-header">
           {LOGO_SVG}
           <div class="wf-page-title">{title}</div>
-        </div>""",
-        unsafe_allow_html=True,
+        </div>"""
     )
     if subtitle:
-        st.markdown(f'<div class="wf-page-sub">{subtitle}</div>', unsafe_allow_html=True)
+        st.html(f'<div class="wf-page-sub">{subtitle}</div>')
 
 
 def sidebar_nav():
@@ -246,10 +245,7 @@ def sidebar_nav():
             sidebar_nav()
     """
     # Hide Streamlit's auto-generated file-based nav
-    st.markdown(
-        "<style>[data-testid=\"stSidebarNav\"] { display: none !important; }</style>",
-        unsafe_allow_html=True,
-    )
+    st.html("<style>[data-testid=\"stSidebarNav\"] { display: none !important; }</style>")
 
     # ── Logo (light strokes for dark sidebar background) ─────────────────────
     SIDEBAR_LOGO = """
@@ -267,10 +263,10 @@ def sidebar_nav():
 </svg>
 """
 
-    st.markdown(SIDEBAR_LOGO, unsafe_allow_html=True)
+    st.html(SIDEBAR_LOGO)
 
     # ── Wordmark & tagline ────────────────────────────────────────────────────
-    st.markdown(
+    st.html(
         """<div style="margin-top:-4px; margin-bottom:4px;">
           <a href="/" style="font-size:1.25rem; font-weight:700; color:#ffffff;
                        font-family:Arial,sans-serif; letter-spacing:0.02em;
@@ -281,26 +277,23 @@ def sidebar_nav():
                        font-family:Arial,sans-serif; font-style:italic;">
             Eat well. Spend less.
           </span>
-        </div>""",
-        unsafe_allow_html=True,
+        </div>"""
     )
 
-    st.markdown("<hr style='border-color:#3A8C4E; margin:10px 0;'>", unsafe_allow_html=True)
+    st.html("<hr style='border-color:#3A8C4E; margin:10px 0;'>")
 
     def _section(label: str):
-        st.markdown(
+        st.html(
             f"<div style='font-size:0.65rem; font-weight:700; color:#9FD9A8; "
-            f"letter-spacing:0.08em; margin-top:14px; margin-bottom:4px;'>{label}</div>",
-            unsafe_allow_html=True,
+            f"letter-spacing:0.08em; margin-top:14px; margin-bottom:4px;'>{label}</div>"
         )
 
     def _coming_soon(label: str):
-        st.markdown(
+        st.html(
             f"<div style='font-size:0.85rem; color:#6aaa7a; padding:4px 8px; "
             f"opacity:0.6; cursor:default;'>{label} "
             f"<span style='font-size:0.6rem; background:#2e7d4f; color:#9FD9A8; "
-            f"padding:1px 5px; border-radius:8px; vertical-align:middle;'>SOON</span></div>",
-            unsafe_allow_html=True,
+            f"padding:1px 5px; border-radius:8px; vertical-align:middle;'>SOON</span></div>"
         )
 
     # ── Home ─────────────────────────────────────────────────────────────────

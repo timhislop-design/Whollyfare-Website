@@ -32,7 +32,7 @@ style.page_header(
 )
 
 # ── Progress breadcrumb ───────────────────────────────────────────────────────
-st.markdown("""
+st.html("""
 <div style='display:flex;align-items:center;gap:0;margin-bottom:22px;'>
   <div style='background:#D8EDD0;color:#3A8C4E;border-radius:50%;width:28px;height:28px;
               display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;
@@ -49,7 +49,7 @@ st.markdown("""
     Household → Grocer Prices → <strong style='color:#1E5C32;'>This Week's Plan</strong>
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 # ── Setup check ───────────────────────────────────────────────────────────────
 plan = st.session_state.get("plan")
@@ -115,13 +115,11 @@ if num_stores > 1:
 else:
     callout_text = store_parts
 
-st.markdown(
+st.html(
     f"""<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;
                     padding:10px 16px;margin:12px 0 20px 0;font-size:0.9rem;color:#5A3A00;'>
       {callout_text}
-    </div>""",
-    unsafe_allow_html=True,
-)
+    </div>""")
 
 # ── Meal cards ────────────────────────────────────────────────────────────────
 DAY_COLORS = ["#1E5C32", "#3A8C4E", "#5DAA6A", "#F28B30", "#BF5E00"]
@@ -143,7 +141,7 @@ for idx, meal in enumerate(meals):
         if store_label else ""
     )
     with card_cols[idx]:
-        st.markdown(
+        st.html(
             f"""<div style='background:#FFFFFF;border-radius:10px;
                             box-shadow:0 1px 6px rgba(0,0,0,0.08);
                             border-top:4px solid {color};
@@ -158,9 +156,7 @@ for idx, meal in enumerate(meals):
                 ${per_serving:.2f}/serving</div>
               {store_line}
               <div>{gf_badge}</div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
+            </div>""")
 
 st.divider()
 
@@ -179,7 +175,7 @@ for meal in meals:
         if ings:
             header_c1, header_c2, header_c3, header_c4 = st.columns([3, 1, 2, 1])
             with header_c1:
-                st.markdown("**Item**")
+                st.html("**Item**")
             with header_c2:
                 st.markdown("**Qty**")
             with header_c3:
@@ -205,9 +201,7 @@ for meal in meals:
             f"<div style='text-align:right;font-size:13px;font-weight:700;"
             f"color:#1E5C32;margin-top:8px;border-top:1px solid #D8EDD0;padding-top:6px;'>"
             f"Meal total: ${meal['meal_cost']:.2f}"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
+            f"</div>")
 
 st.divider()
 
@@ -248,7 +242,7 @@ if household:
 
 _constraint_str = " · ".join(_constraint_parts) if _constraint_parts else "Standard filtering applied"
 
-st.markdown(
+st.html(
     f"""<div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;
                    padding:14px 18px;margin-bottom:20px;'>
       <span style='font-size:1rem;font-weight:700;color:#1E5C32;'>
@@ -257,9 +251,7 @@ st.markdown(
       <span style='font-size:0.85rem;color:#3A8C4E;margin-left:12px;'>
         {_constraint_str}
       </span>
-    </div>""",
-    unsafe_allow_html=True,
-)
+    </div>""")
 
 # ── CTA ───────────────────────────────────────────────────────────────────────
 if st.button("✅ Go to Sunday Buy-Off — confirm this week →", type="primary", use_container_width=True):

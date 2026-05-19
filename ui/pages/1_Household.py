@@ -60,7 +60,7 @@ style.page_header(
 )
 
 # ── Setup stepper ─────────────────────────────────────────────────────────────
-st.markdown("""
+st.html("""
 <div style='display:flex;align-items:center;gap:0;margin-bottom:24px;'>
   <div style='background:#3A8C4E;color:white;border-radius:50%;width:28px;height:28px;
               display:flex;align-items:center;justify-content:center;
@@ -77,11 +77,11 @@ st.markdown("""
     <strong style='color:#1E5C32;'>Household</strong> → Grocer Prices → Generate Plan
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 
 # ── What this page does (pilot-friend context) ────────────────────────────────
-st.markdown("""
+st.html("""
 <div style='background:white;border:1px solid #D8EDD0;border-left:4px solid #3A8C4E;
             border-radius:8px;padding:16px 20px;margin-bottom:24px;'>
   <div style='font-weight:700;color:#1E5C32;font-size:0.95rem;margin-bottom:6px;'>
@@ -96,17 +96,15 @@ st.markdown("""
     never appear in a plan, a suggestion, or a shopping list.
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 household = st.session_state.get("household")
 
 
 # ── Household basics ──────────────────────────────────────────────────────────
-st.markdown(
+st.html(
     "<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;"
-    "color:#3A8C4E;margin-bottom:10px;'>Your household</div>",
-    unsafe_allow_html=True,
-)
+    "color:#3A8C4E;margin-bottom:10px;'>Your household</div>")
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -144,19 +142,15 @@ st.divider()
 
 
 # ── Household members ─────────────────────────────────────────────────────────
-st.markdown(
+st.html(
     "<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;"
-    "color:#3A8C4E;margin-bottom:4px;'>Household members</div>",
-    unsafe_allow_html=True,
-)
-st.markdown(
+    "color:#3A8C4E;margin-bottom:4px;'>Household members</div>")
+st.html(
     "<div style='font-size:0.84rem;color:#5A7A62;margin-bottom:14px;'>"
     "Add a profile for each person who eats these meals. "
     "Constraints are combined across the whole household — one peanut allergy means "
     "peanuts never appear, for anyone, ever."
-    "</div>",
-    unsafe_allow_html=True,
-)
+    "</div>")
 
 # Initialise member list
 if "member_list" not in st.session_state:
@@ -247,12 +241,10 @@ for i, member in enumerate(st.session_state["member_list"]):
                  "the engine will never include these ingredients regardless of price or availability.",
         )
         if member["allergies"]:
-            st.markdown(
+            st.html(
                 f"<div style='font-size:0.76rem;color:#3A8C4E;margin-top:-8px;margin-bottom:8px;'>"
                 f"🛡️ {', '.join(member['allergies'])} will never appear in this household's plan."
-                f"</div>",
-                unsafe_allow_html=True,
-            )
+                f"</div>")
 
         # Medical conditions
         member["diagnoses"] = st.multiselect(
@@ -368,54 +360,4 @@ if save_pressed:
 
         # ── Persist to DB ─────────────────────────────────────────────────────
         # POC: save_household() degrades gracefully if not authenticated or DB down.
-        # PROD: show a "not saved" indicator if DB write fails.
-        db_ok, db_msg = state.save_household({
-            "name":              hh_name.strip(),
-            "weekly_budget_usd": weekly_budget,
-            "servings_per_meal": int(servings),
-            "meals_per_week":    int(meals_per_week),
-            "members": [
-                {
-                    "name":       m.name,
-                    "age":        m.age,
-                    "allergies":  m.allergies,
-                    "diagnoses":  [d.value for d in m.diagnoses],
-                    "lifestyle":  [t.value for t in m.lifestyle_tags],
-                    "exclusions": m.custom_exclusions,
-                }
-                for m in members
-            ],
-        })
-
-        # Clear member_list cache so it reloads from the saved profile
-        if "member_list" in st.session_state:
-            del st.session_state["member_list"]
-
-        if db_ok:
-            st.success(f"✅ {hh_name.strip()} saved — {len(members)} member(s), {meals_per_week} dinners/week.")
-        else:
-            st.warning(
-                f"⚠️ Profile saved to this session, but could not save to database: {db_msg}  \n"
-                "Sign in to save permanently."
-            )
-        st.rerun()
-
-
-# ── Next step prompt ──────────────────────────────────────────────────────────
-if st.session_state.get("household"):
-    st.markdown("""
-    <div style='background:#F4FAF5;border:1px solid #D8EDD0;border-radius:10px;
-                padding:16px 20px;margin-top:8px;'>
-      <div style='font-weight:600;color:#1E5C32;font-size:0.95rem;margin-bottom:4px;'>
-        ✅ Profile saved
-      </div>
-      <div style='font-size:0.84rem;color:#5A7A62;'>
-        Next: connect your grocery stores and load this week's sale prices.
-        The engine does the rest.
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
-    if st.button("🏪 Continue to Grocer Hub →", type="primary"):
-        st.switch_page("pages/2_Grocer_Hub.py")
+        # PROD: show a "not 

@@ -77,7 +77,7 @@ def medical_disclaimer(
         show_step_back: If True, adds the "step back" advisory to consult a
                         healthcare provider before acting on these filters.
     """
-    st.markdown(_DISCLAIMER_CSS, unsafe_allow_html=True)
+    st.html(_DISCLAIMER_CSS)
 
     condition_line = (
         f"<strong>Health filters active for: {condition}</strong><br>"
@@ -105,15 +105,13 @@ def medical_disclaimer(
             "</div>"
         )
 
-    st.markdown(
+    st.html(
         f"""<div class="wf-disclaimer">
           {condition_line}
           Ingredients flagged below are excluded based on published clinical guidelines.
           {source_line}
           {step_back}
-        </div>""",
-        unsafe_allow_html=True,
-    )
+        </div>""")
 
 
 def source_pill(key: str, url: str | None = None) -> str:
@@ -126,15 +124,13 @@ def source_pill(key: str, url: str | None = None) -> str:
         url:  Override URL. If None, falls back to EVIDENCE_SOURCES lookup.
 
     Returns:
-        HTML string — safe to embed via st.markdown(..., unsafe_allow_html=True).
+        HTML string — safe to embed via st.html(...).
 
     Example:
-        st.markdown(
-            f"Potassium restriction per {source_pill('NKF')} guideline.",
-            unsafe_allow_html=True
-        )
+        st.html(
+            f"Potassium restriction per {source_pill('NKF')} guideline.")
     """
-    st.markdown(_DISCLAIMER_CSS, unsafe_allow_html=True)
+    st.html(_DISCLAIMER_CSS)
 
     if key in EVIDENCE_SOURCES:
         label, default_url = EVIDENCE_SOURCES[key]

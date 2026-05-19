@@ -23,7 +23,7 @@ with st.sidebar:
 style.inject()
 
 # ── Page CSS ──────────────────────────────────────────────────────────────────
-st.markdown("""
+st.html("""
 <style>
 /* ── Hero ── */
 .inv-dark-hero {
@@ -258,13 +258,13 @@ st.markdown("""
 .inv-ask-hero .ask-desc { font-size:1rem; opacity:.78; max-width:620px; margin:0 auto 28px; line-height:1.7; }
 .inv-ask-hero a { color:#5DAA6A; }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. HERO — conviction, not ask
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.html("""
 <div class="inv-dark-hero">
   <div class="hero-eyebrow">WhollyFare&#174; &nbsp;·&nbsp; Sentir Solutions&#174; LLC &nbsp;·&nbsp; Charlottesville, VA</div>
   <h1>This is happening.</h1>
@@ -292,28 +292,26 @@ st.markdown("""
     </div>
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 col_cta1, col_cta2, col_spacer = st.columns([1, 1, 4])
 with col_cta1:
     if st.button("🌿 Try the app", use_container_width=True):
         st.switch_page("Home.py")
 with col_cta2:
-    st.markdown(
+    st.html(
         '<a href="mailto:tim.hislop@gmail.com" style="display:block;text-align:center;'
         'padding:8px 0;border:1px solid #3A8C4E;border-radius:8px;color:#3A8C4E;'
-        'font-size:.9rem;font-weight:600;text-decoration:none;">📧 Get in touch</a>',
-        unsafe_allow_html=True,
-    )
-st.markdown("<br>", unsafe_allow_html=True)
+        'font-size:.9rem;font-weight:600;text-decoration:none;">📧 Get in touch</a>')
+st.html("<br>")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 2. THE FOUNDER'S BET
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">The Founder\'s Bet</div>', unsafe_allow_html=True)
+st.html('<div class="inv-section-label">The Founder\'s Bet</div>')
 
-st.markdown("""
+st.html("""
 <div class="founder-card">
   <div class="founder-pull">
     I am doing this with or without outside capital. That is not a negotiating position —
@@ -340,16 +338,16 @@ st.markdown("""
     not when it's a pitch. That is what we are building toward.
   </div>
 </div>
-""", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+""")
+st.html("<br>")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. THE PROBLEM
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">The Problem</div>', unsafe_allow_html=True)
-st.markdown("### American families are losing the grocery game.")
+st.html('<div class="inv-section-label">The Problem</div>')
+st.html("### American families are losing the grocery game.")
 
 col_p1, col_p2 = st.columns([6, 4])
 with col_p1:
@@ -386,15 +384,15 @@ with col_p2:
   <div class="stat-label">HelloFresh cost per serving — the benchmark WhollyFare beats every single week</div>
   <div class="stat-source">HelloFresh published pricing, 2024</div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 4. THE SOLUTION
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">The Solution</div>', unsafe_allow_html=True)
-st.markdown("### One engine. Three steps. Every Sunday.")
+st.html('<div class="inv-section-label">The Solution</div>')
+st.html("### One engine. Three steps. Every Sunday.")
 st.markdown("""
 WhollyFare&#174; inverts the meal-kit model. Instead of charging a premium for pre-portioned ingredients,
 we use each week's **actual sale circulars** from your local grocers to build the lowest-cost,
@@ -406,29 +404,29 @@ with col_s1:
   <div class="step-icon">🛒</div><div class="step-title">1. Harvest</div>
   <div class="step-body">Pull weekly sale prices from grocery APIs and PDF circulars.
   Every item tagged with category, allergens, and nutrition data via USDA FDC.</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 with col_s2:
-    st.markdown("""<div class="step-card step-card-2">
+    st.html("""<div class="step-card step-card-2">
   <div class="step-icon">🛡️</div><div class="step-title">2. Filter</div>
   <div class="step-body">Run every item through the household's hard constraints —
   allergies, diagnoses (celiac, diabetes, CKD, IBS), lifestyle. Zero compromise.
   Every rejection logged and shown to the user.</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 with col_s3:
-    st.markdown("""<div class="step-card step-card-3">
+    st.html("""<div class="step-card step-card-3">
   <div class="step-icon">🍽️</div><div class="step-title">3. Plan</div>
   <div class="step-body">Score remaining ingredients by sale savings × nutrition density.
   Build 5–7 hero ingredients into a full week of dinners across flavor profiles.
   One tap to approve. One list to shop.</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. THE MOAT — THE SINCERE STRATEGY
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">The Moat</div>', unsafe_allow_html=True)
-st.markdown("### Six commitments competitors cannot copy.")
+st.html('<div class="inv-section-label">The Moat</div>')
+st.html("### Six commitments competitors cannot copy.")
 st.markdown("""
 WhollyFare&#174; operates under the **Sincere Strategy&#174;** — commitments to the user that
 competitors with existing advertiser and brand relationships cannot adopt without dismantling their revenue model.
@@ -447,25 +445,25 @@ for i, (title, desc) in enumerate(sincere):
         st.markdown(f"""<div class="sincere-card">
   <div class="sc-title">{title}</div>
   <div class="sc-body">{desc}</div>
-</div>""", unsafe_allow_html=True)
-st.markdown("""<div class="moat-callout">
+</div>""")
+st.html("""<div class="moat-callout">
   Competitors cannot copy the Sincere Strategy&#174; without dismantling their own revenue model.
   That asymmetry is structural and gets stronger the longer WhollyFare builds trust.
-</div>""", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+</div>""")
+st.html("<br>")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. COMPETITIVE LANDSCAPE
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown("""<div class="inv-dark-band">
+st.html("""<div class="inv-dark-band">
   <div class="band-section-label">Competitive Landscape</div>
   <h2>A $25B industry working against the consumer.</h2>
   <div class="band-sub">The meal planning and grocery delivery space is large, fragmented, and almost entirely
   oriented around margins for the platform rather than savings for the family.
   WhollyFare&#174; occupies white space none of the incumbents can enter honestly.</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 
 comp_cols = st.columns(5)
 competitors = [
@@ -479,21 +477,21 @@ for col, (name, price, desc, badge, wf) in zip(comp_cols, competitors):
     with col:
         cc = "comp-col-wf" if wf else "comp-col"
         bc = "comp-badge-wf" if wf else "comp-badge"
-        st.markdown(f"""<div class="{cc}">
+        st.html(f"""<div class="{cc}">
   <div class="comp-name">{name}</div>
   <div class="comp-price">{price}</div>
   <div class="comp-desc">{desc}</div>
   <div class="{bc}">{badge}</div>
-</div>""", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+</div>""")
+st.html("<br>")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 7. GO-TO-MARKET
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">Go-To-Market</div>', unsafe_allow_html=True)
-st.markdown("### Start at the edge. Earn the mainstream.")
+st.html('<div class="inv-section-label">Go-To-Market</div>')
+st.html("### Start at the edge. Earn the mainstream.")
 st.markdown("""
 Our distribution strategy is deliberately counter-intuitive. We start with households who need
 reliable, safe meal planning the *most* — medical-edge users — and let their advocacy carry us
@@ -514,16 +512,16 @@ for col, (rn, rt, tags, desc, css) in zip(ring_cols, rings):
   <div class="halo-ring-title">{rt}</div>
   <div style="font-size:.72rem;color:rgba(255,255,255,.45);margin-bottom:8px">{tags}</div>
   <div class="halo-ring-desc">{desc}</div>
-</div>""", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+</div>""")
+st.html("<br>")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 8. BUSINESS MODEL
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">Business Model</div>', unsafe_allow_html=True)
-st.markdown("### Subscription only. No ads. No affiliate revenue. Ever.")
+st.html('<div class="inv-section-label">Business Model</div>')
+st.html("### Subscription only. No ads. No affiliate revenue. Ever.")
 for tier_name, tier_price, tier_desc, tier_features in [
     ("Free",     "Free",     "The wedge. Multi-grocer price comparison. Establishes habit and trust.",
      "Cross-store price comparison · Weekly sale highlights · Basic shopping list"),
@@ -540,15 +538,15 @@ for tier_name, tier_price, tier_desc, tier_features in [
   <div class="inv-tier-desc"><strong>{tier_desc}</strong><br>
     <span style="font-size:.78rem;color:#888">{tier_features}</span>
   </div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 9. WHY NOW
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">Why Now</div>', unsafe_allow_html=True)
-st.markdown("### Three forces converging. The window is open.")
+st.html('<div class="inv-section-label">Why Now</div>')
+st.html("### Three forces converging. The window is open.")
 col_w1, col_w2, col_w3 = st.columns(3)
 for col, icon, title, body in [
     (col_w1, "📈", "Grocery inflation",     "U.S. grocery prices rose 25%+ between 2020–2024. Demand for savings tools is unprecedented and still climbing."),
@@ -560,16 +558,16 @@ for col, icon, title, body in [
   <div class="why-icon">{icon}</div>
   <div class="why-title">{title}</div>
   <div class="why-body">{body}</div>
-</div>""", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+</div>""")
+st.html("<br>")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 10. NON-DILUTIVE FUNDING — what's available before or instead of outside capital
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">Non-Dilutive Funding Available</div>', unsafe_allow_html=True)
-st.markdown("### Tim doesn't need your money. Here's what's available before any equity conversation.")
+st.html('<div class="inv-section-label">Non-Dilutive Funding Available</div>')
+st.html("### Tim doesn't need your money. Here's what's available before any equity conversation.")
 st.markdown("""
 Showing investors the non-dilutive options is not a threat — it's transparency.
 It shows we have a path forward regardless, and that any equity conversation is a choice,
@@ -583,46 +581,46 @@ with nd_col1:
   <div class="gc-amount">$100k – $750k</div>
   <div class="gc-body">USDA's Small Business Innovation Research program funds food tech with health, nutrition, and local agriculture angles. WhollyFare's constraint engine and local-grocer focus are strong fits.</div>
   <div class="gc-badge">Zero dilution</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 with nd_col2:
-    st.markdown("""<div class="grant-card">
+    st.html("""<div class="grant-card">
   <div class="gc-name">Virginia VIPC / CIT Grants</div>
   <div class="gc-amount">$25k – $250k</div>
   <div class="gc-body">Virginia Innovation Partnership Corporation and the Center for Innovative Technology fund early-stage Virginia-based tech companies. Charlottesville presence is an advantage.</div>
   <div class="gc-badge">Zero dilution</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 with nd_col3:
-    st.markdown("""<div class="grant-card">
+    st.html("""<div class="grant-card">
   <div class="gc-name">SBA Loans (7a / Microloan)</div>
   <div class="gc-amount">$50k – $500k</div>
   <div class="gc-body">SBA-guaranteed debt financing. Repaid from revenue. No equity surrendered, no board seats, no dilution. Best deployed once initial revenue validates the model.</div>
   <div class="gc-badge">Debt, not equity</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 with nd_col4:
-    st.markdown("""<div class="grant-card">
+    st.html("""<div class="grant-card">
   <div class="gc-name">Revenue-Based Financing</div>
   <div class="gc-amount">$100k – $1M+</div>
   <div class="gc-body">Providers like Clearco and Lighter Capital advance capital repaid as a % of monthly revenue (typically 6–12%). Available once WhollyFare reaches $50k+ ARR. No equity, no board seats.</div>
   <div class="gc-badge">Repaid from revenue</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 
-st.markdown("""
+st.html("""
 <div style='background:#F0F9F2;border:1px solid #A8D5B0;border-radius:10px;
             padding:14px 22px;margin-top:8px;font-size:.87rem;color:#1E4228;line-height:1.6;'>
   <strong>The point:</strong> WhollyFare can reach initial traction — pilot households, receipt data,
   first ARR — on a combination of Tim's personal time, bootstrap capital, and non-dilutive funding.
   Outside equity investment accelerates that path and earns a return. It does not enable it.
 </div>
-""", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+""")
+st.html("<br>")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 11. HOW YOU CAN HELP — three investor types
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">How You Can Help</div>', unsafe_allow_html=True)
-st.markdown("### Three ways to be part of WhollyFare. All of them honest.")
+st.html('<div class="inv-section-label">How You Can Help</div>')
+st.html("### Three ways to be part of WhollyFare. All of them honest.")
 st.markdown("""
 There is no one-size-fits-all investor relationship here. The right structure depends on
 who you are and what you're optimizing for. Every path shown below preserves Tim's control
@@ -650,10 +648,10 @@ with itype_cols[0]:
   <div class="itype-item"><span class="itype-check-angel">✓</span>Equity stake at the priced round Tim controls</div>
   <div class="itype-item"><span class="itype-check-angel">✓</span>Pro-rata rights in future rounds</div>
   <div class="itype-item"><span class="itype-check-angel">✓</span>Full acquisition upside if buyout occurs first</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 
 with itype_cols[1]:
-    st.markdown("""<div class="itype-card itype-partner">
+    st.html("""<div class="itype-card itype-partner">
   <div class="itype-badge itype-badge-partner">Strategic Partner</div>
   <div class="itype-title">Grocer, health system, or delivery service.</div>
   <div class="itype-sub">Commercial partnerships — not equity. A grocer that provides API access
@@ -672,10 +670,10 @@ with itype_cols[1]:
   <div class="itype-item"><span class="itype-check-partner">✓</span>Defensive position vs. competitors</div>
   <div class="itype-item"><span class="itype-check-partner">✓</span>Revenue share on plans using your data</div>
   <div class="itype-item"><span class="itype-check-partner">✓</span>Right of first negotiation on acquisition</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 
 with itype_cols[2]:
-    st.markdown("""<div class="itype-card itype-acquirer">
+    st.html("""<div class="itype-card itype-acquirer">
   <div class="itype-badge itype-badge-acquirer">Strategic Acquirer</div>
   <div class="itype-title">When the data is undeniable, make an offer.</div>
   <div class="itype-sub">This is Tim's preferred endgame — an inbound acquisition offer from
@@ -690,17 +688,17 @@ with itype_cols[2]:
   <div class="itype-item"><span class="itype-check-acquirer">✓</span>Grocer integration pipeline + data agreements</div>
   <div class="itype-item"><span class="itype-check-acquirer">✓</span>Defensive moat vs. any competitor who tries to copy</div>
   <div class="itype-item"><span class="itype-check-acquirer">✓</span>Tim Hislop as a committed operator post-acquisition</div>
-</div>""", unsafe_allow_html=True)
+</div>""")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.html("<br>")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 12. WHAT YOU CAN MAKE — interactive return calculator
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">What You Can Make</div>', unsafe_allow_html=True)
-st.markdown("### Real math. Every assumption shown.")
+st.html('<div class="inv-section-label">What You Can Make</div>')
+st.html("### Real math. Every assumption shown.")
 st.markdown("""
 Select your investor type and model the scenarios. All projections are illustrative —
 they are based on stated assumptions, not guarantees. The assumptions themselves are
@@ -758,9 +756,7 @@ if calc_type == "Angel Partner":
                   <div style='font-size:.78rem;color:#5A7A62;'>Tim's voting control until conversion</div>
                 </div>
               </div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
+            </div>""")
 
         # Exit scenarios
         exit_scenarios = [
@@ -777,7 +773,7 @@ if calc_type == "Angel Partner":
             multiple = investor_val / angel_invest
             rows.append((label, exit_val, investor_val, multiple, irr * 100, years, note))
 
-        st.markdown("""
+        st.html("""
 <div style='background:#FFFFFF;border:1px solid #D8EDD0;border-radius:10px;overflow:hidden;'>
 <table style='width:100%;border-collapse:collapse;font-size:.82rem;'>
 <thead>
@@ -789,10 +785,10 @@ if calc_type == "Angel Partner":
     <th style='padding:10px 14px;text-align:right;'>IRR</th>
   </tr>
 </thead>
-<tbody>""", unsafe_allow_html=True)
+<tbody>""")
         for i, (label, exit_val, investor_val, multiple, irr_pct, years, note) in enumerate(rows):
             bg = "#FAFAF7" if i % 2 else "#FFFFFF"
-            st.markdown(f"""
+            st.html(f"""
   <tr style='background:{bg};border-bottom:1px solid #EEF3EE;'>
     <td style='padding:9px 14px;'>
       <div style='font-weight:700;color:#1A2E1D;'>{label}</div>
@@ -802,12 +798,12 @@ if calc_type == "Angel Partner":
     <td style='padding:9px 14px;text-align:right;font-weight:700;color:#F28B30;'>${investor_val:,.0f}</td>
     <td style='padding:9px 14px;text-align:right;font-weight:700;color:#3A8C4E;'>{multiple:.1f}×</td>
     <td style='padding:9px 14px;text-align:right;font-weight:700;color:#3A8C4E;'>{irr_pct:.0f}%</td>
-  </tr>""", unsafe_allow_html=True)
-        st.markdown("</tbody></table></div>", unsafe_allow_html=True)
+  </tr>""")
+        st.html("</tbody></table></div>")
         st.caption(f"Returns calculated on ${angel_invest:,.0f} investment · {eq_post_sa*100:.1f}% equity post-dilution · IRR over stated years. Illustrative projections only.")
 
 else:  # Strategic Acquirer
-    st.markdown("#### Strategic acquirer — what you're buying and what it costs")
+    st.html("#### Strategic acquirer — what you're buying and what it costs")
 
     acq_col1, acq_col2 = st.columns([1, 2])
     with acq_col1:
@@ -858,13 +854,11 @@ else:  # Strategic Acquirer
                   <div style='font-size:.76rem;color:#5A7A62;'>est. active households<br>at that ARR</div>
                 </div>
               </div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
+            </div>""")
 
         if angel_raised > 0:
             angel_multiple = angel_payout / angel_raised if angel_raised > 0 else 0
-            st.markdown(
+            st.html(
                 f"""<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:10px;
                                 padding:14px 22px;margin-bottom:12px;'>
                   <div style='font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
@@ -883,11 +877,9 @@ else:  # Strategic Acquirer
                       <div style='font-size:.76rem;color:#5A7A62;'>angel ownership at exit</div>
                     </div>
                   </div>
-                </div>""",
-                unsafe_allow_html=True,
-            )
+                </div>""")
 
-        st.markdown(f"""
+        st.html(f"""
 <div style='background:#FFFFFF;border:1px solid #D8EDD0;border-radius:10px;padding:16px 20px;'>
   <div style='font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
               color:#3A8C4E;margin-bottom:10px;'>What you're acquiring at ${acq_price/1_000_000:.0f}M</div>
@@ -900,18 +892,18 @@ else:  # Strategic Acquirer
       "Multi-tier subscription revenue with proven upgrade path",
       "Tim Hislop as a committed operator under transition terms",
   ])}
-</div>""", unsafe_allow_html=True)
+</div>""")
         st.caption("Acquisition modeling is illustrative. Ownership percentages assume convertible note structure at $3.5M cap, 20% dilution at Series A if applicable.")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.html("<br>")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 13. CONTROL ARCHITECTURE
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="inv-section-label">Control Architecture</div>', unsafe_allow_html=True)
-st.markdown("### Tim keeps control. This is how it works.")
+st.html('<div class="inv-section-label">Control Architecture</div>')
+st.html("### Tim keeps control. This is how it works.")
 st.markdown("""
 Control is not a negotiating point — it is a design decision. WhollyFare's value is inseparable
 from the Sincere Strategy, which requires a founder who cannot be overruled on paid placements,
@@ -937,12 +929,10 @@ with ctrl_col1:
                 {"" if inv_pct == 0 else f'<div class="ctrl-bar-inv" style="width:{inv_pct}%;left:{tim_pct}%;">Investors {inv_pct}%</div>'}
               </div>
               <div style='font-size:.74rem;color:#5A7A62;margin-top:4px;'>{note}</div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
+            </div>""")
 
 with ctrl_col2:
-    st.markdown("""
+    st.html("""
 <div style='background:linear-gradient(160deg,#0A0F0D,#0F2518);border:1px solid #3A8C4E;
             border-radius:12px;padding:24px 22px;color:white;height:100%;'>
   <div style='font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
@@ -969,16 +959,16 @@ with ctrl_col2:
     rate. Tim decides when, to whom, and at what price — if at all.
   </div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.html("<br>")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 14. APPLICATION ROADMAP — month by month, pilot driven
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.html("""
 <div style='font-size:0.65rem;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;
             color:#5DAA6A;margin-bottom:6px;'>Section 14</div>
 <div style='font-size:1.45rem;font-weight:800;color:#1E5C32;margin-bottom:4px;'>
@@ -996,10 +986,10 @@ st.markdown("""
   at any store, in any market in the country — built on direct API integrations with
   the grocer chains that already serve them.
 </div>
-""", unsafe_allow_html=True)
+""")
 
 with st.expander("Month 1 — Hislop Family Pilot · Live Now", expanded=False):
-    st.markdown("""
+    st.html("""
 <div style='font-size:0.82rem;color:#5A7A62;margin-bottom:14px;line-height:1.6;'>
   <strong style='color:#1E5C32;'>May 2026 · Charlottesville, VA · 1 household · 4 stores</strong><br>
   Tim, Abby, and Chas run the full flow every Sunday. Manual flyer entry. Real receipts.
@@ -1038,10 +1028,10 @@ with st.expander("Month 1 — Hislop Family Pilot · Live Now", expanded=False):
     — Abby · Pilot Week 1
   </div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with st.expander("Months 2–3 — First Wave · 5–10 Pilot Households", expanded=False):
-    st.markdown("""
+    st.html("""
 <div style='font-size:0.82rem;color:#5A7A62;margin-bottom:14px;line-height:1.6;'>
   <strong style='color:#1E5C32;'>June – July 2026 · Friends and family recruited by Tim</strong><br>
   What breaks at 1 household stays a quirk. What breaks at 5 becomes a pattern.
@@ -1071,10 +1061,10 @@ with st.expander("Months 2–3 — First Wave · 5–10 Pilot Households", expan
   </div>
 </div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with st.expander("Months 4–5 — Beta Expansion · 20–30 Households", expanded=False):
-    st.markdown("""
+    st.html("""
 <div style='font-size:0.82rem;color:#5A7A62;margin-bottom:14px;line-height:1.6;'>
   <strong style='color:#1E5C32;'>August – September 2026 · Broader Virginia / mid-Atlantic</strong><br>
   Twenty households is not a lot of users. It is a lot of data.
@@ -1102,10 +1092,10 @@ with st.expander("Months 4–5 — Beta Expansion · 20–30 Households", expand
   </div>
 </div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with st.expander("Month 6–12 — Regional Scale · API Integrations · Post-Investment Build", expanded=False):
-    st.markdown("""
+    st.html("""
 <div style='font-size:0.82rem;color:#5A7A62;margin-bottom:14px;line-height:1.6;'>
   <strong style='color:#1E5C32;'>October 2026 – April 2027 · Mid-Atlantic → Southeast</strong><br>
   This is where manual entry ends. API integrations with major chains replace the clipboard.
@@ -1167,10 +1157,10 @@ with st.expander("Month 6–12 — Regional Scale · API Integrations · Post-In
   </div>
 </div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with st.expander("Months 12–18+ — National · Any Household, Any Store, Any Market", expanded=False):
-    st.markdown("""
+    st.html("""
 <div style='font-size:0.82rem;color:#5A7A62;margin-bottom:16px;line-height:1.6;'>
   <strong style='color:#1E5C32;'>2027 and beyond · 50,000+ households · $2M+ ARR target</strong><br>
   The product that worked in Charlottesville works identically in Austin, Portland, Chicago,
@@ -1214,7 +1204,7 @@ with st.expander("Months 12–18+ — National · Any Household, Any Store, Any 
   </div>
 </div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 
 st.divider()
 
@@ -1222,7 +1212,7 @@ st.divider()
 # ══════════════════════════════════════════════════════════════════════════════
 # 15. THE CLOSE — open door, not a round
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.html("""
 <div class="inv-ask-hero">
   <div class="ask-eyebrow">The Invitation</div>
   <h2>WhollyFare is happening.<br>The door is open.</h2>
@@ -1260,9 +1250,9 @@ st.markdown("""
     Sentir Solutions&#174; LLC &nbsp;·&nbsp; Charlottesville, VA &nbsp;·&nbsp; tim.hislop@gmail.com
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.html("<br>")
 st.caption(
     "This page is a working Proof of Concept built in Streamlit. Financial projections are "
     "illustrative estimates, not guarantees. IRR and return calculations assume specific exit "

@@ -49,7 +49,7 @@ style.page_header(
 
 
 # ── Setup stepper ─────────────────────────────────────────────────────────────
-st.markdown("""
+st.html("""
 <div style='display:flex;align-items:center;gap:0;margin-bottom:22px;'>
   <div style='background:#D8EDD0;color:#5A7A62;border-radius:50%;width:28px;height:28px;
               display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;'>✓</div>
@@ -63,7 +63,7 @@ st.markdown("""
     Household → <strong style='color:#1E5C32;'>Grocer Prices</strong> → Generate Plan
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -128,7 +128,7 @@ if new_stores:
                 reward_str = "🎟 Rewards" if store["rewards"] else ""
                 delivery_str = " · 🚚 Delivery" if store["delivery"] else ""
                 primary_str = " · ⭐ Primary" if store["is_primary"] else ""
-                st.markdown(f"""
+                st.html(f"""
                 <div style='background:white;border:1px solid #D8EDD0;border-top:3px solid #3A8C4E;
                             border-radius:8px;padding:14px 12px;min-height:110px;'>
                   <div style='font-weight:700;color:#1E5C32;font-size:0.95rem;'>{store['chain']}</div>
@@ -137,7 +137,7 @@ if new_stores:
                     {src_label}{reward_str}{delivery_str}{primary_str}
                   </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """)
                 if st.button(f"Add {store['chain']}", key=f"preset_{store['chain']}", use_container_width=True):
                     grocers.append({k: v for k, v in store.items() if k != "flyer_url"})
                     st.session_state["grocers"] = grocers
@@ -164,17 +164,13 @@ with col_status:
     total_items = state.total_items_loaded()
     manual_count = len(st.session_state.get("manual_items", []))
     if len(loaded) == 0 and manual_count == 0:
-        st.markdown('<span class="pill pill-miss">⚠ No prices loaded yet</span>', unsafe_allow_html=True)
+        st.html('<span class="pill pill-miss">⚠ No prices loaded yet</span>')
     elif len(loaded) < len(grocers):
-        st.markdown(
-            f'<span class="pill pill-warn">⚠ {len(loaded)} of {len(grocers)} stores loaded</span>',
-            unsafe_allow_html=True,
-        )
+        st.html(
+            f'<span class="pill pill-warn">⚠ {len(loaded)} of {len(grocers)} stores loaded</span>')
     else:
-        st.markdown(
-            f'<span class="pill pill-ok">✓ {total_items} items across {len(loaded)} stores</span>',
-            unsafe_allow_html=True,
-        )
+        st.html(
+            f'<span class="pill pill-ok">✓ {total_items} items across {len(loaded)} stores</span>')
 
 with col_pull:
     _pull_all_api = st.button("Pull API stores", use_container_width=True)
@@ -191,7 +187,7 @@ st.divider()
 
 # ── Add store (sidebar) ───────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### Configured stores")
+    st.html("### Configured stores")
     for g in grocers:
         src  = g.get("source", "manual_pdf")
         icon = "🔗" if "api" in src else "📄"
@@ -401,18 +397,16 @@ manual_stores = [g for g in grocers if _source(g) not in ("api",)]
 if api_stores:
     st.markdown(
         "<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;"
-        "color:#3A8C4E;margin-bottom:10px;'>API-connected stores</div>",
-        unsafe_allow_html=True,
-    )
+        "color:#3A8C4E;margin-bottom:10px;'>API-connected stores</div>")
     for g in api_stores:
         chain  = _chain_name(g)
         is_ok  = chain in loaded
         with st.container(border=True):
             col_icon, col_info, col_act = st.columns([0.5, 3, 2])
             with col_icon:
-                st.markdown("🔗" if is_ok else "⚡")
+                st.html("🔗" if is_ok else "⚡")
             with col_info:
-                st.markdown(f"**{chain}** &nbsp; {_status_badge(chain)}", unsafe_allow_html=True)
+                st.markdown(f"**{chain}** &nbsp; {_status_badge(chain)}")
                 meta = g.get("location", "")
                 if g.get("rewards"):    meta += "  · 🎟 Rewards"
                 if g.get("is_primary"): meta += "  · ⭐ Primary"
@@ -447,11 +441,9 @@ if api_stores:
 
 # ── Manual / PDF stores ───────────────────────────────────────────────────────
 if manual_stores:
-    st.markdown(
+    st.html(
         "<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;"
-        "color:#3A8C4E;margin-bottom:10px;'>Stores — manual entry &amp; PDF upload</div>",
-        unsafe_allow_html=True,
-    )
+        "color:#3A8C4E;margin-bottom:10px;'>Stores — manual entry &amp; PDF upload</div>")
 
 for g in manual_stores:
     chain  = _chain_name(g)
@@ -462,32 +454,28 @@ for g in manual_stores:
         # ── Store header row ─────────────────────────────────────────────────
         col_icon, col_info, col_link = st.columns([0.5, 4, 1.5])
         with col_icon:
-            st.markdown("✅" if is_ok else "📋")
+            st.html("✅" if is_ok else "📋")
         with col_info:
-            st.markdown(f"**{chain}** &nbsp; {_status_badge(chain)}", unsafe_allow_html=True)
+            st.markdown(f"**{chain}** &nbsp; {_status_badge(chain)}")
             loc = g.get("location", "")
             if g.get("is_primary"): loc += "  · ⭐ Primary"
             st.caption(loc)
         with col_link:
             if dl_url:
-                st.markdown(
+                st.html(
                     f"<a href='{dl_url}' target='_blank' style='font-size:0.78rem;"
-                    f"color:#3A8C4E;font-weight:600;text-decoration:none;'>↗ Weekly circular</a>",
-                    unsafe_allow_html=True,
-                )
+                    f"color:#3A8C4E;font-weight:600;text-decoration:none;'>↗ Weekly circular</a>")
 
         # ── Two-tab interface: Manual Entry | PDF Upload ──────────────────────
         tab_manual, tab_pdf = st.tabs(["✏️ Manual entry", "📄 PDF upload"])
 
         # ── TAB 1: MANUAL ENTRY ───────────────────────────────────────────────
         with tab_manual:
-            st.markdown(
+            st.html(
                 "<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:10px;'>"
                 "Type items directly from the weekly circular or store visit. "
                 "These merge with any PDF-parsed items when the engine runs."
-                "</div>",
-                unsafe_allow_html=True,
-            )
+                "</div>")
 
             # Entry form
             with st.form(key=f"manual_form_{chain}", clear_on_submit=True):
@@ -556,39 +544,31 @@ for g in manual_stores:
             store_items = [m for m in st.session_state.get("manual_items", [])
                            if m["store"] == chain]
             if store_items:
-                st.markdown(
+                st.html(
                     f"<div style='font-size:0.78rem;font-weight:700;color:#1E5C32;"
-                    f"margin-bottom:6px;margin-top:8px;'>{len(store_items)} items entered</div>",
-                    unsafe_allow_html=True,
-                )
+                    f"margin-bottom:6px;margin-top:8px;'>{len(store_items)} items entered</div>")
                 for idx, item in enumerate(store_items):
                     row_a, row_b, row_c, row_d = st.columns([3, 1.5, 1.5, 0.8])
                     with row_a:
-                        st.markdown(
+                        st.html(
                             f"<div style='font-size:0.88rem;color:#1A2E1D;padding:4px 0;'>"
                             f"<strong>{item['name']}</strong> "
                             f"<span style='color:#9AA8A0;font-size:0.75rem;'>· {item['category']}</span>"
-                            f"</div>",
-                            unsafe_allow_html=True,
-                        )
+                            f"</div>")
                     with row_b:
-                        st.markdown(
+                        st.html(
                             f"<div style='font-size:0.88rem;color:#F28B30;font-weight:700;"
-                            f"padding:4px 0;'>${item['sale_price']:.2f}/{item['unit']}</div>",
-                            unsafe_allow_html=True,
-                        )
+                            f"padding:4px 0;'>${item['sale_price']:.2f}/{item['unit']}</div>")
                     with row_c:
                         if item.get("reg_price"):
                             savings_pct = round((1 - item["sale_price"] / item["reg_price"]) * 100)
-                            st.markdown(
+                            st.html(
                                 f"<div style='font-size:0.78rem;color:#5A7A62;padding:4px 0;'>"
                                 f"was ${item['reg_price']:.2f} "
                                 f"<span style='color:#3A8C4E;font-weight:600;'>↓{savings_pct}%</span>"
-                                f"</div>",
-                                unsafe_allow_html=True,
-                            )
+                                f"</div>")
                         else:
-                            st.markdown("<div style='padding:4px 0;'>—</div>", unsafe_allow_html=True)
+                            st.html("<div style='padding:4px 0;'>—</div>")
                     with row_d:
                         # Find the actual index in the full manual_items list
                         full_idx = next(
@@ -601,32 +581,26 @@ for g in manual_stores:
                                 _merge_manual_into_flyer(chain)
                                 st.rerun()
             else:
-                st.markdown(
+                st.html(
                     "<div style='font-size:0.82rem;color:#9AA8A0;padding:8px 0;'>"
                     "No items yet — add your first item above, or upload the PDF circular."
-                    "</div>",
-                    unsafe_allow_html=True,
-                )
+                    "</div>")
 
         # ── TAB 2: PDF UPLOAD ─────────────────────────────────────────────────
         with tab_pdf:
             if dl_url:
-                st.markdown(
+                st.html(
                     f"<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:8px;'>"
                     f"Download the weekly circular from "
                     f"<a href='{dl_url}' target='_blank' style='color:#3A8C4E;font-weight:600;'>"
                     f"{chain}'s website</a>, then upload the PDF here."
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
+                    f"</div>")
 
-            st.markdown(
+            st.html(
                 "<div style='font-size:0.75rem;color:#9AA8A0;margin-bottom:8px;'>"
                 "⚠ PDF parsing is heuristic and may miss items. Use Manual Entry as a fallback "
                 "or to add items the parser skipped."
-                "</div>",
-                unsafe_allow_html=True,
-            )
+                "</div>")
 
             uploaded = st.file_uploader(
                 f"Upload {chain} circular (PDF)",

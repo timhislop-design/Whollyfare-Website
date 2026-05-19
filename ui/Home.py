@@ -49,7 +49,7 @@ total_saved = sum(e.get("found_money", 0) for e in history)
 if not state.is_setup_complete():
 
     # ── CSS + page treatment ──────────────────────────────────────────────────
-    st.markdown("""
+    st.html("""
     <style>
       .block-container { padding-top: 0.5rem !important; }
 
@@ -81,10 +81,10 @@ if not state.is_setup_complete():
         .wf-hero-icon { display: none !important; }
       }
     </style>
-    """, unsafe_allow_html=True)
+    """)
 
     # ── Brand header ──────────────────────────────────────────────────────────
-    st.markdown("""
+    st.html("""
     <div style='display:flex;align-items:center;gap:10px;margin-top:10px;margin-bottom:16px;
                 padding:10px 18px;background:rgba(255,255,255,0.55);
                 backdrop-filter:blur(6px);border-radius:10px;
@@ -102,10 +102,10 @@ if not state.is_setup_complete():
       <span style='font-size:0.82rem;color:#666;'>a <a href="https://sentir-solutions.com" target="_blank"
            style="color:#3A8C4E;font-weight:600;text-decoration:none;">Sentir Solutions</a>&#174; Company</span>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     # ── Hero ──────────────────────────────────────────────────────────────────
-    st.markdown("""
+    st.html("""
     <div style='position:relative;overflow:hidden;
                 background:linear-gradient(140deg,#142B1C 0%,#1E5C32 55%,#2D7A45 100%);
                 border-radius:18px;padding:54px 52px 50px;margin-bottom:10px;'>
@@ -182,7 +182,7 @@ if not state.is_setup_complete():
         </div>
       </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     # CTA buttons — Get Started, Sign In, Create Account, Investor Brief
     # Show auth state-aware labels: if already signed in, skip the auth buttons
@@ -207,10 +207,10 @@ if not state.is_setup_complete():
             if st.button("📈 Investor brief", use_container_width=True):
                 st.switch_page("pages/7_Investor.py")
 
-    st.markdown("<div style='height:36px;'></div>", unsafe_allow_html=True)
+    st.html("<div style='height:36px;'></div>")
 
     # ── How it works ──────────────────────────────────────────────────────────
-    st.markdown("""
+    st.html("""
     <div style='text-align:center;margin-bottom:22px;'>
       <div style='font-size:0.7rem;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;
                   color:#5DAA6A;margin-bottom:6px;'>How it works</div>
@@ -218,7 +218,7 @@ if not state.is_setup_complete():
         Three steps. Every Sunday.
       </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     s1, s2, s3 = st.columns(3)
     for col, icon, num, title, desc in zip(
@@ -233,7 +233,7 @@ if not state.is_setup_complete():
         ],
     ):
         with col:
-            st.markdown(f"""
+            st.html(f"""
             <div class='wf-card' style='background:white;border-radius:14px;padding:28px 22px 24px;
                         box-shadow:0 2px 20px rgba(30,92,50,0.07);text-align:center;'>
               <div style='width:48px;height:48px;background:linear-gradient(135deg,#E8F5EC,#D0EDD8);
@@ -244,12 +244,12 @@ if not state.is_setup_complete():
               <div style='font-weight:700;font-size:1rem;color:#1A2E1D;margin-bottom:9px;'>{title}</div>
               <div style='font-size:0.84rem;color:#5A6B5E;line-height:1.6;'>{desc}</div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
-    st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
+    st.html("<div style='height:40px;'></div>")
 
     # ── Pricing tiers ─────────────────────────────────────────────────────────
-    st.markdown("""
+    st.html("""
     <div style='text-align:center;margin-bottom:22px;'>
       <div style='font-size:0.7rem;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;
                   color:#5DAA6A;margin-bottom:6px;'>Plans & pricing</div>
@@ -257,7 +257,7 @@ if not state.is_setup_complete():
         Start free. Add what your family needs.
       </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     # ── Tier data (shared between cards and sub-pages) ────────────────────────
     tiers = [
@@ -372,7 +372,7 @@ if not state.is_setup_complete():
             c = _active["color"]
 
             # Tier hero
-            st.markdown(f"""
+            st.html(f"""
             <div style='background:linear-gradient(135deg,#142B1C,#1E5C32);border-radius:16px;
                         padding:44px 48px 38px;margin-bottom:28px;position:relative;overflow:hidden;'>
               <svg style='position:absolute;right:-40px;bottom:-40px;opacity:0.06;' width="300" height="300" viewBox="0 0 300 300">
@@ -391,16 +391,16 @@ if not state.is_setup_complete():
                 {_active["description"]}
               </div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             # Detail sections
             for section_title, items in _active["detail_sections"]:
-                st.markdown(f"""
+                st.html(f"""
                 <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
                             color:{c};margin-bottom:10px;margin-top:20px;'>{section_title}</div>
-                """, unsafe_allow_html=True)
+                """)
                 for item_title, item_desc in items:
-                    st.markdown(f"""
+                    st.html(f"""
                     <div style='background:white;border-radius:10px;padding:16px 18px;margin-bottom:8px;
                                 border-left:3px solid {c};box-shadow:0 1px 8px rgba(30,92,50,0.06);'>
                       <div style='font-weight:700;font-size:0.93rem;color:#1A2E1D;margin-bottom:3px;'>
@@ -408,12 +408,12 @@ if not state.is_setup_complete():
                       </div>
                       <div style='font-size:0.84rem;color:#5A6B5E;line-height:1.55;padding-left:22px;'>{item_desc}</div>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """)
 
             # Next tier teaser
             if _active["next_tier"]:
                 nt = _active["next_tier"]
-                st.markdown(f"""
+                st.html(f"""
                 <div style='background:#F4FAF5;border:1px solid #D8EDD0;border-radius:10px;
                             padding:16px 20px;margin-top:24px;display:flex;
                             justify-content:space-between;align-items:center;'>
@@ -423,13 +423,13 @@ if not state.is_setup_complete():
                     <div style='font-size:0.83rem;color:#5A6B5E;margin-top:2px;'>{nt["teaser"]}</div>
                   </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """)
                 if st.button(f"See {nt['name']} →", key="next_tier_btn"):
                     st.query_params["tier"] = str(nt["id"])
                     st.rerun()
 
             # CTA
-            st.markdown("<div style='height:24px;'></div>", unsafe_allow_html=True)
+            st.html("<div style='height:24px;'></div>")
             cta_a, cta_b, _ = st.columns([2, 1, 3])
             with cta_a:
                 if st.button(f"🌿 Start with {_active['name']}", type="primary", use_container_width=True):
@@ -458,7 +458,7 @@ if not state.is_setup_complete():
             for f in tier["features"]
         )
         with col:
-            st.markdown(f"""
+            st.html(f"""
             <div class='wf-card' style='background:white;border-radius:14px;
                         border-top:4px solid {tier["color"]};
                         box-shadow:0 2px 22px rgba(30,92,50,0.08);
@@ -478,16 +478,16 @@ if not state.is_setup_complete():
                 {feats}
               </div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             if st.button(f"{tier['cta']} →", key=f"tier_{tier['id']}", use_container_width=True):
                 st.query_params["tier"] = str(tier["id"])
                 st.rerun()
 
-    st.markdown("<div style='height:32px;'></div>", unsafe_allow_html=True)
+    st.html("<div style='height:32px;'></div>")
 
     # ── Trust bar ────────────────────────────────────────────────────────────
-    st.markdown("""
+    st.html("""
     <div style='text-align:center;padding:15px 20px;
                 background:rgba(255,255,255,0.6);backdrop-filter:blur(4px);
                 border-radius:10px;border:1px solid rgba(93,170,106,0.18);'>
@@ -496,7 +496,7 @@ if not state.is_setup_complete():
         🔍 Every pick shows its reason &nbsp;·&nbsp; 🔐 Your data is yours
       </span>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     st.stop()
 
@@ -508,29 +508,29 @@ hh_name = household.household_name if household else "your household"
 week    = st.session_state["active_week"]
 
 if approved and plan:
-    st.markdown(f"""<div style='background:#E3F4E8;border:1px solid #A8D5B0;border-radius:10px;
+    st.html(f"""<div style='background:#E3F4E8;border:1px solid #A8D5B0;border-radius:10px;
                     padding:16px 20px;margin-bottom:16px;'>
       <span style='font-size:1rem;font-weight:600;color:#1E5C32;'>✅ Week of {week} is approved.</span>
       <span style='color:#3A8C4E;font-size:0.9rem;margin-left:8px;'>Your shopping list is ready.</span>
-    </div>""", unsafe_allow_html=True)
+    </div>""")
 elif plan:
-    st.markdown(f"""<div style='background:#FFF8E1;border:1px solid #FFD54F;border-radius:10px;
+    st.html(f"""<div style='background:#FFF8E1;border:1px solid #FFD54F;border-radius:10px;
                     padding:16px 20px;margin-bottom:16px;'>
       <span style='font-size:1rem;font-weight:600;color:#8C4A00;'>📋 Plan ready for {hh_name}.</span>
       <span style='color:#8C4A00;font-size:0.9rem;margin-left:8px;'>Head to Sunday Buy-Off to approve.</span>
-    </div>""", unsafe_allow_html=True)
+    </div>""")
 elif loaded:
-    st.markdown(f"""<div style='background:#E3F4E8;border:1px solid #A8D5B0;border-radius:10px;
+    st.html(f"""<div style='background:#E3F4E8;border:1px solid #A8D5B0;border-radius:10px;
                     padding:16px 20px;margin-bottom:16px;'>
       <span style='font-size:1rem;font-weight:600;color:#1E5C32;'>📦 {len(loaded)} store(s) loaded.</span>
       <span style='color:#3A8C4E;font-size:0.9rem;margin-left:8px;'>Head to Grocer Hub to run the engine.</span>
-    </div>""", unsafe_allow_html=True)
+    </div>""")
 else:
-    st.markdown("""<div style='background:#FFF3E0;border:1px solid #FFCC80;border-radius:10px;
+    st.html("""<div style='background:#FFF3E0;border:1px solid #FFCC80;border-radius:10px;
                    padding:16px 20px;margin-bottom:16px;'>
       <span style='font-size:1rem;font-weight:600;color:#8C4A00;'>📄 No store data loaded yet for this week.</span>
       <span style='color:#8C4A00;font-size:0.9rem;margin-left:8px;'>Upload circulars or pull from Kroger in the Grocer Hub.</span>
-    </div>""", unsafe_allow_html=True)
+    </div>""")
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -543,7 +543,7 @@ with col4:
     st.metric("Total Found Money 💚", f"${total_saved:,.2f}" if total_saved else "$0.00")
 
 st.divider()
-st.markdown(f"<div style='font-size:1rem;font-weight:600;color:#1E5C32;margin-bottom:12px;'>This week — {week}</div>", unsafe_allow_html=True)
+st.html(f"<div style='font-size:1rem;font-weight:600;color:#1E5C32;margin-bottom:12px;'>This week — {week}</div>")
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -559,7 +559,7 @@ with col3:
 
 if history:
     st.divider()
-    st.markdown("<div style='font-size:1rem;font-weight:600;color:#1E5C32;margin-bottom:10px;'>Recent weeks</div>", unsafe_allow_html=True)
+    st.html("<div style='font-size:1rem;font-weight:600;color:#1E5C32;margin-bottom:10px;'>Recent weeks</div>")
     for entry in reversed(history[-5:]):
         c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
         with c1:
@@ -572,3 +572,4 @@ if history:
             stores_n = entry.get('stores_used', 1)
             grocer_txt = "Kroger + Food Lion" if stores_n >= 2 else "Kroger"
             st.caption(f"📍 {grocer_txt}")
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            

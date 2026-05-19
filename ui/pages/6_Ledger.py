@@ -74,7 +74,7 @@ if approved_without_receipt:
     week_label = pending.get("week", "this week")
     plan_cost  = pending.get("whollyfare_cost", 0)
 
-    st.markdown(f"""
+    st.html(f"""
     <div style='background:linear-gradient(135deg,#FFF8EC,#FFF3E0);
                 border:1.5px solid #F28B30;border-radius:12px;
                 padding:20px 24px;margin-bottom:20px;'>
@@ -90,7 +90,7 @@ if approved_without_receipt:
         Enter what you actually spent and we'll calculate your real Found Money.
       </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     with st.form("receipt_form", clear_on_submit=False):
         rc1, rc2, rc3 = st.columns([2, 2, 3])
@@ -210,17 +210,13 @@ c4.metric(
 )
 
 if use_real:
-    st.markdown(
+    st.html(
         f"<div style='font-size:0.78rem;color:#3A8C4E;font-weight:600;margin-top:-8px;"
-        f"margin-bottom:12px;'>✓ Figures based on real receipts — {weeks_receipts} week(s) logged</div>",
-        unsafe_allow_html=True,
-    )
+        f"margin-bottom:12px;'>✓ Figures based on real receipts — {weeks_receipts} week(s) logged</div>")
 else:
-    st.markdown(
+    st.html(
         "<div style='font-size:0.78rem;color:#F28B30;font-weight:600;margin-top:-8px;"
-        "margin-bottom:12px;'>⚠ Log your receipts above to replace estimates with real data</div>",
-        unsafe_allow_html=True,
-    )
+        "margin-bottom:12px;'>⚠ Log your receipts above to replace estimates with real data</div>")
 
 st.divider()
 
@@ -282,11 +278,9 @@ st.divider()
 # ════════════════════════════════════════════════════════════════════════════
 # WEEK-BY-WEEK DETAIL
 # ════════════════════════════════════════════════════════════════════════════
-st.markdown(
+st.html(
     "<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;"
-    "color:#3A8C4E;margin-bottom:12px;'>Week-by-week breakdown</div>",
-    unsafe_allow_html=True,
-)
+    "color:#3A8C4E;margin-bottom:12px;'>Week-by-week breakdown</div>")
 
 for entry in sorted(ledger, key=lambda e: e.get("week", ""), reverse=True):
     week       = entry.get("week", "—")
@@ -305,7 +299,7 @@ for entry in sorted(ledger, key=lambda e: e.get("week", ""), reverse=True):
         col_a, col_b, col_c, col_d = st.columns([2.5, 2, 2, 2.5])
 
         with col_a:
-            st.markdown(f"**Week of {week}**")
+            st.html(f"**Week of {week}**")
             stores_str = " + ".join(stores) if isinstance(stores, list) else str(stores)
             st.caption(f"📍 {stores_str}  ·  {meals_n} dinners")
             if notes:
@@ -322,9 +316,7 @@ for entry in sorted(ledger, key=lambda e: e.get("week", ""), reverse=True):
                 colour = "#B91C1C" if accuracy_d > 5 else "#3A8C4E"
                 st.markdown(
                     f"<div style='font-size:0.76rem;color:{colour};margin-top:-8px;'>"
-                    f"actual: ${actual:.2f} ({sign}${accuracy_d:.2f})</div>",
-                    unsafe_allow_html=True,
-                )
+                    f"actual: ${actual:.2f} ({sign}${accuracy_d:.2f})</div>")
 
         with col_c:
             found_display = found_real if found_real is not None else found_est
@@ -335,11 +327,9 @@ for entry in sorted(ledger, key=lambda e: e.get("week", ""), reverse=True):
                 help="Real savings vs. single-store" if receipt_ok else "Estimated — log receipt for real figure",
             )
             if not receipt_ok:
-                st.markdown(
+                st.html(
                     "<div style='font-size:0.73rem;color:#F28B30;margin-top:-8px;'>"
-                    "⚠ Receipt not logged yet</div>",
-                    unsafe_allow_html=True,
-                )
+                    "⚠ Receipt not logged yet</div>")
 
         with col_d:
             st.caption(
@@ -393,7 +383,7 @@ if weeks_planned >= 2:
     avg_annual   = avg_weekly * 52
     data_qualifier = "real receipts" if real_entries else "plan estimates — log receipts for verified figures"
 
-    st.markdown(f"""
+    st.html(f"""
     <div style='background:linear-gradient(135deg,#F4FAF5,#E8F5EC);
                 border:1px solid #A8D5B0;border-radius:12px;
                 padding:20px 24px;'>
@@ -411,9 +401,9 @@ if weeks_planned >= 2:
         Based on {data_qualifier}.
       </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
-    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+    st.html("<div style='height:16px;'></div>")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -421,11 +411,9 @@ if weeks_planned >= 2:
 # CSV is the investor-ready format. Text is the quick share format.
 # PROD: Auto-generate a shareable link / PDF report on request.
 # ════════════════════════════════════════════════════════════════════════════
-st.markdown(
+st.html(
     "<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;"
-    "color:#3A8C4E;margin-bottom:10px;'>Export your data</div>",
-    unsafe_allow_html=True,
-)
+    "color:#3A8C4E;margin-bottom:10px;'>Export your data</div>")
 
 exp1, exp2 = st.columns(2)
 
@@ -472,14 +460,4 @@ with exp2:
     lines += [
         "", "=" * 44,
         f"TOTAL FOUND MONEY: ${total_found:,.2f}",
-        f"SAVED VS. HELLOFRESH: ${total_vs_hf:,.2f}",
-        "",
-        "WhollyFare® · Sentir Solutions® LLC",
-    ]
-    st.download_button(
-        label="📄 Export as text",
-        data="\n".join(lines),
-        file_name=f"whollyfare_ledger_{datetime.date.today().isoformat()}.txt",
-        mime="text/plain",
-        use_container_width=True,
-    )
+        f"SAVED VS. HELLOFRESH: ${total_vs_hf:,.2f}"

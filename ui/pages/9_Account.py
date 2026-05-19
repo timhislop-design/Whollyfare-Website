@@ -43,40 +43,34 @@ def _show_db_diagnosis():
     col_a, col_b, col_c = st.columns(3)
     with col_a:
         icon = "✅" if status["package_ok"] else "❌"
-        st.markdown(
+        st.html(
             f"<div style='text-align:center;padding:12px;background:#{'E3F4E8' if status['package_ok'] else 'FFEBEE'};"
             f"border-radius:8px;'>"
             f"<div style='font-size:1.5rem;'>{icon}</div>"
             f"<div style='font-size:0.8rem;font-weight:700;color:#1A2E1D;margin-top:4px;'>supabase package</div>"
             f"<div style='font-size:0.72rem;color:#5A7A62;'>installed in environment</div>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
+            f"</div>")
     with col_b:
         icon = "✅" if status["secrets_ok"] else "❌"
-        st.markdown(
+        st.html(
             f"<div style='text-align:center;padding:12px;background:#{'E3F4E8' if status['secrets_ok'] else 'FFEBEE'};"
             f"border-radius:8px;'>"
             f"<div style='font-size:1.5rem;'>{icon}</div>"
             f"<div style='font-size:0.8rem;font-weight:700;color:#1A2E1D;margin-top:4px;'>secrets configured</div>"
             f"<div style='font-size:0.72rem;color:#5A7A62;'>Streamlit Cloud settings</div>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
+            f"</div>")
     with col_c:
         icon = "✅" if status["connect_ok"] else "❌"
-        st.markdown(
+        st.html(
             f"<div style='text-align:center;padding:12px;background:#{'E3F4E8' if status['connect_ok'] else 'FFEBEE'};"
             f"border-radius:8px;'>"
             f"<div style='font-size:1.5rem;'>{icon}</div>"
             f"<div style='font-size:0.8rem;font-weight:700;color:#1A2E1D;margin-top:4px;'>DB reachable</div>"
             f"<div style='font-size:0.72rem;color:#5A7A62;'>Supabase query succeeded</div>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
+            f"</div>")
 
     if status["error"]:
-        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        st.html("<div style='height:8px;'></div>")
 
         # First failed step tells us exactly what to fix
         if not status["package_ok"]:
@@ -107,7 +101,7 @@ with st.sidebar:
     style.sidebar_nav()
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
-st.markdown("""
+st.html("""
 <style>
 .wf-auth-card {
   background: #ffffff;
@@ -177,7 +171,7 @@ st.markdown("""
   margin-bottom: 8px;
 }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -195,8 +189,8 @@ if state.is_authenticated():
     col_main, col_side = st.columns([3, 1])
 
     with col_main:
-        st.markdown('<div class="wf-acct-label">Your account</div>', unsafe_allow_html=True)
-        st.markdown(
+        st.html('<div class="wf-acct-label">Your account</div>')
+        st.html(
             f"""<div class="wf-acct-section">
               <div style="font-size:1.05rem;font-weight:700;color:#1E5C32;margin-bottom:4px;">
                 {email}
@@ -204,9 +198,7 @@ if state.is_authenticated():
               <div style="font-size:0.82rem;color:#5A7A62;">
                 WhollyFare account · Charlottesville pilot
               </div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
+            </div>""")
 
         # Household summary
         if hh or hh_db:
@@ -221,9 +213,8 @@ if state.is_authenticated():
                 for m in members
             ) if members else 0
 
-            st.markdown('<div class="wf-acct-label" style="margin-top:16px;">Household</div>',
-                        unsafe_allow_html=True)
-            st.markdown(
+            st.html('<div class="wf-acct-label" style="margin-top:16px;">Household</div>')
+            st.html(
                 f"""<div class="wf-acct-section">
                   <div style="font-size:1rem;font-weight:700;color:#1E5C32;margin-bottom:8px;">
                     {hh_name}
@@ -247,9 +238,7 @@ if state.is_authenticated():
                     </div>
                     {f'<div><div style="font-size:1.3rem;font-weight:800;color:#F28B30;">{n_constraints}</div><div style="font-size:0.72rem;color:#5A7A62;">active constraints</div></div>' if n_constraints else ''}
                   </div>
-                </div>""",
-                unsafe_allow_html=True,
-            )
+                </div>""")
 
             if st.button("✏️ Edit household profile", use_container_width=False):
                 st.switch_page("pages/1_Household.py")
@@ -262,9 +251,8 @@ if state.is_authenticated():
         ledger = state.load_ledger()
         if ledger:
             total_found = sum(e.get("found_money", 0) for e in ledger)
-            st.markdown('<div class="wf-acct-label" style="margin-top:16px;">Savings to date</div>',
-                        unsafe_allow_html=True)
-            st.markdown(
+            st.html('<div class="wf-acct-label" style="margin-top:16px;">Savings to date</div>')
+            st.html(
                 f"""<div class="wf-acct-section"
                          style="display:flex;align-items:center;gap:24px;">
                   <div>
@@ -275,16 +263,13 @@ if state.is_authenticated():
                       Found Money across {len(ledger)} week(s)
                     </div>
                   </div>
-                </div>""",
-                unsafe_allow_html=True,
-            )
+                </div>""")
             if st.button("💰 View full ledger"):
                 st.switch_page("pages/6_Ledger.py")
 
         # Subscription tier
-        st.markdown('<div class="wf-acct-label" style="margin-top:16px;">Current plan</div>',
-                    unsafe_allow_html=True)
-        st.markdown(
+        st.html('<div class="wf-acct-label" style="margin-top:16px;">Current plan</div>')
+        st.html(
             """<div class="wf-acct-section">
               <div style="display:flex;align-items:center;gap:12px;">
                 <div style="background:#D8EDD0;color:#1E5C32;font-size:0.7rem;font-weight:700;
@@ -295,26 +280,22 @@ if state.is_authenticated():
                   All features active · Charlottesville pilot program
                 </div>
               </div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
+            </div>""")
 
     with col_side:
-        st.markdown("<div style='height:36px;'></div>", unsafe_allow_html=True)
+        st.html("<div style='height:36px;'></div>")
         if st.button("🚪 Sign out", use_container_width=True):
             state.sign_out()
             st.rerun()
 
-        st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
-        st.markdown(
+        st.html("<div style='height:12px;'></div>")
+        st.html(
             """<div style='font-size:0.75rem;color:#5A7A62;line-height:1.6;
                           background:#F4FAF5;border-radius:8px;padding:12px;'>
               <strong style='color:#1E5C32;'>Your data promise</strong><br>
               Your health data and grocery data are never sold, shared, or used for targeting.
               WhollyFare's only revenue is your subscription.
-            </div>""",
-            unsafe_allow_html=True,
-        )
+            </div>""")
 
     st.stop()
 
@@ -335,7 +316,7 @@ _, card_col, _ = st.columns([1, 2, 1])
 with card_col:
 
     # Logo / brand mark inside the card
-    st.markdown("""
+    st.html("""
     <div class="wf-auth-logo">
       <svg width="52" height="52" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
            aria-label="WhollyFare" role="img">
@@ -349,7 +330,7 @@ with card_col:
       <div style="font-size:1.3rem;font-weight:800;color:#1E5C32;margin-top:6px;">WhollyFare</div>
       <div style="font-size:0.78rem;color:#5A7A62;font-style:italic;">Eat well. Spend less.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     # ── Tabs — Create Account is default for new visitors, Sign In for returning ─
     if _default_tab == "signin":
@@ -359,13 +340,11 @@ with card_col:
 
     # ── CREATE ACCOUNT TAB ────────────────────────────────────────────────────
     with tab_up:
-        st.markdown(
+        st.html(
             "<div style='font-size:0.92rem;color:#5A7A62;margin:12px 0 20px;line-height:1.55;'>"
             "Free forever for Price Finder. No credit card needed.<br>"
             "Takes about two minutes to get your first week's plan."
-            "</div>",
-            unsafe_allow_html=True,
-        )
+            "</div>")
 
         with st.form("create_account_form", clear_on_submit=False):
             new_email = st.text_input(
@@ -414,23 +393,19 @@ with card_col:
                     else:
                         st.error(f"Couldn't create account: {msg}")
 
-        st.markdown(
+        st.html(
             """<div class="wf-promise">
               🔐 <strong>Your data promise:</strong> WhollyFare never sells your data, shares
               your health information, or shows you ads. Revenue is subscriptions only — that's
               the Sincere Strategy, and it's non-negotiable.
-            </div>""",
-            unsafe_allow_html=True,
-        )
+            </div>""")
 
     # ── SIGN IN TAB ───────────────────────────────────────────────────────────
     with tab_in:
-        st.markdown(
+        st.html(
             "<div style='font-size:0.92rem;color:#5A7A62;margin:12px 0 20px;'>"
             "Welcome back. Sign in to restore your household and savings history."
-            "</div>",
-            unsafe_allow_html=True,
-        )
+            "</div>")
 
         with st.form("sign_in_form", clear_on_submit=False):
             si_email = st.text_input(
@@ -468,11 +443,9 @@ with card_col:
                     else:
                         st.error(f"Sign in failed: {msg}")
 
-        st.markdown(
+        st.html(
             "<div style='font-size:0.8rem;color:#5A7A62;margin-top:16px;text-align:center;'>"
             "Forgot your password? Email "
             "<a href='mailto:tim.hislop@gmail.com' style='color:#3A8C4E;'>tim.hislop@gmail.com</a> "
             "during the pilot — self-serve reset coming in Phase 2."
-            "</div>",
-            unsafe_allow_html=True,
-        )
+            "</div>")

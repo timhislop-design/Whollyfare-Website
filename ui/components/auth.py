@@ -72,19 +72,17 @@ def auth_sidebar() -> None:
       - If signed in: user email + sign-out button
       - If signed out: collapsed expander with sign-in / sign-up tabs
     """
-    st.markdown(_AUTH_CSS, unsafe_allow_html=True)
+    st.html(_AUTH_CSS)
     state.init()
 
     if state.is_authenticated():
         user = st.session_state.get("user", {})
         email = user.get("email", "")
-        st.markdown(
+        st.html(
             f"""<div class="wf-auth-wrap">
               <div class="wf-auth-user">Signed in as</div>
               <div class="wf-auth-email">{email}</div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
+            </div>""")
         if st.button("Sign out", key="wf_signout", use_container_width=True):
             state.sign_out()
             st.rerun()

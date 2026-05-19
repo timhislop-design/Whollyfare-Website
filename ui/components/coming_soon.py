@@ -87,19 +87,17 @@ def coming_soon_page(
         subtitle:    Optional page header subtitle (shown in the wf-header bar)
     """
     page_header(title, subtitle)
-    st.markdown(_CSS, unsafe_allow_html=True)
+    st.html(_CSS)
 
     eta_html = (
         f'<div class="wf-cs-eta">📅 {eta}</div>' if eta else ""
     )
 
-    st.markdown(
+    st.html(
         f"""<div class="wf-coming-soon-wrap">
           <div class="wf-cs-icon">{icon}</div>
           <div class="wf-cs-badge">COMING SOON</div>
           <div class="wf-cs-title">{title}</div>
           <div class="wf-cs-desc">{description}</div>
           {eta_html}
-        </div>""",
-        unsafe_allow_html=True,
-    )
+        </div>""")

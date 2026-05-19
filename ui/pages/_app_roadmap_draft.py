@@ -42,7 +42,7 @@ style.page_header(
 )
 
 # ── Page CSS ──────────────────────────────────────────────────────────────────
-st.markdown("""
+st.html("""
 <style>
 .rm-phase {
     border-radius: 14px;
@@ -159,10 +159,10 @@ st.markdown("""
     transition: width 0.4s ease;
 }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 # ── Intro ─────────────────────────────────────────────────────────────────────
-st.markdown("""
+st.html("""
 <div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;
             padding:16px 20px;margin-bottom:24px;'>
   <div style='font-size:0.95rem;font-weight:700;color:#1E5C32;margin-bottom:4px;'>
@@ -174,13 +174,13 @@ st.markdown("""
     not when they sound impressive in a deck.
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MONTH 1 — LIVE NOW
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.html("""
 <div class='rm-phase rm-live'>
   <div class='rm-phase-label' style='color:#9FD9A8;'>Month 1 — Live Now</div>
   <div class='rm-phase-title'>Hislop Family Pilot</div>
@@ -191,13 +191,13 @@ st.markdown("""
     the kind of numbers that end a conversation with an investor before it starts.
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 with st.expander("Month 1 — what's built, what's in progress, what the pilot is teaching us", expanded=True):
     col_done, col_building = st.columns(2)
 
     with col_done:
-        st.markdown("""
+        st.html("""
 <div style='margin-bottom:8px;'>
   <span style='font-size:0.7rem;font-weight:700;letter-spacing:0.1em;
                text-transform:uppercase;color:#3A8C4E;'>Completed</span>
@@ -246,10 +246,10 @@ with st.expander("Month 1 — what's built, what's in progress, what the pilot i
     Eight weeks of this data is the investor argument.</div>
   </div>
 </div>
-        """, unsafe_allow_html=True)
+        """)
 
     with col_building:
-        st.markdown("""
+        st.html("""
 <div style='margin-bottom:8px;'>
   <span style='font-size:0.7rem;font-weight:700;letter-spacing:0.1em;
                text-transform:uppercase;color:#F28B30;'>In Progress / Learning</span>
@@ -284,22 +284,22 @@ with st.expander("Month 1 — what's built, what's in progress, what the pilot i
     Every exception we find now is a rule we add before we scale.</div>
   </div>
 </div>
-        """, unsafe_allow_html=True)
+        """)
 
-    st.markdown("""
+    st.html("""
 <div class='rm-feedback'>
   "I didn't realise how much we were spending at Kroger just because it was convenient.
   Seeing the Found Money number on Sunday morning actually changed how I think about
   where we shop."
   <div class='rm-feedback-attr'>— Abby · Pilot Week 1</div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MONTHS 2-3 — FIRST WAVE
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.html("""
 <div class='rm-phase rm-next' style='margin-top:16px;'>
   <div class='rm-phase-label' style='color:#81D4FA;'>Months 2–3 — Building Now</div>
   <div class='rm-phase-title'>First Wave · 5–10 Pilot Households</div>
@@ -311,13 +311,13 @@ st.markdown("""
     a different definition of "this week's budget."
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 with st.expander("Months 2–3 — what the first wave is expected to drive", expanded=False):
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.markdown("""
+        st.html("""
 <div style='margin-bottom:8px;'>
   <span style='font-size:0.7rem;font-weight:700;letter-spacing:0.1em;
                text-transform:uppercase;color:#81D4FA;'>Planned — driven by pilot feedback</span>
@@ -355,10 +355,10 @@ with st.expander("Months 2–3 — what the first wave is expected to drive", ex
     We need to surface it: "Chicken was excluded because of Chas's egg sensitivity."</div>
   </div>
 </div>
-        """, unsafe_allow_html=True)
+        """)
 
     with col_b:
-        st.markdown("""
+        st.html("""
 <div style='margin-bottom:8px;'>
   <span style='font-size:0.7rem;font-weight:700;letter-spacing:0.1em;
                text-transform:uppercase;color:#81D4FA;'>Infrastructure to support 5–10 households</span>
@@ -398,9 +398,9 @@ with st.expander("Months 2–3 — what the first wave is expected to drive", ex
     good as what households are willing to tell us.</div>
   </div>
 </div>
-        """, unsafe_allow_html=True)
+        """)
 
-    st.markdown("""
+    st.html("""
 <div style='background:rgba(255,255,255,0.07);border-radius:8px;padding:14px 18px;margin-top:8px;'>
   <div style='font-size:0.8rem;color:rgba(255,255,255,0.6);line-height:1.6;'>
     <strong style='color:rgba(255,255,255,0.85);'>What we're watching:</strong>
@@ -409,13 +409,13 @@ with st.expander("Months 2–3 — what the first wave is expected to drive", ex
     If the answer to all three is yes, the product works. If not — that's the next month's roadmap.
   </div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MONTHS 4-5 — BETA EXPANSION
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.html("""
 <div class='rm-phase rm-beta' style='margin-top:16px;'>
   <div class='rm-phase-label' style='color:#FFB74D;'>Months 4–5 — Planned</div>
   <div class='rm-phase-title'>Beta Expansion · 20–30 Households</div>
@@ -428,10 +428,10 @@ st.markdown("""
     versus the ones we thought they'd want.
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 with st.expander("Months 4–5 — what beta expansion requires", expanded=False):
-    st.markdown("""
+    st.html("""
 <div style='display:grid;grid-template-columns:1fr 1fr;gap:24px;'>
 <div>
 <div style='font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
@@ -513,13 +513,13 @@ with st.expander("Months 4–5 — what beta expansion requires", expanded=False
 </div>
 </div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MONTH 6+ — INVESTMENT MILESTONE
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.html("""
 <div class='rm-phase rm-invest' style='margin-top:16px;'>
   <div class='rm-phase-label' style='color:#CE93D8;'>Month 6+ — The Milestone</div>
   <div class='rm-phase-title'>The Data Package · Investment-Ready</div>
@@ -531,13 +531,13 @@ st.markdown("""
     not by Tim alone.
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 with st.expander("Month 6+ — what the investment milestone looks like", expanded=False):
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        st.markdown("""
+        st.html("""
 <div style='background:rgba(255,255,255,0.06);border-radius:10px;padding:16px;height:100%;'>
   <div style='font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
               color:#CE93D8;margin-bottom:12px;'>The data package</div>
@@ -549,10 +549,10 @@ with st.expander("Month 6+ — what the investment milestone looks like", expand
     Cost to serve per household per month
   </div>
 </div>
-        """, unsafe_allow_html=True)
+        """)
 
     with c2:
-        st.markdown("""
+        st.html("""
 <div style='background:rgba(255,255,255,0.06);border-radius:10px;padding:16px;height:100%;'>
   <div style='font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
               color:#CE93D8;margin-bottom:12px;'>What gets built next</div>
@@ -564,10 +564,10 @@ with st.expander("Month 6+ — what the investment milestone looks like", expand
     15+ grocer chains — mid-Atlantic to national coverage
   </div>
 </div>
-        """, unsafe_allow_html=True)
+        """)
 
     with c3:
-        st.markdown("""
+        st.html("""
 <div style='background:rgba(255,255,255,0.06);border-radius:10px;padding:16px;height:100%;'>
   <div style='font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
               color:#CE93D8;margin-bottom:12px;'>The team this requires</div>
@@ -579,9 +579,9 @@ with st.expander("Month 6+ — what the investment milestone looks like", expand
     Health systems BD — clinical licensing, HIPAA compliance path
   </div>
 </div>
-        """, unsafe_allow_html=True)
+        """)
 
-    st.markdown("""
+    st.html("""
 <div style='background:rgba(206,147,216,0.1);border:1px solid rgba(206,147,216,0.25);
             border-radius:10px;padding:14px 20px;margin-top:16px;'>
   <div style='font-size:0.88rem;color:rgba(255,255,255,0.8);line-height:1.6;'>
@@ -592,13 +592,13 @@ with st.expander("Month 6+ — what the investment milestone looks like", expand
     Everything else follows from that.
   </div>
 </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
 st.divider()
 
 # ── Bottom callout ────────────────────────────────────────────────────────────
-st.markdown("""
+st.html("""
 <div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;
             padding:16px 20px;display:flex;justify-content:space-between;
             align-items:center;flex-wrap:wrap;gap:12px;'>
@@ -618,8 +618,8 @@ st.markdown("""
     </a>
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.html("<br>")
 st.page_link("pages/7_Investor.py", label="← Investor Brief")
 st.page_link("pages/8_Roadmap.py",  label="→ Product Vision Roadmap")

@@ -30,7 +30,7 @@ style.page_header(
 )
 
 # ── Roadmap CSS ───────────────────────────────────────────────────────────────
-st.markdown("""
+st.html("""
 <style>
 .phase-hero {
     border-radius: 14px;
@@ -120,13 +120,13 @@ st.markdown("""
 .status-pill-next   { background:#EBF2FB; color:#1A4A7A; border-radius:20px; padding:2px 10px; font-size:0.68rem; font-weight:700; }
 .status-pill-future { background:#F3EDFB; color:#5A1A8A; border-radius:20px; padding:2px 10px; font-size:0.68rem; font-weight:700; }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PHASE INTRO — the honest frame
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.html("""
 <div style='background:white;border:1px solid #D8EDD0;border-left:4px solid #3A8C4E;
             border-radius:8px;padding:18px 22px;margin-bottom:28px;'>
   <div style='font-weight:700;color:#1E5C32;font-size:1rem;margin-bottom:6px;'>
@@ -139,14 +139,14 @@ st.markdown("""
     That's the WhollyFare approach: build for the family in front of you, then build for everyone.
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PHASE 1 — POC / PILOT (NOW)
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="phase-hero phase-live">', unsafe_allow_html=True)
-st.markdown("""
+st.html('<div class="phase-hero phase-live">')
+st.html("""
 <div class="phase-label" style="color:#9FD9A8;">Phase 1</div>
 <div class="phase-timing">Now — Charlottesville Pilot · Hislop Family + Friends</div>
 <div class="phase-title">Prove the engine. Record the savings.</div>
@@ -154,15 +154,15 @@ st.markdown("""
   One household. Four local stores. Manual flyer entry. Eight weeks of real receipts.
   The goal is not a polished product — it's undeniable data.
 </div>
-""", unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+""")
+st.html('</div>')
 
-st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+st.html("<div style='height:10px;'></div>")
 
 p1c1, p1c2, p1c3 = st.columns(3)
 
 with p1c1:
-    st.markdown("""
+    st.html("""
     <div class="feature-card built">
       <div class="feature-icon">🛡️</div>
       <div class="feature-title">Constraint Engine <span class="status-pill-built">Built</span></div>
@@ -172,10 +172,10 @@ with p1c1:
       <div class="feature-why">Why: One peanut allergy in one household means every recommendation
       must be bulletproof. Trust is built before anything else.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with p1c2:
-    st.markdown("""
+    st.html("""
     <div class="feature-card built">
       <div class="feature-icon">🏪</div>
       <div class="feature-title">Manual Grocer Hub <span class="status-pill-built">Built</span></div>
@@ -185,10 +185,10 @@ with p1c2:
       <div class="feature-why">Why: PDF parsing is unreliable. Manual entry is 100% reliable.
       The pilot loop must work every Sunday without fail.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with p1c3:
-    st.markdown("""
+    st.html("""
     <div class="feature-card built">
       <div class="feature-icon">💰</div>
       <div class="feature-title">Found Money Ledger <span class="status-pill-built">Built</span></div>
@@ -198,16 +198,16 @@ with p1c3:
       <div class="feature-why">Why: A savings claim backed by real receipts is evidence.
       One backed by estimates is marketing.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
-st.markdown("<div style='height:24px;'></div>", unsafe_allow_html=True)
+st.html("<div style='height:24px;'></div>")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PHASE 2 — BETA (POST-PILOT · 5–10 HOUSEHOLDS)
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="phase-hero phase-beta">', unsafe_allow_html=True)
-st.markdown("""
+st.html('<div class="phase-hero phase-beta">')
+st.html("""
 <div class="phase-label" style="color:#7EB3E8;">Phase 2</div>
 <div class="phase-timing">Beta · Months 2–5 · 5–10 Pilot Households · Charlottesville + friends</div>
 <div class="phase-title">What families actually want. Learned from families.</div>
@@ -216,15 +216,15 @@ st.markdown("""
   household conversations — moms who quit HelloFresh, families managing food allergies,
   people who know they're leaving money on the table every week.
 </div>
-""", unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+""")
+st.html('</div>')
 
-st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+st.html("<div style='height:10px;'></div>")
 
 p2c1, p2c2, p2c3, p2c4 = st.columns(4)
 
 with p2c1:
-    st.markdown("""
+    st.html("""
     <div class="feature-card beta">
       <div class="feature-icon">🍽️</div>
       <div class="feature-title">Meal Type Selection <span class="status-pill-next">Phase 2</span></div>
@@ -234,10 +234,10 @@ with p2c1:
       <div class="feature-why">Why: "What's for dinner?" is also "how much energy do I have
       tonight?" The plan needs to answer both.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with p2c2:
-    st.markdown("""
+    st.html("""
     <div class="feature-card beta">
       <div class="feature-icon">🥫</div>
       <div class="feature-title">Pantry Tracker <span class="status-pill-next">Phase 2</span></div>
@@ -247,10 +247,10 @@ with p2c2:
       <div class="feature-why">Why: Families already have half a pantry. Planning around it
       is the difference between a $95 week and a $60 week.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with p2c3:
-    st.markdown("""
+    st.html("""
     <div class="feature-card beta">
       <div class="feature-icon">👨‍👩‍👧</div>
       <div class="feature-title">Multi-Household Support <span class="status-pill-next">Phase 2</span></div>
@@ -260,10 +260,10 @@ with p2c3:
       <div class="feature-why">Why: The product can't scale if every new user requires
       a personal introduction.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with p2c4:
-    st.markdown("""
+    st.html("""
     <div class="feature-card beta">
       <div class="feature-icon">📱</div>
       <div class="feature-title">Mobile-First UI <span class="status-pill-next">Phase 2</span></div>
@@ -273,16 +273,16 @@ with p2c4:
       <div class="feature-why">Why: If the shopping list isn't usable on a phone in
       a Kroger aisle, the product hasn't shipped.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
-st.markdown("<div style='height:24px;'></div>", unsafe_allow_html=True)
+st.html("<div style='height:24px;'></div>")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PHASE 3 — GROWTH (INVESTMENT ROUND · REGIONAL SCALE)
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="phase-hero phase-growth">', unsafe_allow_html=True)
-st.markdown("""
+st.html('<div class="phase-hero phase-growth">')
+st.html("""
 <div class="phase-label" style="color:#C09FE0;">Phase 3</div>
 <div class="phase-timing">Growth · Months 6–18 · Investment Round · Regional Scale</div>
 <div class="phase-title">From pilot data to a product people pay for.</div>
@@ -291,15 +291,15 @@ st.markdown("""
   concept to 500 households across the Mid-Atlantic, with real revenue, real retention data,
   and the engineering foundation for national scale.
 </div>
-""", unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+""")
+st.html('</div>')
 
-st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+st.html("<div style='height:10px;'></div>")
 
 p3c1, p3c2, p3c3 = st.columns(3)
 
 with p3c1:
-    st.markdown("""
+    st.html("""
     <div class="feature-card growth">
       <div class="feature-icon">📖</div>
       <div class="feature-title">WhollyFare Cookbook <span class="status-pill-future">Phase 3</span></div>
@@ -310,10 +310,10 @@ with p3c1:
       <div class="feature-why">Why: Retention. A family with 20 approved recipes in their
       WhollyFare cookbook doesn't cancel their subscription.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with p3c2:
-    st.markdown("""
+    st.html("""
     <div class="feature-card growth">
       <div class="feature-icon">🤖</div>
       <div class="feature-title">Automated Circular Parsing <span class="status-pill-future">Phase 3</span></div>
@@ -323,10 +323,10 @@ with p3c2:
       <div class="feature-why">Why: The manual upload is the POC's biggest friction point.
       Removing it is the difference between a product families use and one they try once.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with p3c3:
-    st.markdown("""
+    st.html("""
     <div class="feature-card growth">
       <div class="feature-icon">🏥</div>
       <div class="feature-title">Health System Partnerships <span class="status-pill-future">Phase 3</span></div>
@@ -337,16 +337,16 @@ with p3c3:
       <div class="feature-why">Why: The medical edge is the highest-value market and the
       hardest one for competitors to enter honestly.</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
-st.markdown("<div style='height:24px;'></div>", unsafe_allow_html=True)
+st.html("<div style='height:24px;'></div>")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PHASE 4 — NATIONAL (SERIES A)
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="phase-hero phase-scale">', unsafe_allow_html=True)
-st.markdown("""
+st.html('<div class="phase-hero phase-scale">')
+st.html("""
 <div class="phase-label" style="color:#E8C060;">Phase 4</div>
 <div class="phase-timing">National · Months 18–36 · Series A · 50,000+ Households</div>
 <div class="phase-title">The category-defining meal planning platform.</div>
@@ -356,10 +356,10 @@ st.markdown("""
   The moat competitors spent 10 years building is the thing that prevents them from
   competing with us.
 </div>
-""", unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+""")
+st.html('</div>')
 
-st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+st.html("<div style='height:10px;'></div>")
 
 p4c1, p4c2, p4c3, p4c4 = st.columns(4)
 
@@ -372,31 +372,29 @@ national_features = [
 
 for col, (icon, title, body) in zip([p4c1, p4c2, p4c3, p4c4], national_features):
     with col:
-        st.markdown(f"""
+        st.html(f"""
         <div class="feature-card scale">
           <div class="feature-icon">{icon}</div>
           <div class="feature-title">{title} <span class="status-pill-future">Phase 4</span></div>
           <div class="feature-body">{body}</div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
-st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+st.html("<div style='height:28px;'></div>")
 st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # THE INVESTMENT ARGUMENT
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown(
+st.html(
     "<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;"
-    "color:#3A8C4E;margin-bottom:12px;'>Why this raises at 7–8 figures</div>",
-    unsafe_allow_html=True,
-)
+    "color:#3A8C4E;margin-bottom:12px;'>Why this raises at 7–8 figures</div>")
 
 ia1, ia2 = st.columns([3, 2])
 
 with ia1:
-    st.markdown("""
+    st.html("""
     <div style='font-size:1.3rem;font-weight:800;color:#1A2E1D;margin-bottom:14px;
                 letter-spacing:-0.01em;line-height:1.2;'>
       The market is enormous. The gap is real.<br>The moat is structural.
@@ -419,7 +417,7 @@ with ia1:
       relationship deepens. Trust, built over time, at the household level, around food safety,
       is not something you can acquire. It has to be earned.
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with ia2:
     metrics = [
@@ -430,18 +428,18 @@ with ia2:
         ("$0",    "Paid placements. Ever."),
     ]
     for val, label in metrics:
-        st.markdown(f"""
+        st.html(f"""
         <div style='background:white;border:1px solid #E8EEE8;border-left:4px solid #3A8C4E;
                     border-radius:8px;padding:14px 18px;margin-bottom:10px;'>
           <div style='font-size:1.8rem;font-weight:800;color:#1A2E1D;line-height:1;'>{val}</div>
           <div style='font-size:0.79rem;color:#5A7A62;margin-top:4px;'>{label}</div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
-st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+st.html("<div style='height:20px;'></div>")
 
 # ── Contact / CTA ─────────────────────────────────────────────────────────────
-st.markdown("""
+st.html("""
 <div style='background:linear-gradient(160deg,#0A0F0D,#0F1F14);border-radius:14px;
             padding:36px 40px;text-align:center;'>
   <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.14em;
@@ -467,4 +465,4 @@ st.markdown("""
     Sentir Solutions® LLC · Charlottesville, VA
   </div>
 </div>
-""", unsafe_allow_html=True)
+""")
