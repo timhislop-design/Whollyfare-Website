@@ -51,6 +51,20 @@ if st.session_state.get("household_db") and st.session_state.get("household") is
     if profile:
         st.session_state["household"] = profile
 
+# If DB has members but member_list is empty or just the blank default placeholder,
+# clear it so it rebuilds from the freshly loaded household.members below.
+# POC: member_list is initialized before sign-in by state.init(); without this,
+# the guard at "if member_list not in session_state" skips the rebuild after sign-in.
+if st.session_state.get("household_db"):
+    _db_members = st.session_state["household_db"].get("members", [])
+    _ml = st.session_state.get("member_list", [])
+    _ml_is_empty_default = (
+        len(_ml) == 0
+        or (len(_ml) == 1 and not _ml[0].get("name", "").strip())
+    )
+    if _db_members and _ml_is_empty_default:
+        st.session_state.pop("member_list", None)
+
 with st.sidebar:
     style.sidebar_nav()
 
