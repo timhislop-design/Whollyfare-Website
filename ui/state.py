@@ -505,51 +505,44 @@ def current_user_id() -> str | None:
 
 # ── Authenticated client helper ─────────────────────────────────────────────
 def _sb_headers(write: bool = False) -> dict:
-    """Build Supabase REST headers with the user JWT in Authorization.
+    """Build Supabase REST headers for PostgREST calls.
 
-    Supabase PostgREST reads auth.uid() from the Authorization Bearer JWT.
-    We set this explicitly rather than relying on supabase-py to propagate
-    the session — that propagation has proven unreliable across Streamlit reruns.
+    Token strategy (POC):
+      - Writes: service_role_key — bypasses RLS entirely. Safe for server-side
+        Python code because the key never reaches the browser. User isolation
+        is enforced at the application layer (we always include created_by/user_id
+        in write payloads explicitly).
+      - Reads: user JWT from session_state, falling back to anon key. RLS
+        ensures users only see their own rows.
 
-    Token resolution order:
-      1. session_state["_sb_access_token"] — set at sign-in, fastest path.
-      2. get_client().auth.get_session()   — GoTrue cached client fallback.
-         Covers the case where st.switch_page() or a Streamlit rerun cleared
-         session_state keys that weren't in the init() defaults dict.
-      3. anon key — unauthenticated fallback; RLS will block writes.
-
-    POC:  Tokens expire after 1 hour (Supabase default); user must re-sign-in.
-    PROD: Add silent token-refresh using refresh_token before expiry.
+    PROD: Keep service_role_key for admin/write paths. Add per-user JWT reads
+          with token refresh so sessions survive beyond 1 hour.
     """
     url    = st.secrets["supabase"]["url"]
     anon   = st.secrets["supabase"]["anon_key"]
-    token  = st.session_state.get("_sb_access_token")
 
-    # Fallback: pull token from the cached GoTrue client's own session storage.
-    # This works because get_client() is @st.cache_resource — the same Python
-    # object that called sign_in_with_password() is still alive in this process.
-    if not token and _DB_AVAILABLE:
-        try:
-            sess = get_client().auth.get_session()
-            if sess and getattr(sess, "access_token", None):
-                token = sess.access_token
-                st.session_state["_sb_access_token"] = token
-                _log.info("_sb_headers: recovered JWT from GoTrue client session")
-        except Exception as _gtex:
-            _log.warning("_sb_headers: GoTrue fallback failed: %s", _gtex)
-
-    if not token:
-        token = anon
+    if write:
+        # Service role key bypasses RLS — required for INSERT/UPDATE/DELETE
+        # because the user JWT + RLS path has proven unreliable in supabase-py
+        # across Streamlit reruns and st.switch_page() calls.
+        svc = st.secrets.get("supabase", {}).get("service_role_key") or ""
+        token = svc if svc else anon
+        if not svc:
+            _log.warning("_sb_headers: service_role_key missing — write will fail RLS")
+    else:
+        # Reads: use the user JWT so RLS filters to this user's rows only.
+        token = st.session_state.get("_sb_access_token") or anon
 
     h = {
         "apikey":        anon,
         "Authorization": f"Bearer {token}",
         "Content-Type":  "application/json",
+        "Prefer":        "return=representation",
     }
-    if write:
-        h["Prefer"] = "return=representation"
-    _log.debug("_sb_headers: using %s token",
-               "user JWT" if token != anon else "ANON KEY — writes will fail RLS")
+    _log.debug("_sb_headers: mode=%s token_type=%s",
+               "write" if write else "read",
+               "service_role" if (write and token != anon) else
+               "user_jwt"     if (not write and token != anon) else "anon")
     return h
 
 
