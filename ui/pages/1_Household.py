@@ -38,14 +38,20 @@ st.set_page_config(page_title="Household Setup · WhollyFare", page_icon="👨�
 state.init()
 
 # ── DB load ───────────────────────────────────────────────────────────────────
-# If authenticated and household not yet in session_state, load from DB.
-# This restores the profile after a browser refresh.
-# POC: runs on every page load but DB call is cheap (one row, indexed on user_id).
-if state.is_authenticated() and st.session_state.get("household_db") is None:
+# Load from DB when:
+#   a) household_db is None (first visit / browser refresh), OR
+#   b) household (HouseholdProfile) is None even though we're authenticated —
+#      this happens when navigating back from the Grocer Hub after adding stores,
+#      which can clear the profile object without clearing household_db.
+# POC: DB call is cheap (one row, indexed on user_id) so double-loading is fine.
+# PROD: add an in-memory TTL cache to avoid redundant round trips.
+if state.is_authenticated() and (
+    st.session_state.get("household_db") is None
+    or st.session_state.get("household") is None
+):
     state.load_household()
 
-# If DB returned data but session_state["household"] (HouseholdProfile) is missing,
-# convert the dict back so the constraint engine and other pages work correctly.
+# Convert the DB dict into a typed HouseholdProfile if still missing after load.
 if st.session_state.get("household_db") and st.session_state.get("household") is None:
     profile = state.db_dict_to_profile(st.session_state["household_db"])
     if profile:
