@@ -26,14 +26,37 @@ import logging
 import requests as _requests
 from datetime import date, timedelta
 
-# Load .env for local development. Silently no-ops if python-dotenv isn't
-# installed or no .env file exists (Streamlit Cloud uses st.secrets instead).
-# POC: .env for local, st.secrets for cloud. PROD: vault-based secret management.
+# ── Secret loading strategy ──────────────────────────────────────────────────
+# POC:  .env for local dev, .streamlit/secrets.toml for Streamlit Cloud.
+# PROD: vault-based secret management (AWS Secrets Manager / GCP Secret Manager).
+#
+# We push everything into os.environ so all downstream code (KrogerClient, etc.)
+# can use os.environ.get() without knowing whether the value came from .env or
+# st.secrets. Order of precedence: shell env > st.secrets > .env file.
+
+# 1. Load .env (local dev — silently no-ops if file or package absent)
 try:
     from dotenv import load_dotenv as _load_dotenv
-    _load_dotenv(override=False)   # don't override vars already set in the shell
+    _load_dotenv(override=False)
 except ImportError:
     pass
+
+# 2. Bridge Streamlit secrets into os.environ (covers both local secrets.toml
+#    and Streamlit Cloud secrets — whichever is present).
+#    Nested TOML tables are flattened: [kroger] client_id → KROGER_CLIENT_ID
+import os as _os
+try:
+    for _section, _val in st.secrets.items():
+        if hasattr(_val, "items"):          # TOML table → flatten with prefix
+            for _k, _v in _val.items():
+                _env_key = f"{_section}_{_k}".upper()
+                if _env_key not in _os.environ:
+                    _os.environ[_env_key] = str(_v)
+        else:                               # top-level scalar
+            if _section.upper() not in _os.environ:
+                _os.environ[_section.upper()] = str(_val)
+except Exception:
+    pass  # st.secrets not available (e.g. running outside Streamlit)
 
 # Debug logging — appears in Streamlit Cloud 'Manage app' logs.
 # Remove or set to WARNING in production.
