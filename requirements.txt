@@ -25,5 +25,9 @@ openpyxl>=3.1.0
 # Database — cache-bust 2026-05-19
 supabase>=2.0.0,<3.0.0
 
+# Mapping (Grocer Hub store wizard)
+folium>=0.17.0
+streamlit-folium>=0.20.0
+
 # Utilities
 python-dateutil>=2.8.0

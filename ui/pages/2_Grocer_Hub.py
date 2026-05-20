@@ -33,6 +33,16 @@ import ui.style as style
 from app.data.flyer_ingestor import FlyerIngestor
 from app.core_logic.constraint_engine import IngredientCandidate
 from app.data.store_regions import chains_for_zip, region_label, CHARLOTTESVILLE_CHAINS
+from app.data.store_locations import stores_near_zip, zip_centroid, trip_cost_estimate
+
+# POC: folium + streamlit-folium optional — map degrades gracefully if not installed.
+# Install: pip install folium streamlit-folium
+try:
+    import folium
+    from streamlit_folium import st_folium
+    FOLIUM_AVAILABLE = True
+except ImportError:
+    FOLIUM_AVAILABLE = False
 
 st.set_page_config(page_title="Grocer Hub · WhollyFare", page_icon="🏪", layout="wide")
 state.init()
@@ -268,156 +278,342 @@ for tier in STORE_TIERS:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# "WHERE DO YOU LIKE TO SHOP?" — Tiered store selection
+# STORE PROFILE WIZARD
+# Sets up the household's store list: zip-aware discovery, travel radius,
+# trip distance per store, and a folium map showing all nearby options.
+#
+# POC: Saves to session_state. PROD: Persists to user profile in Supabase.
 # ══════════════════════════════════════════════════════════════════════════════
 grocers = st.session_state.get("grocers", [])
 existing_chains_lower = {g.get("chain", "").lower() for g in grocers}
 
-# Intro banner (shown until at least one store is configured)
-if not grocers:
+# ── Resolve home zip and travel radius ───────────────────────────────────────
+home_zip      = st.session_state.get("home_zip", "")
+travel_radius = int(st.session_state.get("travel_radius_mi", 15))
+
+# nearby_chains: used by tier cards below to filter store lists by region.
+# Always defined here so tier cards don't NameError.
+# POC: zip-prefix region lookup. PROD: real store-locator API.
+nearby_chains = (
+    chains_for_zip(home_zip) if home_zip
+    else {s["chain"] for t in STORE_TIERS for s in t["stores"]}
+)
+
+# Wizard state: show if no stores OR user clicked "Edit my stores"
+_wizard_done = st.session_state.get("store_wizard_done", False) and bool(grocers)
+_show_wizard = (not _wizard_done) or st.session_state.get("show_store_wizard", False)
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# WIZARD — shown on first visit or when editing
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+if _show_wizard:
     st.html("""
     <div style='background:linear-gradient(135deg,#E8F5E9,#F0FAF2);
-                border:1px solid #D8EDD0;border-radius:12px;
-                padding:20px 24px;margin-bottom:24px;'>
-      <div style='font-size:1.15rem;font-weight:700;color:#1E5C32;margin-bottom:6px;'>
-        Where do you like to shop?
+                border:1px solid #D8EDD0;border-radius:14px;
+                padding:22px 26px 18px;margin-bottom:20px;'>
+      <div style='font-size:1.15rem;font-weight:800;color:#1E5C32;margin-bottom:6px;'>
+        Set up your store profile
       </div>
-      <div style='font-size:0.88rem;color:#3A8C4E;line-height:1.5;'>
-        Add the stores you actually visit. WhollyFare will compare prices across all of them —
-        routing each ingredient to wherever it's cheapest that week.
-        The more stores, the more Found Money.
+      <div style='font-size:0.88rem;color:#3A8C4E;line-height:1.6;'>
+        Tell WhollyFare where you shop and how far you'll travel.
+        We'll show you every store within range — including ones you might not know about —
+        with honest trip cost estimates so you can decide if the savings are worth the drive.
       </div>
     </div>""")
 
-# ── Recommended stores for this household ────────────────────────────────────
-# POC: Rule-based on budget tier and household size. Shows up to 3 suggestions.
-# PROD: ML-ranked by zip-code proximity + category overlap with household
-#       dietary profile. Learns from what pilot households actually keep.
-if not grocers:
-    household = st.session_state.get("household")
-    budget    = getattr(household, "weekly_budget_usd", 120) if household else 120
-    size      = getattr(household, "servings_per_meal", 4) if household else 4
+    # ── Zip + radius controls ─────────────────────────────────────────────────
+    wz_col1, wz_col2 = st.columns([1, 2])
+    with wz_col1:
+        w_zip = st.text_input(
+            "Your zip code",
+            value=home_zip,
+            key="wizard_zip_input",
+            placeholder="e.g. 22903",
+            help="We use this to find stores near you and calculate trip costs.",
+        )
+    with wz_col2:
+        w_radius = st.slider(
+            "How far are you willing to travel? (miles)",
+            min_value=5, max_value=30, value=travel_radius, step=5,
+            help="One-way distance. WhollyFare calculates round-trip gas cost per store.",
+        )
 
-    # Budget tiers: lean (<$80), moderate ($80–150), flexible (>$150)
-    lean      = budget < 80
-    flexible  = budget > 150
+    # Update session from wizard inputs (live, before Save)
+    if w_zip != home_zip:
+        st.session_state["home_zip"] = w_zip
+        home_zip = w_zip
+    if w_radius != travel_radius:
+        st.session_state["travel_radius_mi"] = w_radius
+        travel_radius = w_radius
 
-    recommendations = []
+    # ── Nearby stores ─────────────────────────────────────────────────────────
+    effective_zip = home_zip if home_zip else "22903"   # Charlottesville fallback for pilot
+    nearby_stores = stores_near_zip(effective_zip, float(w_radius))
+    nearby_chains  = {loc["chain"] for loc in nearby_stores}  # update for tier cards below
 
-    # Value anchor — always recommend one discount store
-    if lean:
-        recommendations.append({
-            "chain": "ALDI", "tier": "discount",
-            "reason": f"At ${budget:.0f}/week your best per-unit prices are at ALDI — "
-                      "no loyalty card required, prices are simply lower.",
-            "color": "#BF5E00", "bg": "#FFF8F0", "border": "#FFCC80",
-        })
+    # ── Map ───────────────────────────────────────────────────────────────────
+    centroid = zip_centroid(effective_zip)
+    if centroid and FOLIUM_AVAILABLE and nearby_stores:
+        tier_marker_colors = {
+            "discount":   "orange",
+            "mainstream": "green",
+            "specialty":  "blue",
+            "local":      "red",
+        }
+        m = folium.Map(location=list(centroid), zoom_start=12, tiles="OpenStreetMap")
+
+        # Radius circle
+        folium.Circle(
+            location=list(centroid),
+            radius=w_radius * 1609.34,   # miles → metres
+            color="#3A8C4E",
+            fill=True,
+            fill_opacity=0.06,
+            weight=2,
+            dash_array="6 4",
+            tooltip=f"{w_radius}-mile radius",
+        ).add_to(m)
+
+        # Home pin
+        folium.Marker(
+            location=list(centroid),
+            tooltip="Your location",
+            icon=folium.Icon(color="gray", icon="home", prefix="fa"),
+        ).add_to(m)
+
+        # Store markers
+        for loc in nearby_stores:
+            already = loc["chain"].lower() in existing_chains_lower
+            mcolor  = tier_marker_colors.get(loc["tier"], "gray")
+            dist_str = f"{loc['distance_miles']:.1f} mi" if loc["distance_miles"] else ""
+            cost_str = f" · ~${loc['trip_cost']:.2f} round trip" if loc["trip_cost"] else ""
+            popup_html = (
+                f"<b>{loc['location']}</b><br>"
+                f"{loc['address']}<br>"
+                f"<span style='color:#3A8C4E'>{dist_str}{cost_str}</span>"
+                + ("<br><b style='color:#1E5C32'>✓ In your store list</b>" if already else "")
+            )
+            folium.Marker(
+                location=[loc["lat"], loc["lon"]],
+                tooltip=f"{'✓ ' if already else ''}{loc['location']} ({dist_str})",
+                popup=folium.Popup(popup_html, max_width=260),
+                icon=folium.Icon(
+                    color=mcolor if not already else "darkgreen",
+                    icon="shopping-cart",
+                    prefix="fa",
+                ),
+            ).add_to(m)
+
+        st.html("<div style='font-size:0.75rem;color:#5A7A62;margin-bottom:6px;'>"
+                "📍 Stores within your travel radius. Click any marker for details.</div>")
+        st_folium(m, height=340, use_container_width=True, returned_objects=[])
+
+    elif centroid and not FOLIUM_AVAILABLE:
+        st.html("<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;"
+                "padding:10px 14px;font-size:0.82rem;color:#BF5E00;margin-bottom:12px;'>"
+                "🗺️ Install <code>folium</code> and <code>streamlit-folium</code> to see the store map. "
+                "Run: <code>pip install folium streamlit-folium</code></div>")
+    elif not centroid:
+        st.html("<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;"
+                "padding:10px 14px;font-size:0.82rem;color:#BF5E00;margin-bottom:12px;'>"
+                "Enter your zip code above to see nearby stores on the map.</div>")
+
+    # ── Store checkboxes ──────────────────────────────────────────────────────
+    st.html("<div style='font-size:0.78rem;font-weight:700;color:#1E5C32;"
+            "letter-spacing:0.08em;text-transform:uppercase;margin:16px 0 10px;'>"
+            "Select your stores</div>")
+
+    if not nearby_stores:
+        st.html("<div style='font-size:0.84rem;color:#5A7A62;padding:10px 0;'>"
+                "Enter a zip code above to see stores near you.</div>")
     else:
-        recommendations.append({
-            "chain": "ALDI", "tier": "discount",
-            "reason": "Even on a comfortable budget, ALDI anchors your staples at "
-                      "the lowest per-unit price and frees up budget for better proteins.",
-            "color": "#BF5E00", "bg": "#FFF8F0", "border": "#FFCC80",
-        })
+        # Track wizard selections in temp state
+        if "wizard_selections" not in st.session_state:
+            st.session_state["wizard_selections"] = {
+                g["chain"]: True for g in grocers
+            }
 
-    # Primary full-service — best for weekly staples + loyalty rewards
-    if lean:
-        recommendations.append({
-            "chain": "Food Lion", "tier": "mainstream",
-            "reason": "MVP Card deals are consistently strong on produce and proteins. "
-                      "Closer and cheaper than Harris Teeter for most staples.",
-            "color": "#1E5C32", "bg": "#F0FAF2", "border": "#D8EDD0",
-        })
-    elif flexible:
-        recommendations.append({
-            "chain": "Kroger", "tier": "mainstream",
-            "reason": "Kroger's Fuel Points + digital coupons stack aggressively. "
-                      "API-connected — WhollyFare pulls prices automatically.",
-            "color": "#1E5C32", "bg": "#F0FAF2", "border": "#D8EDD0",
-        })
-    else:
-        recommendations.append({
-            "chain": "Kroger", "tier": "mainstream",
-            "reason": "Weekly sales + digital coupons + Fuel Points. "
-                      "WhollyFare pulls Kroger prices automatically via API.",
-            "color": "#1E5C32", "bg": "#F0FAF2", "border": "#D8EDD0",
-        })
+        # Group by tier
+        tier_order_wiz = ["discount", "mainstream", "specialty", "local"]
+        tier_meta_wiz  = {
+            "discount":   ("💰", "Value & Discount",     "#BF5E00", "#FFF8F0",  "#FFCC80"),
+            "mainstream": ("🏪", "Full-Service Grocers", "#1E5C32", "#F0FAF2",  "#D8EDD0"),
+            "specialty":  ("🌿", "Specialty & Natural",  "#1565C0", "#EEF4FB",  "#BBDEFB"),
+            "local":      ("📍", "Local & Independent",  "#5D4037", "#FBF8F5",  "#D7CCC8"),
+        }
+        by_tier = {}
+        for loc in nearby_stores:
+            by_tier.setdefault(loc["tier"], []).append(loc)
 
-    # Third pick — specialty if flexible budget, local if not
-    if flexible:
-        recommendations.append({
-            "chain": "Trader Joe's", "tier": "specialty",
-            "reason": "Stable pricing with no sales cycle makes TJ's easy to plan "
-                      "around. Strong on proteins, cheeses, and specialty items.",
-            "color": "#1565C0", "bg": "#EEF4FB", "border": "#BBDEFB",
-        })
-    else:
-        recommendations.append({
-            "chain": "EW Thomas Grocery", "tier": "local",
-            "reason": "Palmyra staple. Local knowledge, local prices. "
-                      "Worth checking for meat counter specials that don't make it online.",
-            "color": "#5D4037", "bg": "#FBF8F5", "border": "#D7CCC8",
-        })
+        # Discovery callout: stores not yet in their list that are within radius
+        new_discoveries = [
+            loc for loc in nearby_stores
+            if loc["chain"].lower() not in existing_chains_lower
+        ]
+        if new_discoveries and grocers:
+            disc_names = ", ".join(loc["location"].split("—")[0].strip() for loc in new_discoveries[:3])
+            st.html(f"""
+            <div style='background:#E3F4E8;border:1px solid #A8D5B0;border-radius:8px;
+                        padding:10px 14px;font-size:0.82rem;color:#1E4228;margin-bottom:12px;'>
+              🔍 <strong>Stores near you you haven't added yet:</strong> {disc_names}
+              {"and more" if len(new_discoveries) > 3 else ""} — check them below.
+            </div>""")
 
-    # Filter out already-added stores
-    existing_lower = {g.get("chain","").lower() for g in grocers}
-    recommendations = [r for r in recommendations if r["chain"].lower() not in existing_lower]
+        for tier_key in tier_order_wiz:
+            if tier_key not in by_tier:
+                continue
+            icon, label, color, bg, border = tier_meta_wiz[tier_key]
+            tier_locs = by_tier[tier_key]
 
-    if recommendations:
-        st.html("""
-        <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;
-        text-transform:uppercase;color:#3A8C4E;margin-bottom:10px;'>
-        RECOMMENDED FOR YOUR HOUSEHOLD</div>
-        """)
-        rec_cols = st.columns(len(recommendations))
-        for col, rec in zip(rec_cols, recommendations):
-            with col:
-                st.html(f"""
-                <div style='background:{rec["bg"]};border:1px solid {rec["border"]};
-                            border-top:3px solid {rec["color"]};border-radius:10px;
-                            padding:14px 14px 10px 14px;min-height:110px;margin-bottom:4px;'>
-                  <div style='font-weight:700;color:{rec["color"]};font-size:0.95rem;'>
-                    {rec["chain"]}
-                  </div>
-                  <div style='font-size:0.75rem;color:#5A7A62;margin-top:5px;line-height:1.45;'>
-                    {rec["reason"]}
-                  </div>
-                </div>""")
-                # Find the matching store definition to add it properly
-                match = next(
-                    (s for tier in STORE_TIERS for s in tier["stores"]
-                     if s["chain"] == rec["chain"]),
-                    None
-                )
-                if st.button(f"Add {rec['chain']}", key=f"rec_{rec['chain']}", use_container_width=True):
-                    if match:
-                        grocers.append({
-                            "chain":          match["chain"],
-                            "location":       "",
-                            "source":         match["source"],
-                            "rewards":        match.get("rewards", False),
-                            "delivery":       match.get("delivery", False),
-                            "is_primary":     len(grocers) == 0,
-                            "tier":           rec["tier"],
-                            "distance_miles": None,
-                        })
+            st.html(f"""
+            <div style='font-size:0.72rem;font-weight:700;letter-spacing:0.1em;
+                        text-transform:uppercase;color:{color};margin:12px 0 6px;
+                        border-left:3px solid {color};padding-left:8px;'>
+              {icon} {label}
+            </div>""")
+
+            n_cols = min(3, len(tier_locs))
+            cols_wiz = st.columns(n_cols)
+            for i, loc in enumerate(tier_locs):
+                chain = loc["chain"]
+                dist_str = f"{loc['distance_miles']:.1f} mi away" if loc["distance_miles"] is not None else ""
+                cost_str = f"~${loc['trip_cost']:.2f} round trip" if loc["trip_cost"] else ""
+                api_badge = " 🔗 API" if loc.get("api_live") else ""
+                already   = chain.lower() in existing_chains_lower
+
+                with cols_wiz[i % n_cols]:
+                    checked = st.checkbox(
+                        f"**{chain}**",
+                        value=st.session_state["wizard_selections"].get(chain, already),
+                        key=f"wiz_check_{chain}",
+                    )
+                    st.session_state["wizard_selections"][chain] = checked
+
+                    if checked:
+                        # Trip distance input for selected stores
+                        default_dist = loc["distance_miles"] or 0.0
+                        # Try to pull saved distance from existing grocers
+                        for g in grocers:
+                            if g["chain"] == chain and g.get("distance_miles"):
+                                default_dist = g["distance_miles"]
+                                break
+                        trip_d = st.number_input(
+                            "Miles from home",
+                            min_value=0.0, max_value=100.0, step=0.5,
+                            value=float(round(default_dist, 1)),
+                            key=f"wiz_dist_{chain}",
+                            help="One-way distance used to calculate round-trip gas cost.",
+                        )
+                        if cost_str:
+                            actual_cost = trip_cost_estimate(trip_d)
+                            st.html(f"<div style='font-size:0.72rem;color:#5A7A62;margin-bottom:4px;'>"
+                                    f"{dist_str} · ~${actual_cost:.2f} round trip</div>")
                     else:
-                        grocers.append({
-                            "chain":          rec["chain"],
-                            "location":       "",
-                            "source":         "manual_pdf",
-                            "rewards":        False,
-                            "delivery":       False,
-                            "is_primary":     len(grocers) == 0,
-                            "tier":           rec["tier"],
-                            "distance_miles": None,
-                        })
-                    st.session_state["grocers"] = grocers
-                    st.rerun()
+                        st.html(f"<div style='font-size:0.72rem;color:#9AA8A0;margin-bottom:6px;'>"
+                                f"{dist_str}{(' · ' + cost_str) if cost_str else ''}{api_badge}</div>")
 
-        st.html("<div style='font-size:0.75rem;color:#5A7A62;margin:4px 0 20px 0;'>"
-                "These are suggestions based on your budget — browse all tiers below "
-                "to add any store you actually shop.</div>")
+    # ── Enforce + Save ────────────────────────────────────────────────────────
+    selected_chains = [
+        chain for chain, sel in st.session_state.get("wizard_selections", {}).items() if sel
+    ]
+
+    st.html("<div style='margin-top:16px;'></div>")
+    if not selected_chains:
+        st.html("<div style='font-size:0.82rem;color:#BF5E00;margin-bottom:8px;'>"
+                "⚠️ Select at least one store to continue.</div>")
+
+    save_col, cancel_col = st.columns([1, 5])
+    with save_col:
+        save_disabled = len(selected_chains) == 0
+        save_clicked  = st.button(
+            "Save my stores",
+            type="primary",
+            disabled=save_disabled,
+            use_container_width=True,
+        )
+
+    if save_clicked and selected_chains:
+        # Build updated grocers list from wizard selections
+        new_grocers = []
+        for chain in selected_chains:
+            dist_val = st.session_state.get(f"wiz_dist_{chain}", 0.0)
+            # Find full store metadata
+            match = next(
+                (s for t in STORE_TIERS for s in t["stores"] if s["chain"] == chain),
+                None,
+            )
+            # Also check store_locations for lat/lon
+            loc_match = next(
+                (loc for loc in (nearby_stores if nearby_stores else []) if loc["chain"] == chain),
+                None,
+            )
+            tier_key = loc_match["tier"] if loc_match else (
+                CHAIN_TIER.get(chain.lower(), "mainstream")
+            )
+            new_grocers.append({
+                "chain":          chain,
+                "location":       loc_match["address"] if loc_match else "",
+                "source":         match["source"] if match else "manual_pdf",
+                "rewards":        match.get("rewards", False) if match else False,
+                "delivery":       match.get("delivery", False) if match else False,
+                "is_primary":     len(new_grocers) == 0,
+                "tier":           tier_key,
+                "distance_miles": dist_val if dist_val > 0 else None,
+                "lat":            loc_match["lat"] if loc_match else None,
+                "lon":            loc_match["lon"] if loc_match else None,
+            })
+
+        st.session_state["grocers"]           = new_grocers
+        st.session_state["travel_radius_mi"]  = w_radius
+        st.session_state["home_zip"]          = effective_zip
+        st.session_state["store_wizard_done"] = True
+        st.session_state["show_store_wizard"] = False
+        st.session_state.pop("wizard_selections", None)
+
+        # POC: session_state only. PROD: write to Supabase user profile.
+        st.success(f"Store profile saved — {len(new_grocers)} store{'s' if len(new_grocers) != 1 else ''} added.")
+        st.rerun()
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PROFILE CARD — compact view after wizard is complete
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+else:
+    tier_colors_prof = {
+        "discount": "#BF5E00", "mainstream": "#1E5C32",
+        "specialty": "#1565C0", "local": "#5D4037",
+    }
+    tier_icons_prof = {
+        "discount": "💰", "mainstream": "🏪", "specialty": "🌿", "local": "📍",
+    }
+    store_pills = "".join(
+        f"<span style='background:#E3F4E8;color:{tier_colors_prof.get(g.get('tier',''), '#1E5C32')};"
+        f"border:1px solid #D8EDD0;border-radius:20px;padding:3px 10px;"
+        f"font-size:0.76rem;font-weight:600;margin:0 4px 4px 0;display:inline-block;'>"
+        f"{tier_icons_prof.get(g.get('tier',''), '🏪')} {g['chain']}"
+        + (f" · {g['distance_miles']:.1f}mi" if g.get("distance_miles") else "")
+        + "</span>"
+        for g in grocers
+    )
+    region_lbl = region_label(home_zip) if home_zip else "your area"
+    radius_lbl = f"{travel_radius}-mile radius" if travel_radius else ""
+
+    st.html(f"""
+    <div style='background:#F0FAF2;border:1px solid #D8EDD0;border-radius:12px;
+                padding:16px 20px;margin-bottom:18px;'>
+      <div style='display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;'>
+        <div>
+          <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+                      color:#3A8C4E;margin-bottom:6px;'>Your Store Profile · {region_lbl} · {radius_lbl}</div>
+          <div style='flex-wrap:wrap;display:flex;'>{store_pills}</div>
+        </div>
+      </div>
+    </div>""")
+
+    if st.button("✏️ Edit my stores", key="open_store_wizard"):
+        st.session_state["show_store_wizard"] = True
+        st.rerun()
+    st.html("<div style='margin-bottom:8px;'></div>")
+
 
 # ── Tier cards ────────────────────────────────────────────────────────────────
 for tier in STORE_TIERS:
