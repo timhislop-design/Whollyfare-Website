@@ -606,15 +606,38 @@ if _show_wizard:
     selected_chains = [
         chain for chain, sel in st.session_state.get("wizard_selections", {}).items() if sel
     ]
+    _pending_preview = st.session_state.get("_pending_custom_grocers", [])
+
+    # Preview panel — shows what will be saved when the user clicks Save.
+    # This is the review step: nothing commits to the profile until Save is clicked.
+    _all_staged = selected_chains + [p["chain"] for p in _pending_preview]
+    if _all_staged:
+        _preview_pills = "".join(
+            f"<span style='background:#D8EDD0;color:#1E5C32;border-radius:14px;"
+            f"padding:3px 10px;font-size:0.76rem;font-weight:600;margin:0 4px 4px 0;"
+            f"display:inline-block;'>{ch}</span>"
+            for ch in _all_staged
+        )
+        st.html(
+            "<div style='background:#F0FAF2;border:1px solid #A8D5B0;border-radius:10px;"
+            "padding:12px 16px;margin:14px 0 10px;'>"
+            "<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;"
+            "text-transform:uppercase;color:#3A8C4E;margin-bottom:8px;'>"
+            "Ready to save</div>"
+            "<div style='display:flex;flex-wrap:wrap;'>" + _preview_pills + "</div>"
+            "<div style='font-size:0.72rem;color:#5A7A62;margin-top:6px;'>"
+            "These stores will be added to your profile when you click Save store profile.</div>"
+            "</div>"
+        )
 
     st.html("<div style='margin-top:16px;'></div>")
-    if not selected_chains:
+    if not selected_chains and not _pending_preview:
         st.html("<div style='font-size:0.82rem;color:#BF5E00;margin-bottom:8px;'>"
                 "⚠️ Select at least one store to continue.</div>")
 
     save_col, cancel_col = st.columns([1, 5])
     with save_col:
-        save_disabled = len(selected_chains) == 0
+        save_disabled = len(selected_chains) == 0 and not _pending_preview
         save_clicked  = st.button(
             "Save store profile",
             type="primary",
@@ -653,12 +676,24 @@ if _show_wizard:
                 "lon":            loc_match["lon"] if loc_match else None,
             })
 
+        # Merge any custom/local stores staged during this wizard session
+        # (these have no checkbox entry and were staged in _pending_custom_grocers).
+        _pending_custom = st.session_state.pop("_pending_custom_grocers", [])
+        _committed_lower = {ng["chain"].lower() for ng in new_grocers}
+        for _pcg in _pending_custom:
+            if _pcg["chain"].lower() not in _committed_lower:
+                new_grocers.append(_pcg)
+
         st.session_state["grocers"]           = new_grocers
         st.session_state["travel_radius_mi"]  = w_radius
         st.session_state["home_zip"]          = effective_zip
         st.session_state["store_wizard_done"] = True
         st.session_state["show_store_wizard"] = False
+        # Clear wizard staging state so next open starts fresh from committed grocers
         st.session_state.pop("wizard_selections", None)
+        for _k in list(st.session_state.keys()):
+            if _k.startswith("wiz_check_") or _k.startswith("wiz_dist_"):
+                del st.session_state[_k]
 
         # Persist to Supabase so grocer selections survive browser refresh.
         # Degrades gracefully: if DB is unavailable the session_state save above
@@ -796,8 +831,16 @@ for tier in STORE_TIERS:
                                 "tier":          tier["key"],
                                 "distance_miles": None,  # set in active store list
                             }
-                            grocers.append(new_store)
-                            st.session_state["grocers"] = grocers
+                            # Stage via wizard_selections — not committed to grocers
+                            # until the user clicks "Save store profile".
+                            # POC: wizard_selections is the staging dict for the checkbox UI.
+                            if "wizard_selections" not in st.session_state:
+                                st.session_state["wizard_selections"] = {
+                                    g["chain"]: True for g in grocers
+                                }
+                            ch = store_def["chain"]
+                            st.session_state["wizard_selections"][ch] = True
+                            st.session_state[f"wiz_check_{ch}"] = True
                             st.rerun()
 
         if tier_added:
@@ -836,17 +879,24 @@ for tier in STORE_TIERS:
 
             if st.button("Add local store", type="primary", key="add_local_custom"):
                 if local_name.strip():
-                    grocers.append({
-                        "chain":          local_name.strip(),
-                        "location":       local_loc.strip(),
-                        "source":         "manual_pdf",
-                        "rewards":        local_rewards,
-                        "delivery":       local_delivery,
-                        "is_primary":     len(grocers) == 0,
-                        "tier":           "local",
-                        "distance_miles": local_dist if local_dist > 0 else None,
-                    })
-                    st.session_state["grocers"] = grocers
+                    # Local stores have no checkbox in the wizard, so stage separately.
+                    _pending = st.session_state.setdefault("_pending_custom_grocers", [])
+                    _existing_all = (
+                        {g["chain"].lower() for g in grocers}
+                        | {p["chain"].lower() for p in _pending}
+                    )
+                    if local_name.strip().lower() not in _existing_all:
+                        _pending.append({
+                            "chain":          local_name.strip(),
+                            "location":       local_loc.strip(),
+                            "source":         "manual_pdf",
+                            "rewards":        local_rewards,
+                            "delivery":       local_delivery,
+                            "is_primary":     (not grocers and not _pending),
+                            "tier":           "local",
+                            "distance_miles": local_dist if local_dist > 0 else None,
+                        })
+                        st.session_state["_pending_custom_grocers"] = _pending
                     st.rerun()
                 else:
                     st.warning("Enter a store name.")
@@ -864,16 +914,23 @@ for tier in STORE_TIERS:
                                           label_visibility="collapsed", placeholder="City, State")
                 if st.button(f"Add to {tier['label']}", key=f"add_custom_{tier['key']}", type="primary"):
                     if c_name.strip():
-                        grocers.append({
-                            "chain":      c_name.strip(),
-                            "location":   c_loc.strip(),
-                            "source":     "manual_pdf",
-                            "rewards":    False,
-                            "delivery":   False,
-                            "is_primary": len(grocers) == 0,
-                            "tier":       tier["key"],
-                        })
-                        st.session_state["grocers"] = grocers
+                        # Stage custom stores — committed on "Save store profile"
+                        _pending = st.session_state.setdefault("_pending_custom_grocers", [])
+                        _existing_all = (
+                            {g["chain"].lower() for g in grocers}
+                            | {p["chain"].lower() for p in _pending}
+                        )
+                        if c_name.strip().lower() not in _existing_all:
+                            _pending.append({
+                                "chain":      c_name.strip(),
+                                "location":   c_loc.strip(),
+                                "source":     "manual_pdf",
+                                "rewards":    False,
+                                "delivery":   False,
+                                "is_primary": (not grocers and not _pending),
+                                "tier":       tier["key"],
+                            })
+                            st.session_state["_pending_custom_grocers"] = _pending
                         st.rerun()
                     else:
                         st.warning("Enter a store name.")

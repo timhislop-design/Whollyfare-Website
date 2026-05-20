@@ -37,6 +37,22 @@ from app.core_logic.profile_schema import (
 st.set_page_config(page_title="Household Setup · WhollyFare", page_icon="👨‍👩‍👧", layout="wide")
 state.init()
 
+# ── Temporary debug panel — remove after diagnosis ───────────────────────────
+with st.expander("🔍 Debug: session state (remove after fix)", expanded=False):
+    import ui.state as _s
+    st.write({
+        "is_authenticated":  _s.is_authenticated(),
+        "user_id":           _s.current_user_id(),
+        "household_id":      st.session_state.get("household_id"),
+        "household_db_name": (st.session_state.get("household_db") or {}).get("name"),
+        "household_db_members": len((st.session_state.get("household_db") or {}).get("members", [])),
+        "household_type":    type(st.session_state.get("household")).__name__,
+        "household_none":    st.session_state.get("household") is None,
+        "grocers_count":     len(st.session_state.get("grocers", [])),
+        "member_list_count": len(st.session_state.get("member_list", [])),
+        "_DB_AVAILABLE":     _s._DB_AVAILABLE,
+    })
+
 # ── DB load ───────────────────────────────────────────────────────────────────
 # Load from DB when:
 #   a) household_db is None (first visit / browser refresh), OR
@@ -45,10 +61,11 @@ state.init()
 #      which can clear the profile object without clearing household_db.
 # POC: DB call is cheap (one row, indexed on user_id) so double-loading is fine.
 # PROD: add an in-memory TTL cache to avoid redundant round trips.
-if state.is_authenticated() and (
-    st.session_state.get("household_db") is None
-    or st.session_state.get("household") is None
-):
+# Always reload from DB when authenticated — ensures the profile is current
+# regardless of navigation path (e.g. returning from Grocer Hub after adding stores).
+# POC: single indexed query, cheap enough to run on every page load.
+# PROD: add TTL cache (e.g. 60s) to avoid redundant round trips at scale.
+if state.is_authenticated():
     state.load_household()
 
 # Convert the DB dict into a typed HouseholdProfile if still missing after load.
