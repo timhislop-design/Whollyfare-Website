@@ -840,7 +840,10 @@ for tier in STORE_TIERS:
                                 }
                             ch = store_def["chain"]
                             st.session_state["wizard_selections"][ch] = True
-                            st.session_state[f"wiz_check_{ch}"] = True
+                            # Delete (not set) the checkbox key so it reinitialises
+                            # from value= on the next rerun. Streamlit forbids setting
+                            # a widget key after the widget has rendered this run.
+                            st.session_state.pop(f"wiz_check_{ch}", None)
                             st.rerun()
 
         if tier_added:
