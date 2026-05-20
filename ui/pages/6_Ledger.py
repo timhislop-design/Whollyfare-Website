@@ -171,11 +171,14 @@ if not any_entries:
 # ════════════════════════════════════════════════════════════════════════════
 use_real = len(real_entries) > 0
 
-total_found   = sum(e.get("actual_found_money", e.get("found_money", 0)) for e in ledger)
-total_vs_hf   = sum(e.get("vs_hf_actual", e.get("vs_hellofresh", 0)) for e in ledger)
-total_meals   = sum(e.get("meals_planned", 0) for e in ledger)
-weeks_planned = len(ledger)
-weeks_receipts= len(real_entries)
+total_found      = sum(e.get("actual_found_money", e.get("found_money", 0)) for e in ledger)
+total_trip_costs = sum(e.get("trip_cost", 0) for e in ledger)
+total_net        = sum(e.get("net_found_money", e.get("actual_found_money", e.get("found_money", 0))) for e in ledger)
+total_vs_hf      = sum(e.get("vs_hf_actual", e.get("vs_hellofresh", 0)) for e in ledger)
+total_meals      = sum(e.get("meals_planned", 0) for e in ledger)
+weeks_planned    = len(ledger)
+weeks_receipts   = len(real_entries)
+has_trip_data    = total_trip_costs > 0
 
 # Accuracy: average gap between estimate and receipt
 if real_entries:
@@ -187,11 +190,34 @@ else:
 
 data_note = "real receipts" if use_real else "plan estimates (log receipts to get real data)"
 
+# ── Sincere Strategy banner: show net savings when trip data exists ────────────
+if has_trip_data:
+    st.html(
+        f"""<div style='background:#F0FAF2;border:1px solid #D8EDD0;border-radius:10px;
+                        padding:14px 20px;margin-bottom:16px;'>
+          <div style='font-size:0.82rem;color:#5A7A62;margin-bottom:4px;'>
+            Cumulative savings — what you actually kept after gas
+          </div>
+          <div style='display:flex;gap:40px;align-items:baseline;'>
+            <div>
+              <span style='font-size:2rem;font-weight:800;color:#1E5C32;'>${total_net:,.2f}</span>
+              <span style='font-size:0.82rem;color:#5A7A62;margin-left:6px;'>net Found Money</span>
+            </div>
+            <div style='font-size:0.85rem;color:#9AA8A0;'>
+              ${total_found:,.2f} gross &minus; ${total_trip_costs:,.2f} gas &equals; ${total_net:,.2f} in your pocket
+            </div>
+          </div>
+        </div>"""
+    )
+
 c1, c2, c3, c4 = st.columns(4)
 c1.metric(
-    "Total Found Money",
-    f"${total_found:,.2f}",
-    help=f"Based on {data_note}",
+    "Net Found Money" if has_trip_data else "Total Found Money",
+    f"${total_net:,.2f}" if has_trip_data else f"${total_found:,.2f}",
+    delta=f"-${total_trip_costs:.2f} gas" if has_trip_data else None,
+    help=("Gross savings minus estimated gas costs for secondary store trips. "
+          "Sincere Strategy: we show the real number.") if has_trip_data
+         else f"Based on {data_note}",
 )
 c2.metric(
     "Saved vs. HelloFresh",
@@ -288,6 +314,8 @@ for entry in sorted(ledger, key=lambda e: e.get("week", ""), reverse=True):
     actual     = entry.get("actual_receipt")
     found_est  = entry.get("found_money", 0)
     found_real = entry.get("actual_found_money")
+    trip_cost  = entry.get("trip_cost", 0)
+    net_fm     = entry.get("net_found_money")
     vs_hf      = entry.get("vs_hellofresh", 0)
     meals_n    = entry.get("meals_planned", 0)
     notes      = entry.get("notes", "")
@@ -321,11 +349,22 @@ for entry in sorted(ledger, key=lambda e: e.get("week", ""), reverse=True):
         with col_c:
             found_display = found_real if found_real is not None else found_est
             label_suffix  = "" if receipt_ok else " (est.)"
-            st.metric(
-                f"Found Money{label_suffix}",
-                f"${found_display:.2f}",
-                help="Real savings vs. single-store" if receipt_ok else "Estimated — log receipt for real figure",
-            )
+            # Show net if trip cost data available, otherwise gross
+            if trip_cost > 0 and net_fm is not None:
+                st.metric(
+                    f"Net Found Money{label_suffix}",
+                    f"${net_fm:.2f}",
+                    delta=f"-${trip_cost:.2f} gas",
+                    help=f"${found_display:.2f} grocery savings minus ${trip_cost:.2f} estimated gas. "
+                         "Sincere Strategy: we show what you actually kept.",
+                )
+            else:
+                st.metric(
+                    f"Found Money{label_suffix}",
+                    f"${found_display:.2f}",
+                    help="Real savings vs. single-store" if receipt_ok
+                         else "Estimated — log receipt for real figure",
+                )
             if not receipt_ok:
                 st.html(
                     "<div style='font-size:0.73rem;color:#F28B30;margin-top:-8px;'>"

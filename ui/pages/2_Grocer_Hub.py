@@ -288,6 +288,136 @@ if not grocers:
       </div>
     </div>""")
 
+# ── Recommended stores for this household ────────────────────────────────────
+# POC: Rule-based on budget tier and household size. Shows up to 3 suggestions.
+# PROD: ML-ranked by zip-code proximity + category overlap with household
+#       dietary profile. Learns from what pilot households actually keep.
+if not grocers:
+    household = st.session_state.get("household")
+    budget    = getattr(household, "weekly_budget_usd", 120) if household else 120
+    size      = getattr(household, "servings_per_meal", 4) if household else 4
+
+    # Budget tiers: lean (<$80), moderate ($80–150), flexible (>$150)
+    lean      = budget < 80
+    flexible  = budget > 150
+
+    recommendations = []
+
+    # Value anchor — always recommend one discount store
+    if lean:
+        recommendations.append({
+            "chain": "ALDI", "tier": "discount",
+            "reason": f"At ${budget:.0f}/week your best per-unit prices are at ALDI — "
+                      "no loyalty card required, prices are simply lower.",
+            "color": "#BF5E00", "bg": "#FFF8F0", "border": "#FFCC80",
+        })
+    else:
+        recommendations.append({
+            "chain": "ALDI", "tier": "discount",
+            "reason": "Even on a comfortable budget, ALDI anchors your staples at "
+                      "the lowest per-unit price and frees up budget for better proteins.",
+            "color": "#BF5E00", "bg": "#FFF8F0", "border": "#FFCC80",
+        })
+
+    # Primary full-service — best for weekly staples + loyalty rewards
+    if lean:
+        recommendations.append({
+            "chain": "Food Lion", "tier": "mainstream",
+            "reason": "MVP Card deals are consistently strong on produce and proteins. "
+                      "Closer and cheaper than Harris Teeter for most staples.",
+            "color": "#1E5C32", "bg": "#F0FAF2", "border": "#D8EDD0",
+        })
+    elif flexible:
+        recommendations.append({
+            "chain": "Kroger", "tier": "mainstream",
+            "reason": "Kroger's Fuel Points + digital coupons stack aggressively. "
+                      "API-connected — WhollyFare pulls prices automatically.",
+            "color": "#1E5C32", "bg": "#F0FAF2", "border": "#D8EDD0",
+        })
+    else:
+        recommendations.append({
+            "chain": "Kroger", "tier": "mainstream",
+            "reason": "Weekly sales + digital coupons + Fuel Points. "
+                      "WhollyFare pulls Kroger prices automatically via API.",
+            "color": "#1E5C32", "bg": "#F0FAF2", "border": "#D8EDD0",
+        })
+
+    # Third pick — specialty if flexible budget, local if not
+    if flexible:
+        recommendations.append({
+            "chain": "Trader Joe's", "tier": "specialty",
+            "reason": "Stable pricing with no sales cycle makes TJ's easy to plan "
+                      "around. Strong on proteins, cheeses, and specialty items.",
+            "color": "#1565C0", "bg": "#EEF4FB", "border": "#BBDEFB",
+        })
+    else:
+        recommendations.append({
+            "chain": "EW Thomas Grocery", "tier": "local",
+            "reason": "Palmyra staple. Local knowledge, local prices. "
+                      "Worth checking for meat counter specials that don't make it online.",
+            "color": "#5D4037", "bg": "#FBF8F5", "border": "#D7CCC8",
+        })
+
+    # Filter out already-added stores
+    existing_lower = {g.get("chain","").lower() for g in grocers}
+    recommendations = [r for r in recommendations if r["chain"].lower() not in existing_lower]
+
+    if recommendations:
+        st.html("""
+        <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;
+        text-transform:uppercase;color:#3A8C4E;margin-bottom:10px;'>
+        RECOMMENDED FOR YOUR HOUSEHOLD</div>
+        """)
+        rec_cols = st.columns(len(recommendations))
+        for col, rec in zip(rec_cols, recommendations):
+            with col:
+                st.html(f"""
+                <div style='background:{rec["bg"]};border:1px solid {rec["border"]};
+                            border-top:3px solid {rec["color"]};border-radius:10px;
+                            padding:14px 14px 10px 14px;min-height:110px;margin-bottom:4px;'>
+                  <div style='font-weight:700;color:{rec["color"]};font-size:0.95rem;'>
+                    {rec["chain"]}
+                  </div>
+                  <div style='font-size:0.75rem;color:#5A7A62;margin-top:5px;line-height:1.45;'>
+                    {rec["reason"]}
+                  </div>
+                </div>""")
+                # Find the matching store definition to add it properly
+                match = next(
+                    (s for tier in STORE_TIERS for s in tier["stores"]
+                     if s["chain"] == rec["chain"]),
+                    None
+                )
+                if st.button(f"Add {rec['chain']}", key=f"rec_{rec['chain']}", use_container_width=True):
+                    if match:
+                        grocers.append({
+                            "chain":          match["chain"],
+                            "location":       "",
+                            "source":         match["source"],
+                            "rewards":        match.get("rewards", False),
+                            "delivery":       match.get("delivery", False),
+                            "is_primary":     len(grocers) == 0,
+                            "tier":           rec["tier"],
+                            "distance_miles": None,
+                        })
+                    else:
+                        grocers.append({
+                            "chain":          rec["chain"],
+                            "location":       "",
+                            "source":         "manual_pdf",
+                            "rewards":        False,
+                            "delivery":       False,
+                            "is_primary":     len(grocers) == 0,
+                            "tier":           rec["tier"],
+                            "distance_miles": None,
+                        })
+                    st.session_state["grocers"] = grocers
+                    st.rerun()
+
+        st.html("<div style='font-size:0.75rem;color:#5A7A62;margin:4px 0 20px 0;'>"
+                "These are suggestions based on your budget — browse all tiers below "
+                "to add any store you actually shop.</div>")
+
 # ── Tier cards ────────────────────────────────────────────────────────────────
 for tier in STORE_TIERS:
     tier_stores     = tier["stores"]
@@ -345,13 +475,14 @@ for tier in STORE_TIERS:
                         if st.button(btn_label, key=f"add_{tier['key']}_{store_def['chain']}",
                                      use_container_width=True):
                             new_store = {
-                                "chain":      store_def["chain"],
-                                "location":   "",
-                                "source":     store_def["source"],
-                                "rewards":    store_def.get("rewards", False),
-                                "delivery":   store_def.get("delivery", False),
-                                "is_primary": len(grocers) == 0,
-                                "tier":       tier["key"],
+                                "chain":         store_def["chain"],
+                                "location":      "",
+                                "source":        store_def["source"],
+                                "rewards":       store_def.get("rewards", False),
+                                "delivery":      store_def.get("delivery", False),
+                                "is_primary":    len(grocers) == 0,
+                                "tier":          tier["key"],
+                                "distance_miles": None,  # set in active store list
                             }
                             grocers.append(new_store)
                             st.session_state["grocers"] = grocers
@@ -373,30 +504,35 @@ for tier in STORE_TIERS:
                     "Any store, co-op, farm stand, or butcher — if they run specials, "
                     "WhollyFare can track them.</div>")
 
-            lc1, lc2 = st.columns([2, 1])
+            lc1, lc2, lc3 = st.columns([2, 1, 1])
             with lc1:
                 local_name = st.text_input("Store name", placeholder="e.g. Blue Ridge Co-op, Murphy's Market",
                                            key="local_custom_name", label_visibility="collapsed")
             with lc2:
                 local_loc = st.text_input("Town / zip (optional)", placeholder="Crozet VA",
                                           key="local_custom_loc", label_visibility="collapsed")
-
-            lc3, lc4 = st.columns(2)
             with lc3:
-                local_rewards = st.checkbox("Has loyalty / rewards card", key="local_rewards")
+                local_dist = st.number_input("Miles from home", min_value=0.0, max_value=100.0,
+                                             step=0.5, value=0.0, key="local_custom_dist",
+                                             help="Used to calculate if the trip is worth it")
+
+            lc4, lc5 = st.columns(2)
             with lc4:
+                local_rewards = st.checkbox("Has loyalty / rewards card", key="local_rewards")
+            with lc5:
                 local_delivery = st.checkbox("Offers delivery", key="local_delivery")
 
             if st.button("Add local store", type="primary", key="add_local_custom"):
                 if local_name.strip():
                     grocers.append({
-                        "chain":      local_name.strip(),
-                        "location":   local_loc.strip(),
-                        "source":     "manual_pdf",
-                        "rewards":    local_rewards,
-                        "delivery":   local_delivery,
-                        "is_primary": len(grocers) == 0,
-                        "tier":       "local",
+                        "chain":          local_name.strip(),
+                        "location":       local_loc.strip(),
+                        "source":         "manual_pdf",
+                        "rewards":        local_rewards,
+                        "delivery":       local_delivery,
+                        "is_primary":     len(grocers) == 0,
+                        "tier":           "local",
+                        "distance_miles": local_dist if local_dist > 0 else None,
                     })
                     st.session_state["grocers"] = grocers
                     st.rerun()
@@ -453,20 +589,36 @@ if grocers:
         star   = " ⭐" if g.get("is_primary") else ""
         loc    = f" · {g['location']}" if g.get("location") else ""
         src_ic = "🔗" if "api" in g.get("source","") else "📄"
+        dist   = g.get("distance_miles")
+        trip_c = round(float(dist) * 2 * 0.22, 2) if dist and not g.get("is_primary") else None
+        trip_str = (f" · ~${trip_c:.2f} round trip" if trip_c else
+                    (" · home base" if g.get("is_primary") else " · add distance →"))
 
-        ra, rb, rc = st.columns([5, 1.2, 0.7])
+        ra, rb, rc, rd = st.columns([4, 1.5, 1.2, 0.7])
         with ra:
             st.html(
                 f"<div style='padding:5px 0;'>"
                 f"<span style='font-size:0.88rem;font-weight:700;color:#1E5C32;'>"
                 f"{src_ic} {g['chain']}{star}</span>"
                 f"<span style='font-size:0.75rem;color:{tcolor};font-weight:600;"
-                f" margin-left:8px;background:{tier_colors.get(t, '#eee')}22;"
-                f" padding:1px 7px;border-radius:10px;'>{tlabel}</span>"
-                f"<span style='font-size:0.78rem;color:#5A7A62;'>{loc}</span>"
+                f" margin-left:8px;padding:1px 7px;border-radius:10px;'>{tlabel}</span>"
+                f"<span style='font-size:0.75rem;color:#9AA8A0;'>{trip_str}{loc}</span>"
                 f"</div>"
             )
         with rb:
+            # Inline distance editor
+            new_dist = st.number_input(
+                "Miles", min_value=0.0, max_value=200.0, step=0.5,
+                value=float(dist) if dist else 0.0,
+                key=f"dist_{idx}",
+                label_visibility="collapsed",
+                help="Miles from home (one way) — used to calculate trip cost",
+            )
+            if new_dist != (dist or 0.0):
+                grocers[idx]["distance_miles"] = new_dist if new_dist > 0 else None
+                st.session_state["grocers"] = grocers
+                st.rerun()
+        with rc:
             if not g.get("is_primary"):
                 if st.button("Set primary", key=f"primary_{idx}", use_container_width=True):
                     for gg in grocers:
@@ -474,7 +626,7 @@ if grocers:
                     grocers[idx]["is_primary"] = True
                     st.session_state["grocers"] = grocers
                     st.rerun()
-        with rc:
+        with rd:
             if st.button("✕", key=f"remove_{idx}", help=f"Remove {g['chain']}"):
                 to_remove = idx
 

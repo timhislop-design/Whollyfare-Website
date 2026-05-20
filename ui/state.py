@@ -177,6 +177,102 @@ def plan_ready() -> bool:
     return st.session_state.get("plan") is not None
 
 
+# ── Trip cost utilities ───────────────────────────────────────────────────────
+# POC: Distance entered manually per store. Cost at $0.22/mile round-trip.
+# PROD: Distance calculated automatically from household zip to store address
+#       via Google Maps Distance Matrix API. Updated weekly (traffic patterns
+#       vary). User can override with "I combine this trip with other errands."
+#
+# $0.22/mile is a conservative estimate for personal vehicle gas cost only
+# (not IRS business mileage rate). We deliberately understate so we are never
+# accusing the user of wasting money when they are not.
+
+COST_PER_MILE: float = 0.22  # $ per mile, one-way
+
+
+def trip_cost_for_store(grocer: dict) -> float:
+    """Round-trip gas cost estimate for one visit to this store.
+
+    Returns 0.0 for the primary store (assumed already in the weekly routine)
+    and for stores with no distance set.
+    """
+    if grocer.get("is_primary"):
+        return 0.0
+    miles = grocer.get("distance_miles")
+    if not miles:
+        return 0.0
+    return round(float(miles) * 2 * COST_PER_MILE, 2)
+
+
+def plan_trip_costs() -> dict:
+    """Return {store_name: trip_cost} for stores that contributed items to the plan.
+
+    Primary store always gets 0.0. Stores with no distance set return 0.0.
+
+    POC: Uses grocers from session_state. Distance must be manually entered.
+    PROD: Hydrated from household grocer preferences in the DB.
+    """
+    grocers = st.session_state.get("grocers", [])
+    active  = set(st.session_state.get("flyer_data", {}).keys())
+    costs: dict = {}
+    for g in grocers:
+        name = g.get("chain", "")
+        if name in active:
+            costs[name] = trip_cost_for_store(g)
+    return costs
+
+
+def net_found_money() -> dict:
+    """Calculate gross Found Money, total trip costs, and net savings.
+
+    Returns a dict with:
+        gross_found_money   -- price saving vs. single-store shopping
+        total_trip_cost     -- sum of gas costs for secondary store visits
+        net_found_money     -- gross minus trip costs (what you actually keep)
+        trip_costs          -- {store: cost} breakdown
+        skip_suggestions    -- stores where savings < trip cost
+
+    Sincere Strategy: we show the real number, not just the flattering one.
+
+    POC: store_savings is estimated proportionally by item count share.
+    PROD: Track per-store ingredient costs vs. primary store to get exact savings.
+    """
+    plan = st.session_state.get("plan")
+    if not plan:
+        return {}
+
+    gross      = plan.get("totals", {}).get("found_money", 0.0)
+    trip_costs = plan_trip_costs()
+    total_trip = round(sum(trip_costs.values()), 2)
+    net        = round(gross - total_trip, 2)
+
+    # Estimate per-store savings share by item count
+    flyer       = st.session_state.get("flyer_data", {})
+    total_items = sum(len(v) for v in flyer.values() if isinstance(v, list)) or 1
+
+    skip_suggestions = []
+    for store, cost in trip_costs.items():
+        if cost <= 0:
+            continue
+        store_share   = len(flyer.get(store, [])) / total_items
+        store_savings = round(gross * store_share, 2)
+        if store_savings < cost:
+            skip_suggestions.append({
+                "store":         store,
+                "trip_cost":     cost,
+                "store_savings": store_savings,
+                "difference":    round(cost - store_savings, 2),
+            })
+
+    return {
+        "gross_found_money": gross,
+        "total_trip_cost":   total_trip,
+        "net_found_money":   net,
+        "trip_costs":        trip_costs,
+        "skip_suggestions":  skip_suggestions,
+    }
+
+
 def week_approved() -> bool:
     w = st.session_state.get("active_week", "")
     return w in st.session_state.get("approved_weeks", [])
@@ -189,23 +285,36 @@ def approve_week():
         approved.append(w)
         st.session_state["approved_weeks"] = approved
 
-    # Record ledger entry
+    # Record ledger entry — include trip cost / net Found Money.
+    # Sincere Strategy: the ledger shows what you actually kept, not just
+    # the gross price saving. Trip costs are recorded so the running total
+    # is honest about cumulative net benefit.
     plan = st.session_state.get("plan")
     if plan:
-        history = st.session_state.get("ledger_history", [])
-        # plan is now a dict
-        totals = plan.get("totals", {})
-        weekly_cost = totals.get("whollyfare_plan", 0.0)
-        savings_vs_single = totals.get("found_money", 0.0)
+        history   = st.session_state.get("ledger_history", [])
+        totals    = plan.get("totals", {})
+        trip_info = net_found_money()
+
+        weekly_cost           = totals.get("whollyfare_plan", 0.0)
+        savings_vs_single     = totals.get("found_money", 0.0)
         savings_vs_hellofresh = totals.get("vs_hellofresh", 0.0)
+        trip_cost_total       = trip_info.get("total_trip_cost", 0.0)
+        net_savings           = trip_info.get("net_found_money", savings_vs_single)
+
+        grocers     = st.session_state.get("grocers", [])
+        stores_used = len([g for g in grocers
+                           if g.get("chain") in st.session_state.get("flyer_data", {})])
+
         history.append({
             "week":              w,
             "whollyfare_cost":   round(weekly_cost, 2),
             "single_store_cost": round(weekly_cost + savings_vs_single, 2),
             "found_money":       round(savings_vs_single, 2),
+            "trip_cost":         round(trip_cost_total, 2),
+            "net_found_money":   round(net_savings, 2),
             "vs_hellofresh":     round(savings_vs_hellofresh, 2),
             "meals_planned":     len(plan.get("meals", [])),
-            "stores_used":       2,
+            "stores_used":       stores_used or 2,
         })
         st.session_state["ledger_history"] = history
 
