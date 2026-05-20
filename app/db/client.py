@@ -18,21 +18,20 @@ import streamlit as st
 from supabase import create_client, Client
 
 
+@st.cache_resource
 def get_client() -> Client:
     """
-    Returns a Supabase client scoped to the current Streamlit session.
+    Returns a cached Supabase anon client (one per app instance).
 
-    POC:  Stored in st.session_state so each browser tab gets its own client
-          with its own auth JWT. This prevents cross-session JWT bleed that
-          occurred when @st.cache_resource shared one client across all users.
-    PROD: Same pattern — per-session client is correct for user-facing auth.
-          Add a separate module-level service-role client for admin/batch ops.
+    POC:  @st.cache_resource gives a stable object whose internal GoTrue
+          session can be populated via set_session() before authenticated
+          calls. For a single-pilot-user app this is safe.
+    PROD: Swap to a per-request pattern with a service-role client for
+          admin ops and a user-scoped client built from the JWT for RLS ops.
     """
-    if "_supabase_client" not in st.session_state:
-        url: str = st.secrets["supabase"]["url"]
-        key: str = st.secrets["supabase"]["anon_key"]
-        st.session_state["_supabase_client"] = create_client(url, key)
-    return st.session_state["_supabase_client"]
+    url: str = st.secrets["supabase"]["url"]
+    key: str = st.secrets["supabase"]["anon_key"]
+    return create_client(url, key)
 
 
 def test_connection() -> bool:
