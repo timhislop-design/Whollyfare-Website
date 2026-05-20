@@ -23,6 +23,7 @@ household_id    : str | None    — UUID of the household row in DB
 
 import streamlit as st
 import logging
+import requests as _requests
 from datetime import date, timedelta
 
 # Debug logging — appears in Streamlit Cloud 'Manage app' logs.
@@ -468,6 +469,72 @@ def current_user_id() -> str | None:
 
 
 # ── Authenticated client helper ─────────────────────────────────────────────
+def _sb_headers(write: bool = False) -> dict:
+    """Build Supabase REST headers with the user JWT in Authorization.
+
+    Supabase PostgREST reads auth.uid() from the Authorization Bearer JWT.
+    We set this explicitly rather than relying on supabase-py to propagate
+    the session — that propagation has proven unreliable across Streamlit reruns.
+
+    POC:  Always uses the access token stored at sign-in.
+    PROD: Add token-refresh logic before expiry (Supabase default: 1 hour).
+    """
+    url    = st.secrets["supabase"]["url"]
+    anon   = st.secrets["supabase"]["anon_key"]
+    token  = st.session_state.get("_sb_access_token", anon)
+    h = {
+        "apikey":        anon,
+        "Authorization": f"Bearer {token}",
+        "Content-Type":  "application/json",
+    }
+    if write:
+        h["Prefer"] = "return=representation"
+    _log.debug("_sb_headers: using %s token",
+               "user" if token != anon else "anon")
+    return h
+
+
+def _sb_url(table: str) -> str:
+    return f"{st.secrets['supabase']['url']}/rest/v1/{table}"
+
+
+def _sb_insert(table: str, payload: dict) -> dict:
+    """Insert one row via direct REST call. Returns the created row."""
+    resp = _requests.post(_sb_url(table), json=payload, headers=_sb_headers(write=True))
+    if not resp.ok:
+        raise RuntimeError(f"INSERT {table} failed {resp.status_code}: {resp.text}")
+    data = resp.json()
+    return data[0] if isinstance(data, list) and data else {}
+
+
+def _sb_update(table: str, payload: dict, eq_col: str, eq_val: str) -> None:
+    """Update rows matching eq_col=eq_val via direct REST call."""
+    params = {eq_col: f"eq.{eq_val}"}
+    resp = _requests.patch(_sb_url(table), json=payload, headers=_sb_headers(write=True),
+                           params=params)
+    if not resp.ok:
+        raise RuntimeError(f"UPDATE {table} failed {resp.status_code}: {resp.text}")
+
+
+def _sb_delete(table: str, eq_col: str, eq_val: str) -> None:
+    """Delete rows matching eq_col=eq_val via direct REST call."""
+    params = {eq_col: f"eq.{eq_val}"}
+    resp = _requests.delete(_sb_url(table), headers=_sb_headers(), params=params)
+    if not resp.ok:
+        raise RuntimeError(f"DELETE {table} failed {resp.status_code}: {resp.text}")
+
+
+def _sb_select(table: str, select: str = "*", filters: dict | None = None) -> list:
+    """Select rows via direct REST call."""
+    params = {"select": select}
+    if filters:
+        params.update({k: f"eq.{v}" for k, v in filters.items()})
+    resp = _requests.get(_sb_url(table), headers=_sb_headers(), params=params)
+    if not resp.ok:
+        raise RuntimeError(f"SELECT {table} failed {resp.status_code}: {resp.text}")
+    return resp.json()
+
+
 def get_authed_client():
     """Return a Supabase client with the user session restored.
 
@@ -656,13 +723,14 @@ def save_household(household_dict: dict) -> tuple[bool, str]:
         st.session_state["household_db"] = household_dict
         return True, "Saved to session only (no DB connection)."
 
-    db = get_authed_client()
     uid = current_user_id()
+    _log.info("save_household: starting for uid=%s token_present=%s",
+              uid, "_sb_access_token" in st.session_state)
 
     try:
         hid = st.session_state.get("household_id")
 
-        # ── Upsert household row ──────────────────────────────────────────────
+        # ── Upsert household row (direct REST — bypasses supabase-py JWT issues) ──
         hh_payload = {
             "name":              household_dict.get("name", "My Household"),
             "weekly_budget_usd": household_dict.get("weekly_budget_usd", 120.0),
@@ -674,95 +742,64 @@ def save_household(household_dict: dict) -> tuple[bool, str]:
             "created_by":        uid,
         }
         if hid:
-            hh_payload["id"] = hid
-            # created_by is set only on insert; remove from update payload
-            update_payload = {k: v for k, v in hh_payload.items() if k not in ("id", "created_by")}
-            db.table("households").update(update_payload).eq("id", hid).execute()
+            update_payload = {k: v for k, v in hh_payload.items() if k not in ("created_by",)}
+            _sb_update("households", update_payload, "id", hid)
         else:
-            result = db.table("households").insert(hh_payload).execute()
-            hid = result.data[0]["id"]
+            row = _sb_insert("households", hh_payload)
+            hid = row["id"]
             st.session_state["household_id"] = hid
-
-            # Link user to household
-            db.table("household_users").insert({
+            _sb_insert("household_users", {
                 "household_id": hid,
                 "user_id":      uid,
                 "role":         "owner",
-            }).execute()
+            })
 
         # ── Upsert members ────────────────────────────────────────────────────
-        # POC: fetch existing member IDs by name to detect add/remove
-        existing = (
-            db.table("members")
-            .select("id, name")
-            .eq("household_id", hid)
-            .execute()
-            .data
-        )
+        existing = _sb_select("members", select="id,name", filters={"household_id": hid})
         existing_by_name = {r["name"]: r["id"] for r in existing}
         incoming_names = {m["name"] for m in household_dict.get("members", [])}
 
-        # Remove members no longer in the list
         for name, mid in existing_by_name.items():
             if name not in incoming_names:
-                db.table("members").delete().eq("id", mid).execute()
+                _sb_delete("members", "id", mid)
 
-        # Upsert each incoming member
         for order_idx, m in enumerate(household_dict.get("members", [])):
             name = m["name"]
             if name in existing_by_name:
                 mid = existing_by_name[name]
-                db.table("members").update({
-                    "age":           m.get("age"),
-                    "display_order": order_idx,
-                }).eq("id", mid).execute()
+                _sb_update("members", {"age": m.get("age"), "display_order": order_idx},
+                           "id", mid)
             else:
-                result = db.table("members").insert({
+                row = _sb_insert("members", {
                     "household_id":  hid,
                     "name":          name,
                     "age":           m.get("age"),
                     "display_order": order_idx,
-                }).execute()
-                mid = result.data[0]["id"]
+                })
+                mid = row["id"]
 
-            # ── Constraints: delete-and-replace (POC) ────────────────────────
-            db.table("member_allergies").delete().eq("member_id", mid).execute()
-            db.table("member_diagnoses").delete().eq("member_id", mid).execute()
-            db.table("member_lifestyle_tags").delete().eq("member_id", mid).execute()
-            db.table("member_custom_exclusions").delete().eq("member_id", mid).execute()
+            # Constraints: delete-and-replace (POC)
+            for tbl in ("member_allergies", "member_diagnoses",
+                        "member_lifestyle_tags", "member_custom_exclusions"):
+                _sb_delete(tbl, "member_id", mid)
 
             for allergen in m.get("allergies", []):
-                db.table("member_allergies").insert({
-                    "member_id": mid, "allergen": allergen
-                }).execute()
-
+                _sb_insert("member_allergies", {"member_id": mid, "allergen": allergen})
             for diagnosis in m.get("diagnoses", []):
-                db.table("member_diagnoses").insert({
-                    "member_id": mid, "diagnosis": diagnosis  # DB column: diagnosis
-                }).execute()
-
+                _sb_insert("member_diagnoses", {"member_id": mid, "diagnosis": diagnosis})
             for tag in m.get("lifestyle", []):
-                db.table("member_lifestyle_tags").insert({
-                    "member_id": mid, "tag": tag
-                }).execute()
-
+                _sb_insert("member_lifestyle_tags", {"member_id": mid, "tag": tag})
             for exclusion in m.get("exclusions", []):
-                db.table("member_custom_exclusions").insert({
-                    "member_id": mid, "exclusion_text": exclusion  # DB column: exclusion_text
-                }).execute()
+                _sb_insert("member_custom_exclusions",
+                           {"member_id": mid, "exclusion_text": exclusion})
 
-        # Update session_state to include the resolved IDs
         household_dict["id"] = hid
         st.session_state["household_db"] = household_dict
-        _log.info("save_household: saved household_id=%s for user=%s", hid, uid)
+        _log.info("save_household: saved household_id=%s for uid=%s", hid, uid)
         return True, "Saved."
 
     except Exception as e:
-        # Degrade gracefully — session_state already has the HouseholdProfile
-        # set by the calling page before save_household() was called.
-        # Do NOT overwrite it with household_dict (a plain dict) — that
-        # breaks every page that calls household.household_name etc.
-        _log.error("save_household: DB exception for user=%s: %s", uid, e)
+        _log.error("save_household: exception for uid=%s: %s", uid, e)
         return False, f"DB save failed: {e}. Data saved to session only."
 
 
