@@ -247,6 +247,71 @@ if state.is_authenticated():
             if st.button("👨‍👩‍👧 Set up household", type="primary"):
                 st.switch_page("pages/1_Household.py")
 
+        # ── Shopping area ─────────────────────────────────────────────────────
+        # POC: User sets their zip and radius; Grocer Hub filters chains accordingly.
+        # PROD: Zip resolved from billing address; radius updated from profile.
+        #       Store locator API confirms which chains have locations within radius.
+        from app.data.store_regions import region_label, chains_for_zip
+        st.html('<div class="wf-acct-label" style="margin-top:16px;">Shopping area</div>')
+
+        current_zip    = st.session_state.get("home_zip", "22901")
+        current_radius = st.session_state.get("store_radius_mi", 15)
+        region_name    = region_label(current_zip)
+        nearby_count   = len(chains_for_zip(current_zip))
+
+        st.html(
+            f"""<div class="wf-acct-section">
+              <div style="font-size:0.85rem;color:#5A7A62;margin-bottom:12px;">
+                WhollyFare shows you stores available within your zip code and radius.
+                Change these and the Grocer Hub updates instantly.
+              </div>
+              <div style="display:flex;gap:20px;align-items:baseline;flex-wrap:wrap;margin-bottom:10px;">
+                <div>
+                  <div style="font-size:1.4rem;font-weight:800;color:#3A8C4E;">{current_zip}</div>
+                  <div style="font-size:0.72rem;color:#5A7A62;">{region_name}</div>
+                </div>
+                <div>
+                  <div style="font-size:1.4rem;font-weight:800;color:#3A8C4E;">{current_radius} mi</div>
+                  <div style="font-size:0.72rem;color:#5A7A62;">radius</div>
+                </div>
+                <div>
+                  <div style="font-size:1.4rem;font-weight:800;color:#3A8C4E;">{nearby_count}</div>
+                  <div style="font-size:0.72rem;color:#5A7A62;">chains available near you</div>
+                </div>
+              </div>
+            </div>""")
+
+        with st.expander("Change zip code or radius", expanded=False):
+            za, zb = st.columns([1, 1])
+            with za:
+                new_zip = st.text_input(
+                    "Home zip code",
+                    value=current_zip,
+                    max_chars=5,
+                    placeholder="e.g. 22901",
+                    help="Used to filter which grocery chains are shown in the Grocer Hub.",
+                )
+            with zb:
+                new_radius = st.number_input(
+                    "Shopping radius (miles)",
+                    min_value=5, max_value=100, step=5,
+                    value=int(current_radius),
+                    help="How far you're willing to drive for groceries.",
+                )
+            if st.button("Update shopping area", type="primary"):
+                if new_zip.strip().isdigit() and len(new_zip.strip()) == 5:
+                    st.session_state["home_zip"]        = new_zip.strip()
+                    st.session_state["store_radius_mi"] = int(new_radius)
+                    new_region = region_label(new_zip.strip())
+                    new_count  = len(chains_for_zip(new_zip.strip()))
+                    st.success(
+                        f"Updated — showing stores for {new_zip.strip()} "
+                        f"({new_region}, {new_count} chains within {int(new_radius)} miles)."
+                    )
+                    st.rerun()
+                else:
+                    st.warning("Enter a valid 5-digit US zip code.")
+
         # Savings summary
         ledger = state.load_ledger()
         if ledger:

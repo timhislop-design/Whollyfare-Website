@@ -133,6 +133,12 @@ def init():
         "approved_weeks":  [],
         "ledger_history":  [],
         "active_week":     _next_sunday(),
+        # Location — used to filter stores by regional availability
+        # POC: Default to Charlottesville pilot zip. User can update in Account page.
+        # PROD: Set from billing address on account creation; resolved against store
+        #       locator APIs to confirm which chains are within the radius.
+        "home_zip":        "22901",   # Charlottesville VA default
+        "store_radius_mi": 15,        # miles — default shopping radius
         # DB layer
         "user":            None,   # Supabase auth user dict
         "household_id":    None,   # UUID string of households row

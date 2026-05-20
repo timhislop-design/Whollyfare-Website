@@ -32,6 +32,7 @@ import ui.style as style
 
 from app.data.flyer_ingestor import FlyerIngestor
 from app.core_logic.constraint_engine import IngredientCandidate
+from app.data.store_regions import chains_for_zip, region_label, CHARLOTTESVILLE_CHAINS
 
 st.set_page_config(page_title="Grocer Hub · WhollyFare", page_icon="🏪", layout="wide")
 state.init()
@@ -420,12 +421,25 @@ if not grocers:
 
 # ── Tier cards ────────────────────────────────────────────────────────────────
 for tier in STORE_TIERS:
-    tier_stores     = tier["stores"]
+    tier_stores = tier["stores"]
+    is_local    = tier["key"] == "local"
+
+    # Filter to chains available near the user's zip.
+    # Local tier is never filtered — local stores are always shown.
+    # POC: match by chain name. PROD: match by chain_id from store registry.
+    if not is_local:
+        tier_stores = [
+            s for s in tier_stores
+            if s["chain"] in nearby_chains or s["chain"].lower() in existing_chains_lower
+        ]
+        # If no chains matched the region (very unlikely), show all rather than hide the tier
+        if not tier_stores:
+            tier_stores = tier["stores"]
+
     tier_added      = [s for s in tier_stores if s["chain"].lower() in existing_chains_lower]
     tier_available  = [s for s in tier_stores if s["chain"].lower() not in existing_chains_lower]
     added_count     = len(tier_added)
     total_count     = len(tier_stores)
-    is_local        = tier["key"] == "local"
 
     # Collapse if all stores already added and not local (local always stays open for custom adds)
     default_open = (added_count < total_count) or is_local
