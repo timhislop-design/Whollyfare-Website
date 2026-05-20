@@ -138,7 +138,8 @@ def init():
         # PROD: Set from billing address on account creation; resolved against store
         #       locator APIs to confirm which chains are within the radius.
         "home_zip":        "22901",   # Charlottesville VA default
-        "store_radius_mi": 15,        # miles — default shopping radius
+        "store_radius_mi":  15,        # miles — legacy key (kept for compat)
+        "travel_radius_mi": 15,        # miles — grocer wizard preference (written to DB)
         # DB layer
         "user":            None,   # Supabase auth user dict
         "household_id":    None,   # UUID string of households row
@@ -418,6 +419,9 @@ def sign_in(email: str, password: str) -> tuple[bool, str]:
             st.session_state["user"] = {"id": resp.user.id, "email": resp.user.email}
             # Attempt to load the household that belongs to this user
             _load_household_from_db()
+            # Restore grocer selections so the Grocer Hub wizard is pre-filled
+            # without the user having to re-enter their stores on every sign-in.
+            _load_grocers_from_db()
             return True, "Signed in."
         return False, "Invalid email or password."
     except Exception as e:
@@ -564,6 +568,17 @@ def _load_household_from_db():
         "state":             hh.get("state", ""),
         "members":           members,
     }
+
+    # Convert to HouseholdProfile so pages that read session_state["household"] work.
+    # Without this, sign-in populates household_db but leaves household=None.
+    # PROD: this conversion is always cheap; keep it here.
+    profile = db_dict_to_profile(st.session_state["household_db"])
+    if profile:
+        st.session_state["household"] = profile
+
+    # Also restore zip into home_zip for Grocer Hub wizard
+    if hh.get("primary_zip"):
+        st.session_state["home_zip"] = hh["primary_zip"]
 
 
 def load_household():
@@ -895,3 +910,152 @@ def approve_week_db():
 
     except Exception:
         pass  # POC: silently degrade — session_state already updated
+
+# ── Grocer DB layer ───────────────────────────────────────────────────────────
+# Mirrors the Household DB layer: session_state is the working copy,
+# Supabase is the persistent store. Grocer selections survive browser refresh.
+#
+# POC:  Upsert on (household_id, chain_name) — last-write-wins per store.
+#       Migration 002 added tier, distance_miles, lat, lon to household_grocers
+#       and travel_radius_mi to households.
+# PROD: Add delta-tracking (detect removed stores), audit log, multi-device
+#       sync, and per-store flyer URL resolution.
+
+def save_grocers() -> tuple[bool, str]:
+    """
+    Persist the current grocer wizard selections to Supabase.
+
+    Reads from:
+        st.session_state["grocers"]         — list of grocer dicts (set by wizard)
+        st.session_state["travel_radius_mi"] — int, user's preferred search radius
+        st.session_state["home_zip"]         — str, household zip
+
+    Writes to:
+        household_grocers  — one row per store (upsert on household_id + chain_name)
+        households         — travel_radius_mi preference column
+
+    Returns (success: bool, message: str).
+    Degrades gracefully: if DB is unavailable, session_state already has the data.
+
+    POC:  Removes stores that were deselected (delete + re-insert on each save).
+          This is safe for a pilot household. PROD: diff and apply only changes.
+    """
+    grocers = st.session_state.get("grocers", [])
+
+    # Always persist travel_radius_mi into session_state even without DB
+    radius = st.session_state.get("travel_radius_mi", 15)
+
+    if not _DB_AVAILABLE or not is_authenticated():
+        return True, "Saved to session only (no DB connection)."
+
+    hid = st.session_state.get("household_id")
+    if not hid:
+        return False, "No household_id — save household profile first."
+
+    try:
+        db = get_client()
+
+        # ── 1. Persist travel_radius_mi preference on households row ─────────
+        db.table("households").update(
+            {"travel_radius_mi": radius}
+        ).eq("id", hid).execute()
+
+        # ── 2. Delete existing grocer rows for this household ─────────────────
+        # POC: delete-and-replace keeps the logic simple and correct for a single
+        # household. PROD: diff incoming vs existing to avoid unnecessary deletes.
+        db.table("household_grocers").delete().eq("household_id", hid).execute()
+
+        # ── 3. Insert each selected store ─────────────────────────────────────
+        for order_idx, g in enumerate(grocers):
+            payload = {
+                "household_id":       hid,
+                "chain_name":         g.get("chain", ""),
+                "location_description": g.get("location", ""),
+                "source_type":        g.get("source", "manual_pdf"),
+                "rewards_enrolled":   bool(g.get("rewards", False)),
+                "delivery_preferred": bool(g.get("delivery", False)),
+                "is_primary":         bool(g.get("is_primary", False)),
+                "display_order":      order_idx,
+                # New columns from migration 002
+                "tier":               g.get("tier"),
+                "distance_miles":     g.get("distance_miles"),
+                "lat":                g.get("lat"),
+                "lon":                g.get("lon"),
+            }
+            db.table("household_grocers").insert(payload).execute()
+
+        return True, f"Saved {len(grocers)} store(s) to your profile."
+
+    except Exception as e:
+        # Degrade gracefully — session_state already has the selections
+        return False, f"DB save failed: {e}. Stores saved to session only."
+
+
+def _load_grocers_from_db():
+    """
+    Internal: load grocer selections from DB into session_state["grocers"].
+    Called automatically on sign-in so the wizard is pre-populated.
+    Silently no-ops if the user has no saved grocers yet.
+
+    Also restores:
+        session_state["travel_radius_mi"]  — from households.travel_radius_mi
+        session_state["store_wizard_done"] — True if at least one grocer exists
+    """
+    if not _DB_AVAILABLE or not is_authenticated():
+        return
+
+    hid = st.session_state.get("household_id")
+    if not hid:
+        return
+
+    try:
+        db = get_client()
+
+        # ── 1. Restore travel_radius_mi from households row ───────────────────
+        hh_rows = (
+            db.table("households")
+            .select("travel_radius_mi")
+            .eq("id", hid)
+            .limit(1)
+            .execute()
+            .data
+        )
+        if hh_rows and hh_rows[0].get("travel_radius_mi"):
+            st.session_state["travel_radius_mi"] = int(hh_rows[0]["travel_radius_mi"])
+
+        # ── 2. Load grocer rows ───────────────────────────────────────────────
+        rows = (
+            db.table("household_grocers")
+            .select("*")
+            .eq("household_id", hid)
+            .order("display_order")
+            .execute()
+            .data
+        )
+        if not rows:
+            return
+
+        # Normalise DB column names → app-side grocer dict shape
+        grocers = []
+        for r in rows:
+            dist = r.get("distance_miles")
+            grocers.append({
+                "chain":          r.get("chain_name", ""),
+                "location":       r.get("location_description", ""),
+                "source":         r.get("source_type", "manual_pdf"),
+                "rewards":        bool(r.get("rewards_enrolled", False)),
+                "delivery":       bool(r.get("delivery_preferred", False)),
+                "is_primary":     bool(r.get("is_primary", False)),
+                "tier":           r.get("tier"),
+                "distance_miles": float(dist) if dist is not None else None,
+                "lat":            float(r["lat"]) if r.get("lat") is not None else None,
+                "lon":            float(r["lon"]) if r.get("lon") is not None else None,
+            })
+
+        st.session_state["grocers"] = grocers
+        # Mark wizard as done so the Grocer Hub shows the profile card, not the wizard
+        st.session_state["store_wizard_done"] = True
+
+    except Exception:
+        pass  # POC: silently degrade — session_state keeps whatever was there
+

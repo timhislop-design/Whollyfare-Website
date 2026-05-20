@@ -609,8 +609,17 @@ if _show_wizard:
         st.session_state["show_store_wizard"] = False
         st.session_state.pop("wizard_selections", None)
 
-        # POC: session_state only. PROD: write to Supabase user profile.
-        st.success(f"Store profile saved — {len(new_grocers)} store{'s' if len(new_grocers) != 1 else ''} added.")
+        # Persist to Supabase so grocer selections survive browser refresh.
+        # Degrades gracefully: if DB is unavailable the session_state save above
+        # still works and the user can continue — they just need to re-enter on
+        # the next sign-in (same behaviour as before this wiring).
+        _db_ok, _db_msg = state.save_grocers()
+        n = len(new_grocers)
+        label = f"{n} store{'s' if n != 1 else ''}"
+        if _db_ok:
+            st.success(f"Store profile saved — {label} added.")
+        else:
+            st.warning(f"Stores saved to this session ({label}). DB save failed: {_db_msg}")
         st.rerun()
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
