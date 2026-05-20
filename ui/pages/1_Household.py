@@ -37,22 +37,6 @@ from app.core_logic.profile_schema import (
 st.set_page_config(page_title="Household Setup · WhollyFare", page_icon="👨‍👩‍👧", layout="wide")
 state.init()
 
-# ── Temporary debug panel — remove after diagnosis ───────────────────────────
-with st.expander("🔍 Debug: session state (remove after fix)", expanded=False):
-    import ui.state as _s
-    st.write({
-        "is_authenticated":  _s.is_authenticated(),
-        "user_id":           _s.current_user_id(),
-        "household_id":      st.session_state.get("household_id"),
-        "household_db_name": (st.session_state.get("household_db") or {}).get("name"),
-        "household_db_members": len((st.session_state.get("household_db") or {}).get("members", [])),
-        "household_type":    type(st.session_state.get("household")).__name__,
-        "household_none":    st.session_state.get("household") is None,
-        "grocers_count":     len(st.session_state.get("grocers", [])),
-        "member_list_count": len(st.session_state.get("member_list", [])),
-        "_DB_AVAILABLE":     _s._DB_AVAILABLE,
-    })
-
 # ── DB load ───────────────────────────────────────────────────────────────────
 # Load from DB when:
 #   a) household_db is None (first visit / browser refresh), OR
