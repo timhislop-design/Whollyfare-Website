@@ -115,6 +115,7 @@ def _parse_price_from_line(line: str) -> tuple[Optional[float], str, str]:
     """Return (sale_price_per_unit, unit, price_type) from a line of text.
 
     Returns (None, 'each', 'none') if no price found.
+    Priority: multi-buy > unit-priced > plain dollar > bogo
     """
     for pattern, ptype in _PRICE_RE:
         m = pattern.search(line)
@@ -123,20 +124,45 @@ def _parse_price_from_line(line: str) -> tuple[Optional[float], str, str]:
 
         if ptype == "multi":
             qty, total = float(m.group(1)), float(m.group(2))
-            return (round(total / max(qty, 1), 2), "each", ptype)
+            # Sanity: qty must be 2-12 and total must be reasonable
+            if 2 <= qty <= 12 and 0.01 <= total <= 200:
+                return (round(total / qty, 2), "each", ptype)
 
         if ptype == "unit":
             price = float(m.group(1))
             unit  = _normalise_unit(m.group(2))
-            return (price, unit, ptype)
+            if 0.01 <= price <= 50:          # sanity-check per-unit prices
+                return (price, unit, ptype)
 
         if ptype == "plain":
-            return (float(m.group(1)), "each", ptype)
+            price = float(m.group(1))
+            if 0.01 <= price <= 200:
+                return (price, "each", ptype)
 
         if ptype == "bogo":
             return (0.0, "each", ptype)   # price unknown; flag for manual review
 
     return (None, "each", "none")
+
+
+def _confidence_score(name: str, price: float, ptype: str, category: str) -> str:
+    """Return 'high', 'medium', or 'low' confidence for a parsed item.
+
+    Shown in the review UI so the user knows which items to scrutinise.
+    high   — specific price pattern, recognisable name, known category
+    medium — plain price, decent name
+    low    — short/odd name, unknown category, or suspicious price
+    """
+    if ptype == "bogo":
+        return "low"   # price is 0 — always needs review
+    name_ok  = len(name) >= 6
+    cat_ok   = category != "other"
+    price_ok = ptype in ("multi", "unit")
+    if price_ok and name_ok and cat_ok:
+        return "high"
+    if name_ok:
+        return "medium"
+    return "low"
 
 
 def _strip_price_from_name(name: str) -> str:
@@ -253,66 +279,96 @@ class FlyerIngestor:
         )
 
     def _parse_text_block(self, text: str, chain: str = "") -> list[IngredientCandidate]:
-        """Improved heuristic parser for PDF-extracted flyer text.
+        """Two-pass heuristic parser for PDF-extracted flyer text.
 
         Strategy:
-          1. Split into lines.
-          2. Skip obvious junk (headers, legal text, URLs).
-          3. For each line, extract price using prioritised patterns.
-          4. Extract item name as the non-price remainder.
-          5. Infer category from name keywords.
+          Pass 1: Split into lines; classify each as name-only, price-only,
+                  name+price, or junk. Build (name, price, unit, ptype) tuples
+                  by looking one line ahead when name and price are on separate lines.
+          Pass 2: Score confidence, dedupe within block, emit candidates.
+
+        The key improvement over a single-pass parser: grocery circulars very
+        commonly put the item description on line N and the price on line N+1.
+        Single-line parsers miss every one of those items.
 
         POC: No USDA enrichment here — that happens in a separate async pass.
         PROD: Each line hit gets queued for USDA FDC lookup; confidence score
               determines whether it goes straight to the engine or needs review.
         """
-        candidates: list[IngredientCandidate] = []
-
-        for raw_line in text.splitlines():
-            line = raw_line.strip()
-
-            # Skip short/empty lines and obvious junk
+        def _is_junk(line: str) -> bool:
             if len(line) < 4:
-                continue
+                return True
             if _JUNK_PATTERNS.match(line):
-                continue
-            # Skip lines that are all caps and short (likely section headers)
-            if line.isupper() and len(line) < 20:
+                return True
+            if line.isupper() and len(line) < 25:
+                return True
+            # Phone numbers
+            if re.search(r'\b\d{3}[\s.-]\d{3}[\s.-]\d{4}\b', line):
+                return True
+            return False
+
+        lines = [l.strip() for l in text.splitlines()]
+        tuples: list[tuple[str, float, str, str]] = []   # (name, price, unit, ptype)
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            if _is_junk(line):
+                i += 1
                 continue
 
             price, unit, ptype = _parse_price_from_line(line)
 
-            # No price found — skip (can't use in the engine without a price)
-            if price is None:
-                continue
+            if price is not None:
+                # This line has a price — extract name from same line
+                name = _strip_price_from_name(line)
+                # If name is too short, check the previous non-junk line for a name
+                if len(name) < 4 and i > 0:
+                    prev = lines[i - 1].strip()
+                    if not _is_junk(prev) and _parse_price_from_line(prev)[0] is None:
+                        candidate_name = _strip_price_from_name(prev)
+                        if len(candidate_name) >= 4:
+                            name = candidate_name
+                if len(name) >= 3:
+                    tuples.append((name, price, unit, ptype))
+                i += 1
 
-            # Skip suspiciously low or zero prices (except BOGO which is flagged)
+            else:
+                # No price on this line — look ahead one line for a price
+                if i + 1 < len(lines):
+                    nxt = lines[i + 1].strip()
+                    if not _is_junk(nxt):
+                        nxt_price, nxt_unit, nxt_ptype = _parse_price_from_line(nxt)
+                        if nxt_price is not None:
+                            name = _strip_price_from_name(line)
+                            if len(name) >= 3:
+                                tuples.append((name, nxt_price, nxt_unit, nxt_ptype))
+                            i += 2   # consumed both lines
+                            continue
+                i += 1
+
+        candidates: list[IngredientCandidate] = []
+        for name, price, unit, ptype in tuples:
+            # Names longer than 70 chars are usually garbled
+            if len(name) > 70:
+                name = name[:70].rsplit(" ", 1)[0]
+
+            # Skip zero-price non-BOGO entries
             if price == 0.0 and ptype != "bogo":
                 continue
 
-            # Extract item name: strip the price match and surrounding noise
-            name = _strip_price_from_name(line)
-
-            # Must have a meaningful name
-            if len(name) < 3:
-                continue
-            # Names longer than 60 chars are usually garbled lines
-            if len(name) > 60:
-                name = name[:60].rsplit(" ", 1)[0]
-
-            tags = ["bogo"] if ptype == "bogo" else []
+            cat  = _infer_category(name)
+            tags = []
+            if ptype == "bogo":
+                tags.append("bogo")
             if ptype == "multi":
                 tags.append("multi-buy")
 
-            candidates.append(self._stub_candidate(
-                name=name,
-                price=price,
-                unit=unit,
-                category=_infer_category(name),
-            ))
-
-            # Attach extra tags without a setter (IngredientCandidate is a dataclass)
-            candidates[-1].tags = tags
+            c = self._stub_candidate(name=name, price=price, unit=unit, category=cat)
+            c.tags = tags
+            # Confidence score — displayed in the review UI
+            # POC: simple heuristic. PROD: ML-based scoring using USDA match quality.
+            c._confidence = _confidence_score(name, price, ptype, cat)  # type: ignore[attr-defined]
+            candidates.append(c)
 
         return candidates
 

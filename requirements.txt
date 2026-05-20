@@ -31,3 +31,6 @@ streamlit-folium>=0.20.0
 
 # Utilities
 python-dateutil>=2.8.0
+
+# Environment / secrets loading
+python-dotenv>=1.0.0

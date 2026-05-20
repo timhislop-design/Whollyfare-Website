@@ -106,6 +106,11 @@ st.html("""
 #       "community-submitted" queue for parser dev prioritisation.
 # ══════════════════════════════════════════════════════════════════════════════
 
+# circular_support levels — used to show badges and control PDF tab behaviour:
+#   "api"         — live API pull (structured data, best quality)
+#   "pdf_text"    — text-extractable PDF circular (good, parser handles well)
+#   "pdf_image"   — image-based PDF (OCR fallback, incomplete results expected)
+#   "manual_only" — no machine-readable circular; enter prices manually
 STORE_TIERS = [
     {
         "key":     "discount",
@@ -118,29 +123,37 @@ STORE_TIERS = [
         "pill_bg": "#FFF3E0",
         "stores": [
             {"chain": "ALDI",           "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "circular_support": "pdf_image",
              "flyer": "https://www.aldi.us/en/weekly-specials/",
-             "note": "No loyalty card. Weekly Specialbuys rotate — download flyer Sunday."},
+             "note": "No loyalty card. Weekly Specialbuys are image-based — upload the PDF and review results carefully, or enter key items manually."},
             {"chain": "Lidl",           "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "circular_support": "pdf_image",
              "flyer": "https://www.lidl.com/en/weekly-specials",
-             "note": "Similar model to ALDI. Check 'Lidl Surprises' for deep cuts."},
+             "note": "Image-based circular similar to ALDI. PDF upload works via OCR — results vary. Manual entry for key items is more reliable."},
             {"chain": "Walmart",        "source": "manual_pdf",  "rewards": False, "delivery": True,
+             "circular_support": "manual_only",
              "flyer": "https://www.walmart.com/store/finder",
-             "note": "Rollback prices change without a fixed flyer cycle. Manual entry works best."},
+             "note": "No structured weekly circular. Rollback prices change continuously. Add items manually from the Walmart app or website."},
             {"chain": "Dollar General", "source": "manual_pdf",  "rewards": True,  "delivery": False,
+             "circular_support": "pdf_text",
              "flyer": "https://www.dollargeneral.com/weekly-ad",
-             "note": "Strong on canned goods, pasta, and pantry staples."},
+             "note": "Strong on canned goods, pasta, and pantry staples. Text-based weekly ad parses well."},
             {"chain": "Dollar Tree",    "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "circular_support": "pdf_image",
              "flyer": "https://www.dollartree.com/deals",
-             "note": "$1.25 flat pricing. Great for spices, canned tomatoes, condiments."},
+             "note": "$1.25 flat pricing. Ad is image-heavy — PDF upload via OCR, or enter a few key items manually."},
             {"chain": "WinCo Foods",    "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "circular_support": "pdf_text",
              "flyer": "https://www.wincofoods.com/weekly-ad",
-             "note": "Employee-owned. Consistently lowest prices in markets where it operates."},
+             "note": "Employee-owned. Consistently lowest prices in markets where it operates. Text circular parses well."},
             {"chain": "Save-A-Lot",     "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "circular_support": "pdf_text",
              "flyer": "https://www.savealot.com/savings/weekly-ad",
-             "note": "Deep-discount regional chain. Strong in Southeast and Midwest."},
+             "note": "Deep-discount regional chain. Strong in Southeast and Midwest. Standard text circular."},
             {"chain": "Food 4 Less",    "source": "manual_pdf",  "rewards": True,  "delivery": False,
+             "circular_support": "pdf_text",
              "flyer": "https://www.food4less.com/weeklyad",
-             "note": "Kroger warehouse banner. No-frills pricing, full selection."},
+             "note": "Kroger warehouse banner. No-frills pricing, full selection. Text circular parses well."},
         ],
     },
     {
@@ -154,53 +167,69 @@ STORE_TIERS = [
         "pill_bg": "#E3F4E8",
         "stores": [
             {"chain": "Kroger",         "source": "manual_pdf+api", "rewards": True,  "delivery": True,
+             "circular_support": "api",
              "flyer": "https://www.kroger.com/weeklyad",
-             "note": "API available. Loyalty card unlocks digital coupons stacked on sale prices."},
+             "note": "Live API connected — WhollyFare pulls current prices automatically. Loyalty card unlocks stacked digital coupons."},
             {"chain": "Food Lion",      "source": "manual_pdf",     "rewards": True,  "delivery": False,
+             "circular_support": "pdf_text",
              "flyer": "https://stores.foodlion.com",
-             "note": "MVP Card deals often beat Kroger on produce. Strong in Southeast."},
+             "note": "MVP Card deals often beat Kroger on produce. Dedicated parser — PDF circular imports cleanly."},
             {"chain": "Harris Teeter",  "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.harristeeter.com/weeklyad",
-             "note": "VIC card + e-VIC digital coupons. Super Double coupon events quarterly."},
+             "note": "VIC card + e-VIC digital coupons. Text-based circular parses reliably. Super Double coupon events quarterly."},
             {"chain": "Giant Food",     "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://stores.giantfood.com",
-             "note": "Giant Card + Gas Rewards. Mid-Atlantic staple."},
+             "note": "Giant Card + Gas Rewards. Mid-Atlantic staple. Text circular parses well."},
             {"chain": "Wegmans",        "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.wegmans.com/weeklyad",
-             "note": "Club card + Wegmans app coupons. Known for quality and price on store brand."},
+             "note": "Club card + app coupons. Known for quality and store-brand price. Text circular parses reliably."},
             {"chain": "Publix",         "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.publix.com/savings/weekly-ad",
-             "note": "BOGO deals are a Publix signature. Plus Card digital coupons."},
+             "note": "BOGO deals are a Publix signature. Well-structured text circular — one of the best-parsing PDFs."},
             {"chain": "Safeway",        "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.safeway.com/weeklyad",
-             "note": "Just for U digital coupons stack on Club Card pricing."},
+             "note": "Just for U digital coupons stack on Club Card pricing. Text circular parses well."},
             {"chain": "Albertsons",     "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.albertsons.com/weeklyad",
-             "note": "Same ownership as Safeway. For Just U coupons, strong BOGO weeks."},
+             "note": "Same ownership as Safeway. Strong BOGO weeks. Text circular parses reliably."},
             {"chain": "Meijer",         "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.meijer.com/shopping/weekly-deals.html",
-             "note": "Midwest supercenter. mPerks digital coupons stack on weekly sales."},
+             "note": "Midwest supercenter. mPerks digital coupons stack on weekly sales. Text circular."},
             {"chain": "Hy-Vee",         "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.hy-vee.com/weekly-deals/",
-             "note": "Employee-owned Midwest chain. Fuel Saver + Perks program."},
+             "note": "Employee-owned Midwest chain. Fuel Saver + Perks program. Text circular parses well."},
             {"chain": "Stop & Shop",    "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://stopandshop.com/weeklyCircular/",
-             "note": "Gas Points program. Northeast regional staple."},
+             "note": "Gas Points program. Northeast regional staple. Standard text circular."},
             {"chain": "ShopRite",       "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.shoprite.com/sm/planning/rsid/5002/weekly-specials",
-             "note": "Price Plus card. Can-Can Sale in January is legendary for savings."},
+             "note": "Price Plus card. Can-Can Sale in January is legendary. Text circular parses well."},
             {"chain": "Giant Eagle",    "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.gianteagle.com/save/weekly-circular",
-             "note": "fuelperks+ program. Strong in Ohio, Pennsylvania, West Virginia."},
+             "note": "fuelperks+ program. Strong in Ohio, Pennsylvania, West Virginia. Text circular."},
             {"chain": "H-E-B",          "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.heb.com/static-page/weekly-ad",
-             "note": "Texas institution. H-E-B Combo deals are a local savings fixture."},
+             "note": "Texas institution. H-E-B Combo deals are a local savings fixture. Text circular parses well."},
             {"chain": "Weis Markets",   "source": "manual_pdf",     "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.weismarkets.com/weeklyad",
-             "note": "Mid-Atlantic regional. Weis Club card + digital deals."},
+             "note": "Mid-Atlantic regional. Weis Club card + digital deals. Text circular."},
             {"chain": "Ingles Markets", "source": "manual_pdf",     "rewards": True,  "delivery": False,
+             "circular_support": "pdf_text",
              "flyer": "https://www.ingles-markets.com/weeklyad",
-             "note": "Southeast regional. Advantage Card savings + gas discounts."},
+             "note": "Southeast regional. Advantage Card savings + gas discounts. Text circular parses well."},
         ],
     },
     {
@@ -214,23 +243,29 @@ STORE_TIERS = [
         "pill_bg": "#E3F2FD",
         "stores": [
             {"chain": "Whole Foods",    "source": "manual_pdf",  "rewards": True,  "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.wholefoodsmarket.com/sales-flyer",
-             "note": "Prime members get extra 10% off sale items. 365 brand is price-competitive."},
+             "note": "Prime members get extra 10% off sale items. 365 brand is price-competitive. Text-based sales flyer parses well."},
             {"chain": "Trader Joe's",   "source": "manual_pdf",  "rewards": False, "delivery": False,
+             "circular_support": "pdf_image",
              "flyer": "https://www.traderjoes.com/home/fearless-flyer",
-             "note": "No loyalty card, no weekly sale cycle. Fearless Flyer runs monthly. Stable pricing."},
+             "note": "No weekly sale cycle — Fearless Flyer runs monthly and is magazine-style (image-based). Stable everyday pricing; manual entry is more reliable than PDF upload."},
             {"chain": "Sprouts",        "source": "manual_pdf",  "rewards": False, "delivery": True,
+             "circular_support": "pdf_text",
              "flyer": "https://www.sprouts.com/deals/weekly-ad/",
-             "note": "Produce-forward. Double Ad Wednesdays overlap two sale weeks."},
+             "note": "Produce-forward. Double Ad Wednesdays overlap two sale weeks. Text circular parses well."},
             {"chain": "The Fresh Market","source": "manual_pdf",  "rewards": True,  "delivery": False,
+             "circular_support": "pdf_text",
              "flyer": "https://www.thefreshmarket.com/weekly-specials",
-             "note": "Premium meats and produce. Weekly specials often include protein deals."},
+             "note": "Premium meats and produce. Weekly specials often include protein deals. Text circular."},
             {"chain": "Earth Fare",     "source": "manual_pdf",  "rewards": True,  "delivery": False,
+             "circular_support": "pdf_text",
              "flyer": "https://www.earthfare.com/deals/",
-             "note": "No artificial ingredients policy. Regional natural chain, Southeast focus."},
+             "note": "No artificial ingredients policy. Regional natural chain, Southeast focus. Text circular."},
             {"chain": "Natural Grocers","source": "manual_pdf",  "rewards": True,  "delivery": False,
+             "circular_support": "pdf_text",
              "flyer": "https://www.naturalgrocers.com/weekly-ad",
-             "note": "100% organic produce, always. {N}power card unlocks member pricing."},
+             "note": "100% organic produce, always. {N}power card unlocks member pricing. Text circular parses well."},
         ],
     },
     {
@@ -245,18 +280,23 @@ STORE_TIERS = [
         "stores": [
             # Charlottesville / Palmyra VA pilot area — pre-seeded for Tim's household
             {"chain": "EW Thomas Grocery",        "source": "manual_pdf", "rewards": False, "delivery": False,
+             "circular_support": "manual_only",
              "flyer": "",
              "note": "Palmyra, VA. Local institution — meat counter, produce, and weekly specials."},
             {"chain": "Foods of All Nations",     "source": "manual_pdf", "rewards": False, "delivery": False,
+             "circular_support": "manual_only",
              "flyer": "",
              "note": "Charlottesville, VA. International specialty market. Unique ingredients, fair prices."},
             {"chain": "Integral Yoga Natural",    "source": "manual_pdf", "rewards": False, "delivery": False,
+             "circular_support": "manual_only",
              "flyer": "",
              "note": "Charlottesville, VA. Natural and organic co-op. Bulk bins, local produce."},
             {"chain": "The Fresh Marketplace",    "source": "manual_pdf", "rewards": False, "delivery": False,
+             "circular_support": "manual_only",
              "flyer": "",
              "note": "Charlottesville, VA area. Check locally for current weekly specials."},
             {"chain": "Reid's Country Store",     "source": "manual_pdf", "rewards": False, "delivery": False,
+             "circular_support": "manual_only",
              "flyer": "",
              "note": "Local farm-country store. Seasonal produce, local meats, unbeatable eggs."},
         ],
@@ -521,12 +561,23 @@ if _show_wizard:
                 already   = chain.lower() in existing_chains_lower
 
                 with cols_wiz[i % n_cols]:
+                    # Support badge for wizard checkbox
+                    _csupp = CHAIN_DATA.get(chain.lower(), {}).get("circular_support", "pdf_text")
+                    _supp_badge_map = {
+                        "api":         ("🔗", "#1E5C32", "Live API"),
+                        "pdf_text":    ("📄", "#1565C0", "PDF supported"),
+                        "pdf_image":   ("🖼️", "#BF5E00", "Image PDF — limited"),
+                        "manual_only": ("✏️", "#5D4037", "Manual entry only"),
+                    }
+                    _si, _sc, _sl = _supp_badge_map.get(_csupp, ("📄", "#1565C0", "PDF supported"))
                     checked = st.checkbox(
                         f"**{chain}**",
                         value=st.session_state["wizard_selections"].get(chain, already),
                         key=f"wiz_check_{chain}",
                     )
                     st.session_state["wizard_selections"][chain] = checked
+                    st.html(f"<div style='font-size:0.68rem;color:{_sc};margin:-4px 0 4px 0;'>"
+                            f"{_si} {_sl}</div>")
 
                     if checked:
                         # Trip distance input for selected stores
@@ -1180,7 +1231,38 @@ for g in manual_stores:
                         f"color:#3A8C4E;font-weight:600;text-decoration:none;'>"
                         f"↗ Weekly circular</a>")
 
-        tab_manual, tab_pdf = st.tabs(["✏️ Manual entry", "📄 PDF upload"])
+        # Determine circular support for this store
+        _circ_support = CHAIN_DATA.get(chain.lower(), {}).get("circular_support", "pdf_text")
+
+        # Build tabs based on support level
+        # manual_only — no PDF tab; pdf_image — PDF tab with caveat; others — both tabs normal
+        if _circ_support == "manual_only":
+            _tab_labels = ["✏️ Manual entry"]
+        else:
+            _tab_labels = ["✏️ Manual entry", "📄 PDF upload"]
+        _tabs = st.tabs(_tab_labels)
+        tab_manual = _tabs[0]
+        tab_pdf    = _tabs[1] if len(_tabs) > 1 else None
+
+        # For manual_only stores, show a gentle disclaimer above the tab
+        if _circ_support == "manual_only":
+            st.html(
+                "<div style='background:#FBF8F5;border-left:3px solid #D7CCC8;"
+                "border-radius:0 6px 6px 0;padding:8px 12px;font-size:0.79rem;"
+                "color:#5D4037;margin-bottom:8px;line-height:1.5;'>"
+                "✏️ <strong>Manual entry only.</strong> This store doesn't publish a "
+                "machine-readable circular. Add items from their printed flyer, app, or website."
+                "</div>"
+            )
+        elif _circ_support == "pdf_image":
+            st.html(
+                "<div style='background:#FFF8F0;border-left:3px solid #FFCC80;"
+                "border-radius:0 6px 6px 0;padding:8px 12px;font-size:0.79rem;"
+                "color:#7A4A00;margin-bottom:8px;line-height:1.5;'>"
+                "🖼️ <strong>Image-based circular.</strong> PDF upload uses OCR — results vary "
+                "and will miss some items. Review everything carefully, or add key items manually."
+                "</div>"
+            )
 
         with tab_manual:
             st.html("<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:10px;'>"
@@ -1262,7 +1344,8 @@ for g in manual_stores:
                 st.html("<div style='font-size:0.82rem;color:#9AA8A0;padding:8px 0;'>"
                         "No items yet — add your first item above, or upload the PDF circular.</div>")
 
-        with tab_pdf:
+        if tab_pdf is not None:
+         with tab_pdf:
             if dl_url:
                 st.html(f"<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:8px;'>"
                         f"Download the weekly circular from "
@@ -1311,14 +1394,29 @@ for g in manual_stores:
                     flyer_items = st.session_state.get("flyer_data", {}).get(chain, [])
                     pdf_items   = [c for c in flyer_items if not getattr(c, "_manual", False)]
 
+                    # Confidence summary
+                    _conf_counts = {"high": 0, "medium": 0, "low": 0}
+                    for _itm in pdf_items[:50]:
+                        _conf_counts[getattr(_itm, "_confidence", "medium")] += 1
+                    _conf_html = (
+                        f"<span style='color:#3A8C4E;font-weight:600;'>{_conf_counts['high']} high</span> · "
+                        f"<span style='color:#F28B30;font-weight:600;'>{_conf_counts['medium']} medium</span> · "
+                        f"<span style='color:#BF5E00;font-weight:600;'>{_conf_counts['low']} low</span> confidence"
+                    )
+                    st.html(f"<div style='font-size:0.75rem;color:#5A7A62;margin-bottom:8px;'>"
+                            f"Parser confidence: {_conf_html}. "
+                            f"Remove anything that looks wrong before running the engine.</div>")
+
                     for i, item in enumerate(pdf_items[:50]):
                         name  = item.name if hasattr(item, "name") else item.get("name", "?")
                         price = item.sale_price_per_unit if hasattr(item, "sale_price_per_unit") else item.get("sale_price_per_unit", 0)
                         unit  = item.unit if hasattr(item, "unit") else item.get("unit", "each")
                         cat   = item.category if hasattr(item, "category") else item.get("category", "other")
                         keep  = st.session_state[review_key].get(i, True)
+                        conf  = getattr(item, "_confidence", "medium")
+                        conf_dot = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(conf, "🟡")
 
-                        ri_a, ri_b, ri_d = st.columns([4, 1.5, 0.5])
+                        ri_a, ri_b, ri_c, ri_d = st.columns([3.5, 1.5, 0.5, 0.5])
                         with ri_a:
                             col = "#1A2E1D" if keep else "#9AA8A0"
                             st.html(f"<div style='font-size:0.85rem;color:{col};padding:2px 0;'>"
@@ -1328,6 +1426,8 @@ for g in manual_stores:
                         with ri_b:
                             st.html(f"<div style='font-size:0.85rem;color:#F28B30;padding:2px 0;'>"
                                     f"${price:.2f}/{unit}</div>")
+                        with ri_c:
+                            st.html(f"<div style='font-size:0.9rem;padding:2px 0;' title='{conf} confidence'>{conf_dot}</div>")
                         with ri_d:
                             if keep and st.button("✕", key=f"reject_{chain}_{i}"):
                                 st.session_state[review_key][i] = False

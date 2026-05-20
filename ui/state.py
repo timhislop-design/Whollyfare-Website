@@ -26,6 +26,15 @@ import logging
 import requests as _requests
 from datetime import date, timedelta
 
+# Load .env for local development. Silently no-ops if python-dotenv isn't
+# installed or no .env file exists (Streamlit Cloud uses st.secrets instead).
+# POC: .env for local, st.secrets for cloud. PROD: vault-based secret management.
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv(override=False)   # don't override vars already set in the shell
+except ImportError:
+    pass
+
 # Debug logging — appears in Streamlit Cloud 'Manage app' logs.
 # Remove or set to WARNING in production.
 _log = logging.getLogger("whollyfare")
