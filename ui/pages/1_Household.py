@@ -313,6 +313,19 @@ if st.button("＋ Add another person"):
 st.divider()
 
 
+# ── Auth debug panel (remove after persistence is confirmed working) ──────────
+with st.expander("🔧 Debug: auth state", expanded=False):
+    import streamlit as _st
+    _tok = st.session_state.get("_sb_access_token")
+    _usr = st.session_state.get("user")
+    st.write({
+        "authenticated":      state.is_authenticated(),
+        "user_id":            state.current_user_id(),
+        "token_present":      bool(_tok),
+        "token_preview":      (_tok[:24] + "…") if _tok else "MISSING — will use anon key",
+        "session_state_keys": [k for k in st.session_state if not k.startswith("_FormData")],
+    })
+
 # ── Save ──────────────────────────────────────────────────────────────────────
 col_save, col_status = st.columns([1, 3])
 
