@@ -476,12 +476,36 @@ def _sb_headers(write: bool = False) -> dict:
     We set this explicitly rather than relying on supabase-py to propagate
     the session — that propagation has proven unreliable across Streamlit reruns.
 
-    POC:  Always uses the access token stored at sign-in.
-    PROD: Add token-refresh logic before expiry (Supabase default: 1 hour).
+    Token resolution order:
+      1. session_state["_sb_access_token"] — set at sign-in, fastest path.
+      2. get_client().auth.get_session()   — GoTrue cached client fallback.
+         Covers the case where st.switch_page() or a Streamlit rerun cleared
+         session_state keys that weren't in the init() defaults dict.
+      3. anon key — unauthenticated fallback; RLS will block writes.
+
+    POC:  Tokens expire after 1 hour (Supabase default); user must re-sign-in.
+    PROD: Add silent token-refresh using refresh_token before expiry.
     """
     url    = st.secrets["supabase"]["url"]
     anon   = st.secrets["supabase"]["anon_key"]
-    token  = st.session_state.get("_sb_access_token", anon)
+    token  = st.session_state.get("_sb_access_token")
+
+    # Fallback: pull token from the cached GoTrue client's own session storage.
+    # This works because get_client() is @st.cache_resource — the same Python
+    # object that called sign_in_with_password() is still alive in this process.
+    if not token and _DB_AVAILABLE:
+        try:
+            sess = get_client().auth.get_session()
+            if sess and getattr(sess, "access_token", None):
+                token = sess.access_token
+                st.session_state["_sb_access_token"] = token
+                _log.info("_sb_headers: recovered JWT from GoTrue client session")
+        except Exception as _gtex:
+            _log.warning("_sb_headers: GoTrue fallback failed: %s", _gtex)
+
+    if not token:
+        token = anon
+
     h = {
         "apikey":        anon,
         "Authorization": f"Bearer {token}",
@@ -490,7 +514,7 @@ def _sb_headers(write: bool = False) -> dict:
     if write:
         h["Prefer"] = "return=representation"
     _log.debug("_sb_headers: using %s token",
-               "user" if token != anon else "anon")
+               "user JWT" if token != anon else "ANON KEY — writes will fail RLS")
     return h
 
 
