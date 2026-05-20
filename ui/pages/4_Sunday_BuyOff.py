@@ -89,17 +89,54 @@ if ledger:
           across {num_weeks} {week_word} with WhollyFare. This week adds to that.
         </div>""")
 
+# ── Trip cost / net savings calculation ───────────────────────────────────────
+# Sincere Strategy: show the real number, not just the flattering one.
+# If secondary store trips cost more than they save, say so — right here.
+trip_data    = state.net_found_money()
+gross_found  = trip_data.get("gross_found_money", totals["found_money"])
+total_trip   = trip_data.get("total_trip_cost", 0.0)
+net_found    = trip_data.get("net_found_money",  gross_found)
+skip_hints   = trip_data.get("skip_suggestions", [])
+
 # ── Found Money hero ──────────────────────────────────────────────────────────
 col_left, col_hero, col_right = st.columns([1, 2, 1])
 with col_hero:
-    st.html(
-        f"""<div class='found-money-box'>
-          <div class='found-money-amount'>${totals['found_money']:.2f}</div>
-          <div class='found-money-label'>Found Money this week</div>
-          <div style='font-size:12px;color:#BF5E00;margin-top:6px;'>
-            vs. buying everything at one store
-          </div>
-        </div>""")
+    if total_trip > 0:
+        # Show both gross and net — honesty is the product
+        st.html(
+            f"""<div class='found-money-box'>
+              <div class='found-money-amount'>${net_found:.2f}</div>
+              <div class='found-money-label'>Net Found Money this week</div>
+              <div style='font-size:12px;color:#BF5E00;margin-top:6px;'>
+                ${gross_found:.2f} saved on groceries &minus; ${total_trip:.2f} in gas
+              </div>
+            </div>""")
+    else:
+        st.html(
+            f"""<div class='found-money-box'>
+              <div class='found-money-amount'>${gross_found:.2f}</div>
+              <div class='found-money-label'>Found Money this week</div>
+              <div style='font-size:12px;color:#BF5E00;margin-top:6px;'>
+                vs. buying everything at one store
+              </div>
+            </div>""")
+
+# ── Sincere Strategy skip hints ───────────────────────────────────────────────
+# If any store costs more in gas than it saves on groceries, surface that here.
+# This is radical transparency: we'd rather you skip a stop than feel deceived.
+if skip_hints:
+    for hint in skip_hints:
+        st.html(
+            f"""<div style='background:#FFF3E0;border:1px solid #FFCC80;border-left:4px solid #F28B30;
+                            border-radius:8px;padding:10px 16px;margin-top:8px;font-size:0.88rem;'>
+              <strong style='color:#BF5E00;'>You could skip {hint['store']} this week.</strong>
+              <span style='color:#5A3A00;'>
+                The items there save you <strong>${hint['store_savings']:.2f}</strong>,
+                but the round trip costs an estimated <strong>${hint['trip_cost']:.2f}</strong>
+                in gas — a net loss of ${hint['difference']:.2f}.
+                Everything you need is available at your other stores.
+              </span>
+            </div>""")
 
 st.html("<br>")
 

@@ -43,6 +43,7 @@ st.html("""
 .phase-beta   { background: linear-gradient(135deg, #1A2E40, #1E4060); }
 .phase-growth { background: linear-gradient(135deg, #2D1A40, #4A2060); }
 .phase-scale  { background: linear-gradient(135deg, #1A1200, #3D2C00); }
+.phase-wholesale { background: linear-gradient(135deg, #071F1F, #0A3A3A); }
 
 .phase-label {
     font-size: 0.65rem;
@@ -118,7 +119,8 @@ st.html("""
 }
 .status-pill-built  { background:#E3F4E8; color:#1E5C32; border-radius:20px; padding:2px 10px; font-size:0.68rem; font-weight:700; }
 .status-pill-next   { background:#EBF2FB; color:#1A4A7A; border-radius:20px; padding:2px 10px; font-size:0.68rem; font-weight:700; }
-.status-pill-future { background:#F3EDFB; color:#5A1A8A; border-radius:20px; padding:2px 10px; font-size:0.68rem; font-weight:700; }
+.status-pill-future   { background:#F3EDFB; color:#5A1A8A; border-radius:20px; padding:2px 10px; font-size:0.68rem; font-weight:700; }
+.status-pill-horizon  { background:#D6F0EF; color:#0A5C5C; border-radius:20px; padding:2px 10px; font-size:0.68rem; font-weight:700; }
 </style>
 """)
 
@@ -380,7 +382,76 @@ for col, (icon, title, body) in zip([p4c1, p4c2, p4c3, p4c4], national_features)
         </div>
         """)
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE 5 — WHOLESALE & DELIVERY (HORIZON)
+# ══════════════════════════════════════════════════════════════════════════════
+st.html('<div class="phase-hero phase-wholesale">')
+st.html("""
+<div class="phase-label" style="color:#7FD4D4;">Phase 5 &middot; Horizon</div>
+<div class="phase-timing">Wholesale &amp; Delivery &middot; Post Series A &middot; When national coverage is proven</div>
+<div class="phase-title">The full grocery universe. Every format, every model.</div>
+<div class="phase-subtitle">
+  Warehouse clubs and online delivery are fundamentally different purchase models &mdash;
+  bulk buying, membership economics, delivery logistics. Phase 5 brings them into the engine
+  once national grocery coverage is solid enough to make the comparison honest and meaningful.
+  Not just cheaper per ounce &mdash; cheaper in your actual kitchen.
+</div>
+""")
+st.html('</div>')
+
+st.html("<div style='height:10px;'></div>")
+
+p5c1, p5c2, p5c3, p5c4 = st.columns(4)
+
+_wholesale_features = [
+    (
+        "\U0001f3ed",
+        "Warehouse Clubs",
+        "Costco, Sam&#39;s Club, and BJ&#39;s Wholesale integrated into the price engine. "
+        "Bulk pricing comparisons that account for realistic consumption: a 10-lb bag "
+        "of chicken thighs is only a deal if your household actually uses 10 lbs before "
+        "it spoils. Per-unit and per-serving math done honestly.",
+    ),
+    (
+        "\U0001f4e6",
+        "Amazon Fresh &amp; Prime",
+        "Online grocery delivery mapped against your weekly plan. Time value, delivery "
+        "fees, and minimum order thresholds calculated alongside per-item prices. "
+        "The honest answer is sometimes: the convenience isn&#39;t worth the markup. "
+        "The Sincere Strategy means we&#39;ll say so.",
+    ),
+    (
+        "\U0001f504",
+        "Bulk Buy Optimisation",
+        "The engine learns which staple categories your household consumes consistently "
+        "and flags when warehouse club pricing beats per-unit grocery pricing over a "
+        "realistic 30-day consumption window. Not an ounce-price comparison &mdash; "
+        "a whole-pantry, whole-month savings model.",
+    ),
+    (
+        "\U0001f4ca",
+        "Hybrid Trip Planning",
+        "One warehouse run per month plus weekly grocery shops, modelled as a system. "
+        "WhollyFare plans both: what to stock up on at Costco and what to buy fresh "
+        "each week. The full-year Found Money picture becomes the most compelling "
+        "number in the product.",
+    ),
+]
+
+for _col, (_icon, _title, _body) in zip([p5c1, p5c2, p5c3, p5c4], _wholesale_features):
+    with _col:
+        st.html(
+            "<div class=\'feature-card\' style=\'border-left:4px solid #0A9090;\'>"
+            f"<div class=\'feature-icon\'>{_icon}</div>"
+            f"<div class=\'feature-title\'>{_title} "
+            "<span class=\'status-pill-horizon\'>Horizon</span></div>"
+            f"<div class=\'feature-body\'>{_body}</div>"
+            "</div>"
+        )
+
 st.html("<div style='height:28px;'></div>")
+
 st.divider()
 
 

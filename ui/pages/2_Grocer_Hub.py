@@ -581,6 +581,49 @@ for tier in STORE_TIERS:
                         st.warning("Enter a store name.")
 
 
+# ── Wholesale & Delivery — Coming Soon ──────────────────────────────
+# POC: This tier is a roadmap placeholder — wholesale clubs and delivery require
+# membership pricing APIs, bulk-unit math, and trip/delivery-fee modelling that is
+# scoped for Phase 5. Showing it here so pilot friends (and investors) can see the
+# full picture of where WhollyFare is going.
+with st.expander("\U0001f3ed **Wholesale & Delivery** — Costco, Sam's Club, Amazon Fresh", expanded=False):
+    st.html("""
+    <div style='background:linear-gradient(135deg,#071F1F,#0A3A3A);border-radius:10px;
+                padding:20px 22px;color:white;'>
+      <div style='font-size:0.65rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;
+                  color:#7FD4D4;margin-bottom:8px;'>Phase 5 Roadmap — Coming Soon</div>
+      <div style='font-size:1.05rem;font-weight:800;margin-bottom:8px;'>
+        Warehouse clubs + online delivery in the price engine.
+      </div>
+      <div style='font-size:0.84rem;color:rgba(255,255,255,0.7);line-height:1.6;max-width:560px;'>
+        Costco, Sam’s Club, BJ’s Wholesale, and Amazon Fresh are a fundamentally different
+        purchase model — bulk units, membership fees, delivery costs, and monthly rather than
+        weekly shopping cadences. WhollyFare will integrate them once national grocery coverage
+        is solid. The engine will handle the math honestly: a 10-lb bag of chicken is only
+        a deal if your household actually uses 10 lbs before it spoils.
+      </div>
+      <div style='margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;'>
+        <span style='background:rgba(127,212,212,0.15);border:1px solid rgba(127,212,212,0.4);
+                     border-radius:20px;padding:4px 14px;font-size:0.76rem;color:#7FD4D4;'>
+          \U0001f3ed Costco
+        </span>
+        <span style='background:rgba(127,212,212,0.15);border:1px solid rgba(127,212,212,0.4);
+                     border-radius:20px;padding:4px 14px;font-size:0.76rem;color:#7FD4D4;'>
+          \U0001f6d2 Sam’s Club
+        </span>
+        <span style='background:rgba(127,212,212,0.15);border:1px solid rgba(127,212,212,0.4);
+                     border-radius:20px;padding:4px 14px;font-size:0.76rem;color:#7FD4D4;'>
+          \U0001f4e6 BJ’s Wholesale
+        </span>
+        <span style='background:rgba(127,212,212,0.15);border:1px solid rgba(127,212,212,0.4);
+                     border-radius:20px;padding:4px 14px;font-size:0.76rem;color:#7FD4D4;'>
+          \U0001f6d2 Amazon Fresh
+        </span>
+      </div>
+    </div>
+    """)
+
+
 # ── Active store list ─────────────────────────────────────────────────────────
 if grocers:
     # Group by tier for display
