@@ -411,15 +411,15 @@ if save_pressed:
         db_ok, db_msg = state.save_household(household_dict)
         if db_ok and "session only" not in db_msg:
             st.session_state["_hh_save_msg"] = ("success", "Household profile saved. Head to the Grocer Hub to set up your stores →")
-        elif "session only" in db_msg:
+        elif not db_ok:
+            # Exception inside save_household — db_msg contains the actual Supabase error
+            st.session_state["_hh_save_msg"] = ("warning", f"DB error (session saved): {db_msg}")
+        else:
+            # Early exit — not authenticated or DB unavailable
             _auth_status = "signed in" if state.is_authenticated() else "NOT signed in"
             _db_status = "available" if state._DB_AVAILABLE else "unavailable"
             st.session_state["_hh_save_msg"] = ("warning",
-                f"Saved to session only — not written to database. "
-                f"Auth: {_auth_status} | DB: {_db_status} | "
-                f"household_id: {st.session_state.get('household_id')} | "
+                f"Not written to DB — Auth: {_auth_status} | DB: {_db_status} | "
                 f"user: {st.session_state.get('user')}"
             )
-        else:
-            st.session_state["_hh_save_msg"] = ("warning", f"DB error: {db_msg}")
         st.rerun()

@@ -424,7 +424,13 @@ def sign_in(email: str, password: str) -> tuple[bool, str]:
         resp = db.auth.sign_in_with_password({"email": email, "password": password})
         if resp.user:
             st.session_state["user"] = {"id": resp.user.id, "email": resp.user.email}
-            _log.info("sign_in: success for %s uid=%s", email, resp.user.id)
+            # Store the JWT so every PostgREST call can inject it explicitly.
+            # supabase-py v2 does not always propagate the session JWT to the
+            # PostgREST client automatically — injecting it manually is reliable.
+            if resp.session and resp.session.access_token:
+                st.session_state["_sb_access_token"] = resp.session.access_token
+            _log.info("sign_in: success for %s uid=%s token_stored=%s",
+                      email, resp.user.id, "_sb_access_token" in st.session_state)
             # Attempt to load the household that belongs to this user
             _load_household_from_db()
             # Restore grocer selections so the Grocer Hub wizard is pre-filled
@@ -461,6 +467,28 @@ def current_user_id() -> str | None:
     return user["id"] if user else None
 
 
+# ── Authenticated client helper ─────────────────────────────────────────────
+def get_authed_client():
+    """Return a Supabase client with the user JWT explicitly injected.
+
+    supabase-py v2 does not reliably auto-propagate the auth session JWT
+    to PostgREST requests. Injecting it via .auth(token) on every call
+    ensures RLS sees auth.uid() correctly.
+
+    PROD: Same pattern — access token from session. Add refresh-token
+          rotation when tokens expire (Supabase default: 1 hour).
+    """
+    db = get_client()
+    token = st.session_state.get("_sb_access_token")
+    if token:
+        # Inject JWT into the PostgREST client for this call chain
+        db.postgrest.auth(token)
+        _log.debug("get_authed_client: JWT injected len=%d", len(token))
+    else:
+        _log.warning("get_authed_client: no access token in session_state")
+    return db
+
+
 # ── Household DB layer ────────────────────────────────────────────────────────
 # POC:  Household is saved/loaded on the Household Setup page.
 #       Session_state is the working copy; DB is the persistent store.
@@ -478,9 +506,10 @@ def _load_household_from_db():
                      _DB_AVAILABLE, is_authenticated())
         return
 
-    db = get_client()
     uid = current_user_id()
     _log.info("_load_household_from_db: looking up household for uid=%s", uid)
+
+    db = get_authed_client()
 
     # Find the household this user belongs to
     rows = (
@@ -625,7 +654,7 @@ def save_household(household_dict: dict) -> tuple[bool, str]:
         st.session_state["household_db"] = household_dict
         return True, "Saved to session only (no DB connection)."
 
-    db = get_client()
+    db = get_authed_client()
     uid = current_user_id()
 
     try:
@@ -973,7 +1002,7 @@ def save_grocers() -> tuple[bool, str]:
         return False, "No household_id — save household profile first."
 
     try:
-        db = get_client()
+        db = get_authed_client()
 
         # ── 1. Persist travel_radius_mi preference on households row ─────────
         db.table("households").update(
@@ -1029,7 +1058,7 @@ def _load_grocers_from_db():
         return
 
     try:
-        db = get_client()
+        db = get_authed_client()
 
         # ── 1. Restore travel_radius_mi from households row ───────────────────
         hh_rows = (
