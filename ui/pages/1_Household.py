@@ -401,8 +401,18 @@ if save_pressed:
         }
 
         db_ok, db_msg = state.save_household(household_dict)
-        if db_ok:
+        if db_ok and "session only" not in db_msg:
             st.success("Household profile saved. Head to the Grocer Hub to set up your stores →")
+        elif "session only" in db_msg:
+            # Not authenticated or DB unavailable — surface clearly so we can debug
+            _auth_status = "signed in" if state.is_authenticated() else "NOT signed in"
+            _db_status = "available" if state._DB_AVAILABLE else "unavailable"
+            st.warning(
+                f"Saved to session only — not written to database. "
+                f"Auth: {_auth_status} | DB: {_db_status} | "
+                f"household_id: {st.session_state.get('household_id')} | "
+                f"user: {st.session_state.get('user')}"
+            )
         else:
-            st.warning(f"Profile saved to this session. DB save failed: {db_msg}")
+            st.warning(f"Profile saved to this session. DB error: {db_msg}")
         st.rerun()
