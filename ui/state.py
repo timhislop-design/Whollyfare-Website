@@ -705,7 +705,7 @@ def _sb_update(table: str, payload: dict, eq_col: str, eq_val: str) -> None:
 def _sb_delete(table: str, eq_col: str, eq_val: str) -> None:
     """Delete rows matching eq_col=eq_val via direct REST call."""
     params = {eq_col: f"eq.{eq_val}"}
-    resp = _requests.delete(_sb_url(table), headers=_sb_headers(), params=params)
+    resp = _requests.delete(_sb_url(table), headers=_sb_headers(write=True), params=params)
     if not resp.ok:
         raise RuntimeError(f"DELETE {table} failed {resp.status_code}: {resp.text}")
 
