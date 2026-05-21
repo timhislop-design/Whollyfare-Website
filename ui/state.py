@@ -524,6 +524,101 @@ def sign_out():
         del st.session_state[key]
 
 
+def _jwt_is_expired() -> bool:
+    """Return True if the stored access token is expired or missing.
+
+    Checks the JWT 'exp' claim with a 60-second safety buffer so we refresh
+    slightly before the actual expiry rather than right at the edge.
+
+    POC:  Called on key pages to decide whether to proactively refresh.
+    PROD: Run in a background thread and refresh automatically before expiry.
+    """
+    import time as _time
+    import base64 as _b64
+    import json as _json_mod
+
+    token = st.session_state.get("_sb_access_token")
+    if not token:
+        return True
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return True
+        # Pad to a multiple of 4 (base64url has no padding by design)
+        padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+        data = _json_mod.loads(_b64.urlsafe_b64decode(padded))
+        exp = data.get("exp", 0)
+        return _time.time() >= (exp - 60)   # 60s buffer
+    except Exception:
+        return True   # Treat parse errors as expired — refreshing is always safe
+
+
+def refresh_session() -> bool:
+    """
+    Silently renew the access token using the stored refresh token.
+
+    Call this when the JWT may have expired (after ~1 hour) to keep an active
+    Streamlit session working without forcing the user to sign in again.
+
+    Updates session_state["_sb_access_token"] and ["_sb_refresh_token"] on success.
+    Also updates session_state["user"] if the response includes updated user info.
+
+    Returns True if refresh succeeded, False if the user must sign in again.
+
+    POC:  Refresh tokens rotate on use — the new refresh_token from the response
+          must replace the old one immediately or it becomes invalid.
+    PROD: Schedule proactive refresh ~5 minutes before expiry. Add exponential
+          back-off on network errors. Store refresh_token in a secure HttpOnly
+          cookie so it survives Streamlit Cloud session restarts.
+    """
+    if not _DB_AVAILABLE:
+        return False
+
+    refresh_tok = st.session_state.get("_sb_refresh_token")
+    if not refresh_tok:
+        _log.warning("refresh_session: no refresh_token in session — user must re-sign-in")
+        return False
+
+    try:
+        url  = st.secrets["supabase"]["url"]
+        anon = st.secrets["supabase"]["anon_key"]
+
+        resp = _requests.post(
+            f"{url}/auth/v1/token?grant_type=refresh_token",
+            json={"refresh_token": refresh_tok},
+            headers={"apikey": anon, "Content-Type": "application/json"},
+            timeout=10,
+        )
+
+        if not resp.ok:
+            _log.warning("refresh_session: refresh failed %s — %s",
+                         resp.status_code, resp.text[:200])
+            return False
+
+        data          = resp.json()
+        new_access    = data.get("access_token")
+        new_refresh   = data.get("refresh_token", refresh_tok)  # tokens rotate
+        user_obj      = data.get("user", {})
+        uid           = user_obj.get("id")
+        user_email    = user_obj.get("email")
+
+        if not new_access:
+            _log.warning("refresh_session: response missing access_token")
+            return False
+
+        # Update tokens — refresh_token rotates on every use, must update immediately
+        st.session_state["_sb_access_token"]  = new_access
+        st.session_state["_sb_refresh_token"] = new_refresh
+        if uid:
+            st.session_state["user"] = {"id": uid, "email": user_email}
+        _log.info("refresh_session: token refreshed successfully for uid=%s", uid)
+        return True
+
+    except Exception as e:
+        _log.warning("refresh_session: exception: %s", e)
+        return False
+
+
 def is_authenticated() -> bool:
     """True if a user is signed in this session."""
     return st.session_state.get("user") is not None
@@ -615,11 +710,18 @@ def _sb_delete(table: str, eq_col: str, eq_val: str) -> None:
         raise RuntimeError(f"DELETE {table} failed {resp.status_code}: {resp.text}")
 
 
-def _sb_select(table: str, select: str = "*", filters: dict | None = None) -> list:
-    """Select rows via direct REST call."""
+def _sb_select(table: str, select: str = "*", filters: dict | None = None,
+               order: str | None = None) -> list:
+    """Select rows via direct REST call.
+
+    Args:
+        order: PostgREST order string, e.g. "display_order.asc" or "created_at.desc".
+    """
     params = {"select": select}
     if filters:
         params.update({k: f"eq.{v}" for k, v in filters.items()})
+    if order:
+        params["order"] = order
     resp = _requests.get(_sb_url(table), headers=_sb_headers(), params=params)
     if not resp.ok:
         raise RuntimeError(f"SELECT {table} failed {resp.status_code}: {resp.text}")
@@ -1117,19 +1219,21 @@ def save_grocers() -> tuple[bool, str]:
     Persist the current grocer wizard selections to Supabase.
 
     Reads from:
-        st.session_state["grocers"]         — list of grocer dicts (set by wizard)
+        st.session_state["grocers"]          — list of grocer dicts (set by wizard)
         st.session_state["travel_radius_mi"] — int, user's preferred search radius
         st.session_state["home_zip"]         — str, household zip
 
     Writes to:
-        household_grocers  — one row per store (upsert on household_id + chain_name)
+        household_grocers  — one row per store (delete + re-insert on each save)
         households         — travel_radius_mi preference column
 
     Returns (success: bool, message: str).
     Degrades gracefully: if DB is unavailable, session_state already has the data.
 
-    POC:  Removes stores that were deselected (delete + re-insert on each save).
-          This is safe for a pilot household. PROD: diff and apply only changes.
+    POC:  Uses direct REST (_sb_insert/_sb_delete) with service_role_key — same
+          pattern as save_household(). This bypasses supabase-py's GoTrue session
+          management entirely, so auth is always drawn from session_state tokens.
+    PROD: Diff incoming vs existing stores (delta-only writes), add audit log.
     """
     grocers = st.session_state.get("grocers", [])
 
@@ -1141,44 +1245,46 @@ def save_grocers() -> tuple[bool, str]:
 
     hid = st.session_state.get("household_id")
     if not hid:
-        return False, "No household_id — save household profile first."
+        _log.warning("save_grocers: no household_id in session — save household profile first")
+        return False, "No household_id — save your household profile first, then add stores."
+
+    _log.info("save_grocers: saving %d stores for hid=%s", len(grocers), hid)
 
     try:
-        db = get_authed_client()
-
         # ── 1. Persist travel_radius_mi preference on households row ─────────
-        db.table("households").update(
-            {"travel_radius_mi": radius}
-        ).eq("id", hid).execute()
+        # Direct REST with service_role_key — consistent with save_household().
+        _sb_update("households", {"travel_radius_mi": radius}, "id", hid)
 
         # ── 2. Delete existing grocer rows for this household ─────────────────
         # POC: delete-and-replace keeps the logic simple and correct for a single
         # household. PROD: diff incoming vs existing to avoid unnecessary deletes.
-        db.table("household_grocers").delete().eq("household_id", hid).execute()
+        _sb_delete("household_grocers", "household_id", hid)
 
         # ── 3. Insert each selected store ─────────────────────────────────────
         for order_idx, g in enumerate(grocers):
             payload = {
-                "household_id":       hid,
-                "chain_name":         g.get("chain", ""),
+                "household_id":         hid,
+                "chain_name":           g.get("chain", ""),
                 "location_description": g.get("location", ""),
-                "source_type":        g.get("source", "manual_pdf"),
-                "rewards_enrolled":   bool(g.get("rewards", False)),
-                "delivery_preferred": bool(g.get("delivery", False)),
-                "is_primary":         bool(g.get("is_primary", False)),
-                "display_order":      order_idx,
+                "source_type":          g.get("source", "manual_pdf"),
+                "rewards_enrolled":     bool(g.get("rewards", False)),
+                "delivery_preferred":   bool(g.get("delivery", False)),
+                "is_primary":           bool(g.get("is_primary", False)),
+                "display_order":        order_idx,
                 # New columns from migration 002
-                "tier":               g.get("tier"),
-                "distance_miles":     g.get("distance_miles"),
-                "lat":                g.get("lat"),
-                "lon":                g.get("lon"),
+                "tier":                 g.get("tier"),
+                "distance_miles":       g.get("distance_miles"),
+                "lat":                  g.get("lat"),
+                "lon":                  g.get("lon"),
             }
-            db.table("household_grocers").insert(payload).execute()
+            _sb_insert("household_grocers", payload)
 
+        _log.info("save_grocers: saved %d stores for hid=%s", len(grocers), hid)
         return True, f"Saved {len(grocers)} store(s) to your profile."
 
     except Exception as e:
         # Degrade gracefully — session_state already has the selections
+        _log.error("save_grocers: exception for hid=%s: %s", hid, e)
         return False, f"DB save failed: {e}. Stores saved to session only."
 
 
@@ -1191,39 +1297,38 @@ def _load_grocers_from_db():
     Also restores:
         session_state["travel_radius_mi"]  — from households.travel_radius_mi
         session_state["store_wizard_done"] — True if at least one grocer exists
+
+    POC:  Uses direct REST (_sb_select) — same auth path as _load_household_from_db()
+          and save_grocers(). This is more reliable than the supabase-py PostgREST
+          client because auth is drawn from session_state tokens directly.
+    PROD: Add per-store flyer URL resolution and location refresh on load.
     """
     if not _DB_AVAILABLE or not is_authenticated():
         return
 
     hid = st.session_state.get("household_id")
     if not hid:
+        _log.warning("_load_grocers_from_db: household_id not set — skipping grocer load")
         return
 
-    try:
-        db = get_authed_client()
+    _log.info("_load_grocers_from_db: loading grocers for hid=%s", hid)
 
+    try:
         # ── 1. Restore travel_radius_mi from households row ───────────────────
-        hh_rows = (
-            db.table("households")
-            .select("travel_radius_mi")
-            .eq("id", hid)
-            .limit(1)
-            .execute()
-            .data
-        )
+        # Direct REST read — user JWT from session_state, no GoTrue dependency.
+        hh_rows = _sb_select("households", select="travel_radius_mi", filters={"id": hid})
         if hh_rows and hh_rows[0].get("travel_radius_mi"):
             st.session_state["travel_radius_mi"] = int(hh_rows[0]["travel_radius_mi"])
 
         # ── 2. Load grocer rows ───────────────────────────────────────────────
-        rows = (
-            db.table("household_grocers")
-            .select("*")
-            .eq("household_id", hid)
-            .order("display_order")
-            .execute()
-            .data
+        rows = _sb_select(
+            "household_grocers",
+            select="*",
+            filters={"household_id": hid},
+            order="display_order.asc",
         )
         if not rows:
+            _log.info("_load_grocers_from_db: no saved grocers found for hid=%s", hid)
             return
 
         # Normalise DB column names → app-side grocer dict shape
@@ -1246,7 +1351,10 @@ def _load_grocers_from_db():
         st.session_state["grocers"] = grocers
         # Mark wizard as done so the Grocer Hub shows the profile card, not the wizard
         st.session_state["store_wizard_done"] = True
+        _log.info("_load_grocers_from_db: restored %d stores for hid=%s", len(grocers), hid)
 
-    except Exception:
-        pass  # POC: silently degrade — session_state keeps whatever was there
+    except Exception as _e:
+        # POC: degrade gracefully — session_state keeps whatever was there.
+        # Log the actual error so it shows up in Streamlit Cloud's Manage App logs.
+        _log.warning("_load_grocers_from_db: failed for hid=%s: %s", hid, _e)
 

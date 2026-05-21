@@ -38,17 +38,24 @@ st.set_page_config(page_title="Household Setup · WhollyFare", page_icon="👨�
 state.init()
 
 # ── DB load ───────────────────────────────────────────────────────────────────
-# Load from DB when:
-#   a) household_db is None (first visit / browser refresh), OR
-#   b) household (HouseholdProfile) is None even though we're authenticated —
-#      this happens when navigating back from the Grocer Hub after adding stores,
-#      which can clear the profile object without clearing household_db.
-# POC: DB call is cheap (one row, indexed on user_id) so double-loading is fine.
-# PROD: add an in-memory TTL cache to avoid redundant round trips.
 # Always reload from DB when authenticated — ensures the profile is current
 # regardless of navigation path (e.g. returning from Grocer Hub after adding stores).
 # POC: single indexed query, cheap enough to run on every page load.
 # PROD: add TTL cache (e.g. 60s) to avoid redundant round trips at scale.
+
+# Proactive token refresh: if the JWT is near expiry (>1 hour since sign-in),
+# silently renew it so DB calls in this page load use a valid token.
+# POC: only helps when the Streamlit session is still alive — does NOT restore
+#      a session that was wiped by a Streamlit Cloud spin-down / app restart.
+# PROD: Store refresh_token in a secure HttpOnly cookie so it survives restarts.
+if state.is_authenticated() and state._jwt_is_expired():
+    _refreshed = state.refresh_session()
+    if not _refreshed:
+        import logging as _logging
+        _logging.getLogger("whollyfare").warning(
+            "Household: access token expired and refresh failed — user must re-sign-in"
+        )
+
 if state.is_authenticated():
     state.load_household()
     # Sync zip from DB into home_zip immediately after load.
@@ -213,7 +220,7 @@ if _is_auth:
         f"</div>"
     )
 else:
-    with st.expander("🔐 Sign in to save your profile to the cloud", expanded=False):
+    with st.expander("🔐 Sign in to save your profile to the cloud", expanded=True):
         st.html("<div style='font-size:0.82rem;color:#5A7A62;margin-bottom:10px;line-height:1.5;'>"
                 "You can fill out your household below without signing in, but it won't be "
                 "remembered after you close the browser. Sign in to save permanently.</div>")

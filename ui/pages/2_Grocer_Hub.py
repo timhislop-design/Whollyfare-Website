@@ -47,6 +47,19 @@ except ImportError:
 st.set_page_config(page_title="Grocer Hub · WhollyFare", page_icon="🏪", layout="wide")
 state.init()
 
+# ── Ensure household_id is hydrated ──────────────────────────────────────────
+# save_grocers() requires household_id to be in session_state. It gets set in
+# sign_in() → _load_household_from_db(), but if the user navigates directly here
+# (e.g. via sidebar) without going through Household Setup, household_id might
+# not yet be set. Load it once at page load so Save Store Profile always works.
+# POC: cheap single-row read; always runs when authenticated.
+# PROD: add TTL cache so this doesn't run on every re-render.
+if state.is_authenticated():
+    if state._jwt_is_expired():
+        state.refresh_session()
+    if not st.session_state.get("household_id"):
+        state.load_household()
+
 if "manual_items" not in st.session_state:
     st.session_state["manual_items"] = []
 
@@ -330,6 +343,15 @@ existing_chains_lower = {g.get("chain", "").lower() for g in grocers}
 # ── Resolve home zip and travel radius ───────────────────────────────────────
 home_zip      = st.session_state.get("home_zip", "")
 travel_radius = int(st.session_state.get("travel_radius_mi", 15))
+
+# POC: Streamlit caches widget values by key. If wizard_zip_input was previously
+# rendered with the default "22901" (before sign-in loaded the DB zip), it stays
+# cached even though home_zip has been updated. Clear it whenever the cached value
+# differs from the current home_zip so the wizard always shows the correct zip.
+# This runs every page load — cheap (just a dict lookup) and always correct.
+if "wizard_zip_input" in st.session_state and home_zip:
+    if st.session_state["wizard_zip_input"] != home_zip:
+        del st.session_state["wizard_zip_input"]
 
 # nearby_chains: used by tier cards below to filter store lists by region.
 # Always computed from confirmed store location data (not broad regional lookup)
