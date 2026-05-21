@@ -29,6 +29,11 @@ supabase>=2.0.0,<3.0.0
 folium>=0.17.0
 streamlit-folium>=0.20.0
 
+# Browser session persistence (localStorage token store for auth across refreshes)
+# POC: streamlit-javascript provides a simple JS eval bridge to localStorage.
+# PROD: replace with a custom Streamlit component using HttpOnly cookies.
+streamlit-javascript>=0.1.5
+
 # Utilities
 python-dateutil>=2.8.0
 

@@ -189,6 +189,23 @@ def init():
         if key not in st.session_state:
             st.session_state[key] = val
 
+    # ── Session persistence ───────────────────────────────────────────────────
+    # If user is not authenticated, try to restore from browser localStorage.
+    # try_restore_from_browser() is a no-op until streamlit-javascript renders;
+    # on the first pass it returns False while the JS component loads, then
+    # Streamlit auto-reruns and the second pass gets the real localStorage value.
+    # POC: Runs on every page load — cheap (no network call unless token found).
+    if not is_authenticated():
+        if try_restore_from_browser():
+            st.rerun()
+
+    # ── Proactive token refresh ───────────────────────────────────────────────
+    # If authenticated but the JWT is within 5 minutes of expiry, silently
+    # exchange it for a fresh pair.  If the refresh token is also gone, show
+    # the session-expired banner so the user knows to sign in again.
+    # POC: Called on every page load — cheap when secs > 300 (early return).
+    session_expiry_check()
+
 
 # ── Convenience getters ───────────────────────────────────────────────────────
 
@@ -505,6 +522,9 @@ def sign_in(email: str, password: str) -> tuple[bool, str]:
         # Restore grocer selections so the Grocer Hub wizard is pre-filled
         # without the user having to re-enter their stores on every sign-in.
         _load_grocers_from_db()
+        # Persist refresh token to browser localStorage so the session survives
+        # page navigation, browser refresh, and Streamlit Cloud worker restarts.
+        _save_tokens_to_browser()
         return True, "Signed in."
 
     except Exception as e:
@@ -519,6 +539,9 @@ def sign_out():
             get_client().auth.sign_out()
         except Exception:
             pass
+    # Remove persisted tokens from browser localStorage so auto-restore
+    # doesn't silently log the user back in on the next page load.
+    _clear_tokens_from_browser()
     # Clear everything — init() will re-populate defaults on next page load
     for key in list(st.session_state.keys()):
         del st.session_state[key]
@@ -551,6 +574,164 @@ def _jwt_is_expired() -> bool:
         return _time.time() >= (exp - 60)   # 60s buffer
     except Exception:
         return True   # Treat parse errors as expired — refreshing is always safe
+
+
+# ── Browser session persistence ─────────────────────────────────────────────
+# Stores the Supabase refresh token in browser localStorage so auth survives:
+#   • browser refresh (F5)
+#   • Streamlit Cloud worker restart (idle spin-down)
+#   • navigating away and returning
+# On every page load init() calls try_restore_from_browser(); if a token is
+# found it silently exchanges it for a fresh access+refresh pair.
+#
+# POC:  streamlit-javascript package (see requirements.txt). The JS eval bridge
+#       is async — on the very first render the read returns None; Streamlit
+#       automatically reruns when the component resolves, so the second pass
+#       gets the real value.
+# PROD: Replace with a custom Streamlit component using HttpOnly cookies so the
+#       refresh token is never readable by JS on the page.
+
+_WF_RT_KEY = "wf_refresh_token"   # localStorage key
+
+
+def _save_tokens_to_browser() -> None:
+    """Write the current refresh token to browser localStorage."""
+    try:
+        from streamlit_javascript import st_javascript
+        rt = st.session_state.get("_sb_refresh_token", "")
+        if rt:
+            # Use double-backslash-safe f-string — no backslashes in token, safe to inline.
+            st_javascript(f"localStorage.setItem('{_WF_RT_KEY}', '{rt}'); 0")
+    except Exception as _e:
+        _log.debug("_save_tokens_to_browser: %s", _e)
+
+
+def _clear_tokens_from_browser() -> None:
+    """Remove the stored refresh token from browser localStorage (on sign-out)."""
+    try:
+        from streamlit_javascript import st_javascript
+        st_javascript(f"localStorage.removeItem('{_WF_RT_KEY}'); 0")
+    except Exception:
+        pass
+
+
+def try_restore_from_browser() -> bool:
+    """
+    Attempt to restore a previous auth session from browser localStorage.
+
+    Called from init() when user is None.  Returns True if session was
+    successfully restored — caller should st.rerun() so the page re-renders
+    in authenticated state.
+
+    Flow:
+      1. Read refresh token from localStorage via streamlit-javascript.
+      2. st_javascript is async: first render returns None (not ready yet),
+         second render returns the actual value.  We only attempt the restore
+         once per Streamlit session (guarded by _browser_restore_attempted).
+      3. If a token is found, call refresh_session() to get a fresh access token.
+      4. On success, load household + grocers from DB and save rotated tokens
+         back to localStorage.
+      5. On failure (token expired or revoked), clear localStorage and give up
+         gracefully — user sees the sign-in form.
+
+    POC:  streamlit-javascript async bridge; requires a double render on first
+          visit after a browser refresh.
+    PROD: HttpOnly cookie read on the server side — no JS bridge, no extra render.
+    """
+    if is_authenticated():
+        return False
+
+    # Only attempt once per Streamlit session to avoid rerun loops.
+    if st.session_state.get("_browser_restore_attempted"):
+        return False
+
+    try:
+        from streamlit_javascript import st_javascript
+        rt = st_javascript(f"localStorage.getItem('{_WF_RT_KEY}')")
+
+        # None → component hasn't rendered yet; will auto-rerun when it does.
+        # 0   → localStorage key absent (st_javascript converts JS null/undefined to 0).
+        if rt is None:
+            return False
+
+        # Mark attempted so we don't loop forever even if the token is bad.
+        st.session_state["_browser_restore_attempted"] = True
+
+        if not rt or not isinstance(rt, str) or not rt.strip() or rt == "0":
+            return False
+
+        _log.info("try_restore_from_browser: refresh token found, attempting restore")
+        st.session_state["_sb_refresh_token"] = rt.strip()
+        ok = refresh_session()
+        if ok:
+            _load_household_from_db()
+            _load_grocers_from_db()
+            _save_tokens_to_browser()   # write back rotated tokens
+            _log.info("try_restore_from_browser: session restored successfully")
+            return True
+
+        _log.warning("try_restore_from_browser: refresh failed — clearing stored token")
+        st.session_state.pop("_sb_refresh_token", None)
+        _clear_tokens_from_browser()
+        return False
+
+    except Exception as _e:
+        st.session_state["_browser_restore_attempted"] = True
+        _log.warning("try_restore_from_browser: exception: %s", _e)
+        return False
+
+
+def _jwt_seconds_remaining() -> float:
+    """Seconds until the access token expires. Returns 0.0 if expired/missing."""
+    import time as _time
+    import base64 as _b64
+    import json as _json_mod
+
+    token = st.session_state.get("_sb_access_token")
+    if not token:
+        return 0.0
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return 0.0
+        padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+        data = _json_mod.loads(_b64.urlsafe_b64decode(padded))
+        exp = data.get("exp", 0)
+        return max(0.0, float(exp) - _time.time())
+    except Exception:
+        return 0.0
+
+
+def session_expiry_check() -> None:
+    """
+    Silently refresh the access token when it is near expiry.
+    Show a visible banner only when the refresh token itself has expired
+    and the user must re-authenticate.
+
+    POC: Call this from init() — runs on every page render.
+         Supabase default: access token = 1h, refresh token = 7 days.
+    PROD: Run proactively in a background thread 5 min before expiry
+          so users never see the expired-state banner at all.
+    """
+    if not is_authenticated():
+        return
+
+    secs = _jwt_seconds_remaining()
+    if secs > 300:          # >5 min left — nothing to do
+        return
+
+    # <5 min or already expired — try a silent refresh
+    ok = refresh_session()
+    if ok:
+        _save_tokens_to_browser()
+        return              # Refreshed silently — user sees nothing
+
+    # Refresh token also expired (after ~7 days) or revoked — need re-auth
+    st.warning(
+        "⏱️ Your session has expired. "
+        "[Sign in again →](/Account) to keep your progress.",
+        icon="🔒",
+    )
 
 
 def refresh_session() -> bool:
@@ -612,6 +793,9 @@ def refresh_session() -> bool:
         if uid:
             st.session_state["user"] = {"id": uid, "email": user_email}
         _log.info("refresh_session: token refreshed successfully for uid=%s", uid)
+        # Persist rotated tokens — refresh tokens are single-use; the new pair
+        # must overwrite the old ones in localStorage immediately.
+        _save_tokens_to_browser()
         return True
 
     except Exception as e:
@@ -1214,8 +1398,17 @@ def save_grocers() -> tuple[bool, str]:
     # Always persist travel_radius_mi into session_state even without DB
     radius = st.session_state.get("travel_radius_mi", 15)
 
-    if not _DB_AVAILABLE or not is_authenticated():
+    if not _DB_AVAILABLE:
+        # DB not configured (local dev without Supabase) — degrade gracefully.
         return True, "Saved to session only (no DB connection)."
+
+    if not is_authenticated():
+        # User hasn't signed in yet — stores are held in session_state only.
+        # Return False so the Grocer Hub shows the orange "sign in to persist" warning,
+        # not the green "saved!" message.  Once the user signs in, save_grocers() is
+        # called again and writes to DB.
+        _log.info("save_grocers: not authenticated — session-only save")
+        return False, "Sign in to save your stores permanently."
 
     hid = st.session_state.get("household_id")
     if not hid:
