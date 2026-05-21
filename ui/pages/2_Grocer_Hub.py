@@ -365,14 +365,30 @@ if _show_wizard:
     </div>""")
 
     # ── Zip + radius controls ─────────────────────────────────────────────────
+    # Zip pre-populates from Household Setup profile. Changing it here only
+    # affects this session — useful when traveling. It does NOT update the
+    # household profile; go to Household Setup to change your home zip.
+    _hh_zip = (st.session_state.get("household_db") or {}).get("zip_code", "")
+    _zip_label = (
+        "Your zip code (from household profile)"
+        if _hh_zip
+        else "Your zip code"
+    )
+    _zip_help = (
+        "Pre-filled from your Household Setup. Change here to search stores near "
+        "a different location — handy when traveling. This only affects your current "
+        "session and won't update your household profile."
+        if _hh_zip
+        else "We use this to find stores near you and calculate trip costs."
+    )
     wz_col1, wz_col2 = st.columns([1, 2])
     with wz_col1:
         w_zip = st.text_input(
-            "Your zip code",
+            _zip_label,
             value=home_zip,
             key="wizard_zip_input",
             placeholder="e.g. 22903",
-            help="We use this to find stores near you and calculate trip costs.",
+            help=_zip_help,
         )
     with wz_col2:
         w_radius = st.slider(
@@ -602,6 +618,78 @@ if _show_wizard:
                         st.html(f"<div style='font-size:0.72rem;color:#9AA8A0;margin-bottom:6px;'>"
                                 f"{dist_str}{(' · ' + cost_str) if cost_str else ''}{api_badge}</div>")
 
+    # ── Add a store not on the list ──────────────────────────────────────────
+    # Replaces the old tier-card "Add" buttons. Any store, co-op, or chain
+    # not in the registry can be added here and staged for the profile save.
+    # POC: manual entry only. PROD: verify against Google Places API.
+    with st.expander("➕ My store isn't listed above", expanded=False):
+        st.html("<div style='font-size:0.82rem;color:#5A7A62;margin-bottom:10px;line-height:1.5;'>"
+                "Add any store, co-op, farm stand, or chain not shown in the checkboxes above. "
+                "It will appear in your profile and can receive manual price entries.</div>")
+        _mc1, _mc2, _mc3 = st.columns([3, 2, 1])
+        with _mc1:
+            _manual_name = st.text_input(
+                "Store name",
+                placeholder="e.g. Blue Ridge Co-op, Murphy's Market",
+                key="manual_store_name",
+                label_visibility="collapsed",
+            )
+        with _mc2:
+            _manual_loc = st.text_input(
+                "Town / zip (optional)",
+                placeholder="Crozet VA",
+                key="manual_store_loc",
+                label_visibility="collapsed",
+            )
+        with _mc3:
+            _manual_dist = st.number_input(
+                "Miles from home",
+                min_value=0.0, max_value=100.0, step=0.5, value=0.0,
+                key="manual_store_dist",
+                help="One-way distance — used to calculate round-trip gas cost",
+            )
+        _mc4, _mc5, _mc6 = st.columns([2, 2, 2])
+        with _mc4:
+            _manual_tier = st.selectbox(
+                "Store type",
+                ["local", "discount", "mainstream", "specialty"],
+                format_func=lambda x: {
+                    "local": "📍 Local / Independent",
+                    "discount": "💰 Value & Discount",
+                    "mainstream": "🏪 Full-Service",
+                    "specialty": "🌿 Specialty & Natural",
+                }[x],
+                key="manual_store_tier",
+            )
+        with _mc5:
+            _manual_rewards = st.checkbox("Has loyalty / rewards card", key="manual_store_rewards")
+        with _mc6:
+            _manual_delivery = st.checkbox("Offers delivery", key="manual_store_delivery")
+        if st.button("Stage this store", key="add_manual_store", type="primary"):
+            if _manual_name.strip():
+                _pending_m = st.session_state.setdefault("_pending_custom_grocers", [])
+                _existing_all_m = (
+                    {g["chain"].lower() for g in grocers}
+                    | {p["chain"].lower() for p in _pending_m}
+                )
+                if _manual_name.strip().lower() not in _existing_all_m:
+                    _pending_m.append({
+                        "chain":          _manual_name.strip(),
+                        "location":       _manual_loc.strip(),
+                        "source":         "manual_pdf",
+                        "rewards":        _manual_rewards,
+                        "delivery":       _manual_delivery,
+                        "is_primary":     (not grocers and not _pending_m),
+                        "tier":           _manual_tier,
+                        "distance_miles": _manual_dist if _manual_dist > 0 else None,
+                    })
+                    st.session_state["_pending_custom_grocers"] = _pending_m
+                    st.rerun()
+                else:
+                    st.warning(f"{_manual_name.strip()} is already in your list.")
+            else:
+                st.warning("Enter a store name to add it.")
+
     # ── Enforce + Save ────────────────────────────────────────────────────────
     selected_chains = [
         chain for chain, sel in st.session_state.get("wizard_selections", {}).items() if sel
@@ -750,193 +838,6 @@ else:
         st.session_state["show_store_wizard"] = True
         st.rerun()
     st.html("<div style='margin-bottom:8px;'></div>")
-
-
-# ── Tier cards ────────────────────────────────────────────────────────────────
-for tier in STORE_TIERS:
-    tier_stores = tier["stores"]
-    is_local    = tier["key"] == "local"
-
-    # Filter to chains available near the user's zip.
-    # Local tier is never filtered — local stores are always shown.
-    # POC: match by chain name. PROD: match by chain_id from store registry.
-    if not is_local:
-        tier_stores = [
-            s for s in tier_stores
-            if s["chain"] in nearby_chains or s["chain"].lower() in existing_chains_lower
-        ]
-        # If no chains matched the region (very unlikely), show all rather than hide the tier
-        if not tier_stores:
-            tier_stores = tier["stores"]
-
-    tier_added      = [s for s in tier_stores if s["chain"].lower() in existing_chains_lower]
-    tier_available  = [s for s in tier_stores if s["chain"].lower() not in existing_chains_lower]
-    added_count     = len(tier_added)
-    total_count     = len(tier_stores)
-
-    # Collapse if all stores already added and not local (local always stays open for custom adds)
-    default_open = (added_count < total_count) or is_local
-
-    with st.expander(
-        f"{tier['icon']} **{tier['label']}** — {added_count} of {total_count} added",
-        expanded=default_open,
-    ):
-        st.html(
-            f"<div style='font-size:0.83rem;color:#5A7A62;margin-bottom:14px;"
-            f"border-left:3px solid {tier['border']};padding-left:10px;'>"
-            f"{tier['tagline']}</div>"
-        )
-
-        if tier_available:
-            # Responsive 3-column grid
-            COLS = 3
-            for row_start in range(0, len(tier_available), COLS):
-                row = tier_available[row_start:row_start + COLS]
-                cols = st.columns(COLS)
-                for col, store_def in zip(cols, row):
-                    with col:
-                        note = store_def.get("note", "")
-                        badges = []
-                        if store_def.get("rewards"):   badges.append("🎟 Rewards")
-                        if store_def.get("delivery"):  badges.append("🚚 Delivery")
-                        if "api" in store_def.get("source", ""): badges.append("🔗 API")
-                        badge_str = " · ".join(badges) if badges else ""
-                        flyer_link = store_def.get("flyer", "")
-
-                        st.html(f"""
-                        <div style='background:white;border:1px solid {tier["border"]};
-                                    border-top:3px solid {tier["color"]};
-                                    border-radius:8px;padding:12px;min-height:90px;
-                                    margin-bottom:2px;'>
-                          <div style='font-weight:700;color:{tier["color"]};font-size:0.92rem;'>
-                            {store_def['chain']}
-                          </div>
-                          <div style='font-size:0.72rem;color:#5A7A62;margin-top:4px;
-                                      line-height:1.4;'>{note}</div>
-                          <div style='font-size:0.68rem;color:#9AA8A0;margin-top:6px;'>
-                            {badge_str}
-                          </div>
-                        </div>""")
-
-                        btn_label = "Add"
-                        if st.button(btn_label, key=f"add_{tier['key']}_{store_def['chain']}",
-                                     use_container_width=True):
-                            new_store = {
-                                "chain":         store_def["chain"],
-                                "location":      "",
-                                "source":        store_def["source"],
-                                "rewards":       store_def.get("rewards", False),
-                                "delivery":      store_def.get("delivery", False),
-                                "is_primary":    len(grocers) == 0,
-                                "tier":          tier["key"],
-                                "distance_miles": None,  # set in active store list
-                            }
-                            # Stage via wizard_selections — not committed to grocers
-                            # until the user clicks "Save store profile".
-                            # POC: wizard_selections is the staging dict for the checkbox UI.
-                            if "wizard_selections" not in st.session_state:
-                                st.session_state["wizard_selections"] = {
-                                    g["chain"]: True for g in grocers
-                                }
-                            ch = store_def["chain"]
-                            st.session_state["wizard_selections"][ch] = True
-                            # Delete (not set) the checkbox key so it reinitialises
-                            # from value= on the next rerun. Streamlit forbids setting
-                            # a widget key after the widget has rendered this run.
-                            st.session_state.pop(f"wiz_check_{ch}", None)
-                            st.rerun()
-
-        if tier_added:
-            names = ", ".join(s["chain"] for s in tier_added)
-            st.html(
-                f"<div style='font-size:0.75rem;color:{tier['color']};margin-top:6px;'>"
-                f"✓ Added: {names}</div>"
-            )
-
-        # ── Local tier: custom store form ─────────────────────────────────────
-        if is_local:
-            st.html("<hr style='border-color:#D7CCC8;margin:14px 0 10px 0;'>")
-            st.html("<div style='font-size:0.82rem;font-weight:600;color:#5D4037;"
-                    "margin-bottom:8px;'>Add your own local store</div>")
-            st.html("<div style='font-size:0.78rem;color:#8D6E63;margin-bottom:10px;'>"
-                    "Any store, co-op, farm stand, or butcher — if they run specials, "
-                    "WhollyFare can track them.</div>")
-
-            lc1, lc2, lc3 = st.columns([2, 1, 1])
-            with lc1:
-                local_name = st.text_input("Store name", placeholder="e.g. Blue Ridge Co-op, Murphy's Market",
-                                           key="local_custom_name", label_visibility="collapsed")
-            with lc2:
-                local_loc = st.text_input("Town / zip (optional)", placeholder="Crozet VA",
-                                          key="local_custom_loc", label_visibility="collapsed")
-            with lc3:
-                local_dist = st.number_input("Miles from home", min_value=0.0, max_value=100.0,
-                                             step=0.5, value=0.0, key="local_custom_dist",
-                                             help="Used to calculate if the trip is worth it")
-
-            lc4, lc5 = st.columns(2)
-            with lc4:
-                local_rewards = st.checkbox("Has loyalty / rewards card", key="local_rewards")
-            with lc5:
-                local_delivery = st.checkbox("Offers delivery", key="local_delivery")
-
-            if st.button("Add local store", type="primary", key="add_local_custom"):
-                if local_name.strip():
-                    # Local stores have no checkbox in the wizard, so stage separately.
-                    _pending = st.session_state.setdefault("_pending_custom_grocers", [])
-                    _existing_all = (
-                        {g["chain"].lower() for g in grocers}
-                        | {p["chain"].lower() for p in _pending}
-                    )
-                    if local_name.strip().lower() not in _existing_all:
-                        _pending.append({
-                            "chain":          local_name.strip(),
-                            "location":       local_loc.strip(),
-                            "source":         "manual_pdf",
-                            "rewards":        local_rewards,
-                            "delivery":       local_delivery,
-                            "is_primary":     (not grocers and not _pending),
-                            "tier":           "local",
-                            "distance_miles": local_dist if local_dist > 0 else None,
-                        })
-                        st.session_state["_pending_custom_grocers"] = _pending
-                    st.rerun()
-                else:
-                    st.warning("Enter a store name.")
-
-        # Non-local custom stores (discount/mainstream/specialty chains not on the list)
-        if not is_local:
-            with st.expander(f"My {tier['label'].lower()} store isn't listed", expanded=False):
-                cc1, cc2 = st.columns([2, 1])
-                with cc1:
-                    c_name = st.text_input("Store name", key=f"custom_name_{tier['key']}",
-                                           label_visibility="collapsed",
-                                           placeholder=f"e.g. My regional {tier['label'].lower()} chain")
-                with cc2:
-                    c_loc = st.text_input("Location (optional)", key=f"custom_loc_{tier['key']}",
-                                          label_visibility="collapsed", placeholder="City, State")
-                if st.button(f"Add to {tier['label']}", key=f"add_custom_{tier['key']}", type="primary"):
-                    if c_name.strip():
-                        # Stage custom stores — committed on "Save store profile"
-                        _pending = st.session_state.setdefault("_pending_custom_grocers", [])
-                        _existing_all = (
-                            {g["chain"].lower() for g in grocers}
-                            | {p["chain"].lower() for p in _pending}
-                        )
-                        if c_name.strip().lower() not in _existing_all:
-                            _pending.append({
-                                "chain":      c_name.strip(),
-                                "location":   c_loc.strip(),
-                                "source":     "manual_pdf",
-                                "rewards":    False,
-                                "delivery":   False,
-                                "is_primary": (not grocers and not _pending),
-                                "tier":       tier["key"],
-                            })
-                            st.session_state["_pending_custom_grocers"] = _pending
-                        st.rerun()
-                    else:
-                        st.warning("Enter a store name.")
 
 
 # ── Wholesale & Delivery — Coming Soon ──────────────────────────────

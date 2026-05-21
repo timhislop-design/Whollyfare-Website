@@ -195,12 +195,44 @@ if isinstance(household, dict):
         household = None
 
 
+# ── Auth status banner ────────────────────────────────────────────────────────
+_is_auth = state.is_authenticated()
+if _is_auth:
+    _user_email = (st.session_state.get("user") or {}).get("email", "your account")
+    st.html(
+        f"<div style='background:#E3F4E8;border:1px solid #A8D5B0;border-radius:8px;"
+        f"padding:8px 14px;margin-bottom:14px;font-size:0.82rem;color:#1E4228;'>"
+        f"✅ Signed in as <strong>{_user_email}</strong> — changes will be saved to your profile."
+        f"</div>"
+    )
+else:
+    with st.expander("🔐 Sign in to save your profile to the cloud", expanded=False):
+        st.html("<div style='font-size:0.82rem;color:#5A7A62;margin-bottom:10px;line-height:1.5;'>"
+                "You can fill out your household below without signing in, but it won't be "
+                "remembered after you close the browser. Sign in to save permanently.</div>")
+        _si_email = st.text_input("Email", key="hh_inline_email",
+                                  label_visibility="collapsed", placeholder="Email address")
+        _si_pass  = st.text_input("Password", type="password", key="hh_inline_pass",
+                                  label_visibility="collapsed", placeholder="Password")
+        if st.button("Sign in", key="hh_inline_signin", type="primary"):
+            if _si_email and _si_pass:
+                _ok, _msg = state.sign_in(_si_email.strip(), _si_pass)
+                if _ok:
+                    st.success("Signed in! Your profile will now be saved to your account.")
+                    st.rerun()
+                else:
+                    st.error(_msg)
+            else:
+                st.warning("Enter your email and password.")
+        st.html("<div style='font-size:0.75rem;color:#9AA8A0;margin-top:6px;'>"
+                "No account yet? <a href='/Account' style='color:#3A8C4E;'>Create one on the Account page →</a></div>")
+
 # ── Household basics ──────────────────────────────────────────────────────────
 st.html(
     "<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;"
     "color:#3A8C4E;margin-bottom:10px;'>Your household</div>")
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 # Show any save result that survived the rerun
 if "_hh_save_msg" in st.session_state:
     _msg_type, _msg_text = st.session_state.pop("_hh_save_msg")
@@ -231,6 +263,21 @@ with col3:
         value=household.servings_per_meal if household else 4,
         help="How many people sit down to dinner most nights. "
              "Used to calculate cost per serving.",
+    )
+with col4:
+    # Zip pre-populated from DB or existing session state.
+    # POC: saved to households.primary_zip in DB; flows into Grocer Hub wizard.
+    # PROD: validated against USPS API on save; drives store discovery radius.
+    _saved_zip = (
+        (st.session_state.get("household_db") or {}).get("zip_code", "")
+        or st.session_state.get("home_zip", "")
+    )
+    home_zip_input = st.text_input(
+        "Home zip code",
+        value=_saved_zip,
+        placeholder="e.g. 22901",
+        help="Your home zip code — pre-fills the Grocer Hub so it finds nearby stores automatically. "
+             "You can override it in the Grocer Hub for travel without changing your profile.",
     )
 
 meals_per_week = st.slider(
@@ -476,6 +523,8 @@ if save_pressed:
             servings_per_meal=int(servings),
             meals_per_week=int(meals_per_week),
         )
+        # Sync zip into session_state so Grocer Hub picks it up immediately.
+        st.session_state["home_zip"] = home_zip_input
 
         # ── Persist to DB ─────────────────────────────────────────────────────
         # POC: save_household() degrades gracefully if not authenticated or DB down.
@@ -486,7 +535,7 @@ if save_pressed:
             "weekly_budget_usd": weekly_budget,
             "servings_per_meal": int(servings),
             "meals_per_week":    int(meals_per_week),
-            "zip_code":          st.session_state.get("home_zip", ""),
+            "zip_code":          home_zip_input,
             "city":              (st.session_state.get("household_db") or {}).get("city", ""),
             "state":             (st.session_state.get("household_db") or {}).get("state", "VA"),
             "members": [
