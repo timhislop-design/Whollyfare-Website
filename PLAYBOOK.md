@@ -41,11 +41,57 @@ That's not weakness. That's honesty. An investor who understands the difference 
 **Households:** 1 (Hislop family: Tim, Abby, Chas)  
 **Stores:** Kroger Barracks Road, Food Lion Pantops, Aldi Rio Road, Harris Teeter Barracks Road  
 **Data pipeline:** Manual item entry + PDF upload (heuristic parser)  
-**Infrastructure:** Streamlit Community Cloud or local laptop  
+**Infrastructure:** Streamlit Community Cloud (free tier) + Supabase (free tier)  
 **Goal:** 8 weeks of real household data. Real receipts. Real savings numbers.
 
-**What it costs to run:** ~$0/month (Streamlit free tier, no cloud DB)  
+**What it costs to run:** ~$0/month  
 **What it proves:** The engine logic is sound and the savings are real.
+
+**Known Stage 1 infrastructure constraints (by design, not bugs):**
+- Streamlit Community Cloud idles apps after ~15 min of inactivity. Pilot users
+  will occasionally see a "This app has gone to sleep" click-through screen. Brief
+  them on this. It is a hosting limitation, not a product bug.
+- Session state lives server-side in the Python process. A worker restart wipes it.
+  The app now stores the Supabase refresh token in browser localStorage to restore
+  sessions automatically — but a clean browser (private mode, new device) will
+  require a sign-in.
+- These constraints are acceptable for a 1-household pilot. They become unacceptable
+  at 5+ pilot households and must be resolved before Stage 2 recruiting begins.
+
+**Infrastructure upgrade trigger:** When you have 3+ pilot households actively using
+the app, evaluate the Stage 1.5 bridge below before moving to full Stage 2.
+
+---
+
+---
+
+### Stage 1.5 — Pilot Bridge (no investment required, ~$10–20/month)
+
+This is the gap between "it works for Tim" and "it works for 5–10 pilot friends
+without hand-holding." Do this before the Stage 2 investment conversation, because
+pilot data from a stable environment is worth more than pilot data from a flaky one.
+
+**What changes:**
+- Move hosting from Streamlit Community Cloud (free, idle-restarts) to
+  **Railway** (railway.app) or **Render** (render.com). Same Streamlit codebase,
+  zero code changes. Deploy with `railway up` or connect the GitHub repo directly.
+  Cost: ~$5–10/month. Benefit: no idle restarts, private URL, stable sessions.
+- Stay on Supabase free tier (500MB, 50K MAU limit — more than enough for Stage 1.5).
+
+**What does NOT change:**
+- Streamlit as the UI framework (Phase 3 replaces it with React + FastAPI)
+- The constraint engine, meal planner, and all existing logic
+- The Supabase schema — no migration needed
+
+**How to deploy to Railway:**
+1. Install Railway CLI: `npm install -g @railway/cli`
+2. In the repo root: `railway login && railway init`
+3. Add a `Procfile` (one line): `web: streamlit run ui/Home.py --server.port $PORT --server.address 0.0.0.0`
+4. Add environment variables in Railway dashboard (copy from `.streamlit/secrets.toml`)
+5. `railway up` — Railway detects Python, installs requirements.txt, starts the app
+6. Set a custom domain or use the `.railway.app` URL as the pilot URL
+
+**Database note for Stage 1.5:** Supabase free tier is sufficient. No action needed.
 
 ---
 
@@ -60,6 +106,39 @@ That's not weakness. That's honesty. An investor who understands the difference 
 **What it costs to build:** $40,000–80,000 (6–9 months, one developer + Tim)  
 **What it costs to run:** $300–800/month (hosting, DB, USDA API calls)  
 **What it proves:** The model works beyond one household. Retention is real. Savings hold.
+
+**Infrastructure decision at Stage 2 entry — Hosting:**
+At Stage 2, Streamlit is replaced with React + FastAPI (see Stage 3 below). The
+hosting platform decision should be made alongside the framework decision.
+Recommendation: **Railway or Render** for the React/FastAPI app until Series A
+(simple deploys, auto-scaling, ~$100–200/month at pilot scale). Migrate to
+AWS ECS or GCP Cloud Run at Series A with dedicated DevOps.
+
+**Infrastructure decision at Stage 2 entry — Database:**
+Supabase is the right choice through Stage 2 and likely into Stage 3.
+Evaluate alternatives only if one of these triggers fires:
+
+| Trigger | Action |
+|---|---|
+| Row count exceeds ~1M (receipts + ledger entries at scale) | Evaluate Aurora Serverless (AWS) or Neon (Postgres, serverless billing) |
+| Supabase pricing becomes prohibitive (>$500/month) | Migrate to self-hosted Postgres on Railway/Render — same schema, no code change |
+| Real-time features needed (live price sync, push notifications) | Supabase Realtime is already built in — no migration needed |
+| HIPAA compliance required (health system B2B) | Migrate to AWS RDS with VPC + audit logging; Supabase is not HIPAA-eligible |
+| Multi-region latency (national rollout) | Neon or PlanetScale for global read replicas |
+
+**Recommendation:** Stay on Supabase through Stage 2 and into early Stage 3.
+It is a managed Postgres service with built-in auth (Supabase Auth), row-level
+security (already wired in WhollyFare), storage, and an MCP plugin for Claude
+(used in development). The only realistic migration trigger before Series A is
+the HIPAA scenario, which requires a dedicated compliance review regardless of
+database choice.
+
+**What to evaluate at Series A (Stage 3 entry):**
+- Supabase Pro → Enterprise pricing ($599+/month) vs. self-hosted Postgres on ECS
+- Aurora Serverless v2 for auto-scaling at 50K+ households
+- Redis for session caching and price-lookup hot paths
+- A read replica for the analytics / investor reporting workload (separate from
+  the transactional DB to avoid query contention)
 
 **Regional requires investment in:**
 - A real database (PostgreSQL). Session state doesn't survive a browser refresh.
@@ -116,7 +195,7 @@ That's not weakness. That's honesty. An investor who understands the difference 
 | **Shopping list delivery** | Display in browser | Email, SMS, or share link |
 | **Found Money Ledger** | Manual receipt entry | Automated via receipt photo OCR or loyalty API |
 | **Multi-household** | 1 household | Unlimited, isolated by user_id |
-| **Hosting** | Streamlit Community Cloud / laptop | Railway → AWS ECS / GCP Cloud Run |
+| **Hosting** | Streamlit Community Cloud (free, idles) → Railway/Render at Stage 1.5 (~$10/mo, no code change) | Railway/Render (Stage 2 React app) → AWS ECS / GCP Cloud Run (Series A) |
 | **Uptime SLA** | None (best-effort) | 99.5% (needed for health-constraint users) |
 | **Payments** | None | Stripe subscription billing |
 | **Mobile** | Responsive Streamlit (functional) | Native PWA or React Native |
