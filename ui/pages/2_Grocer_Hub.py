@@ -344,14 +344,14 @@ existing_chains_lower = {g.get("chain", "").lower() for g in grocers}
 home_zip      = st.session_state.get("home_zip", "")
 travel_radius = int(st.session_state.get("travel_radius_mi", 15))
 
-# POC: Streamlit caches widget values by key. If wizard_zip_input was previously
-# rendered with the default "22901" (before sign-in loaded the DB zip), it stays
-# cached even though home_zip has been updated. Clear it whenever the cached value
-# differs from the current home_zip so the wizard always shows the correct zip.
-# This runs every page load — cheap (just a dict lookup) and always correct.
-if "wizard_zip_input" in st.session_state and home_zip:
-    if st.session_state["wizard_zip_input"] != home_zip:
-        del st.session_state["wizard_zip_input"]
+# POC: Streamlit caches widget values by key name. If we use a fixed key like
+# "wizard_zip_input", the browser returns the previously typed value on every rerun,
+# ignoring the value= argument. The reliable fix is a dynamic key that changes
+# whenever the household identity or saved zip changes — Streamlit treats it as a
+# brand-new widget and initialises it from value= instead of the stale cache.
+_db_zip   = (st.session_state.get("household_db") or {}).get("zip_code", "") or home_zip
+_hh_id    = st.session_state.get("household_id", "new")
+_wiz_zip_key = f"wizard_zip_{_hh_id}_{_db_zip}"
 
 # nearby_chains: used by tier cards below to filter store lists by region.
 # Always computed from confirmed store location data (not broad regional lookup)
@@ -386,6 +386,23 @@ if _show_wizard:
       </div>
     </div>""")
 
+    # ── Debug expander (temp — remove before pilot launch) ───────────────────
+    with st.expander("🔍 Debug: session state (remove before pilot)", expanded=False):
+        import json as _json
+        _db_state = {
+            "is_authenticated":   state.is_authenticated(),
+            "household_id":       st.session_state.get("household_id"),
+            "home_zip (session)": st.session_state.get("home_zip"),
+            "db_zip (household_db)": (st.session_state.get("household_db") or {}).get("zip_code"),
+            "_db_zip (resolved)": _db_zip,
+            "_hh_id":             _hh_id,
+            "_wiz_zip_key":       _wiz_zip_key,
+            "grocers (count)":    len(st.session_state.get("grocers", [])),
+            "last_grocer_save":   st.session_state.get("_last_grocer_save_status", "not set"),
+            "jwt_expired":        state._jwt_is_expired(),
+        }
+        st.code(_json.dumps(_db_state, indent=2, default=str))
+
     # ── Zip + radius controls ─────────────────────────────────────────────────
     # Zip pre-populates from Household Setup profile. Changing it here only
     # affects this session — useful when traveling. It does NOT update the
@@ -408,7 +425,7 @@ if _show_wizard:
         w_zip = st.text_input(
             _zip_label,
             value=home_zip,
-            key="wizard_zip_input",
+            key=_wiz_zip_key,
             placeholder="e.g. 22903",
             help=_zip_help,
         )
@@ -812,6 +829,8 @@ if _show_wizard:
         _db_ok, _db_msg = state.save_grocers()
         n = len(new_grocers)
         label = f"{n} store{'s' if n != 1 else ''}"
+        # Track save outcome for debug expander
+        st.session_state["_last_grocer_save_status"] = "OK" if _db_ok else f"FAILED: {_db_msg}"
         if _db_ok:
             st.success(f"Store profile saved — {label} added to your profile.")
         else:
@@ -858,9 +877,10 @@ else:
 
     if st.button("✏️ Edit my stores", key="open_store_wizard"):
         st.session_state["show_store_wizard"] = True
-        # Clear cached wizard zip so it reinitialises from current home_zip.
-        # Without this, Streamlit's widget key cache shows the old typed value
-        # even after the household zip has been updated.
+        # Dynamic key approach: no need to clear a stale widget key — the key
+        # itself changes on login (encodes household_id + db_zip), so Streamlit
+        # automatically initialises the new widget from value= on the next render.
+        # Clearing any leftover legacy key just in case.
         st.session_state.pop("wizard_zip_input", None)
         st.rerun()
     st.html("<div style='margin-bottom:8px;'></div>")
