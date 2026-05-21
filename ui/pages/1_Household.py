@@ -51,6 +51,13 @@ state.init()
 # PROD: add TTL cache (e.g. 60s) to avoid redundant round trips at scale.
 if state.is_authenticated():
     state.load_household()
+    # Sync zip from DB into home_zip immediately after load.
+    # state.init() may have set home_zip to the default "22901" before the DB
+    # load ran — this corrects it so the form field and Grocer Hub both see
+    # the real saved zip.
+    _db_zip = (st.session_state.get("household_db") or {}).get("zip_code", "")
+    if _db_zip:
+        st.session_state["home_zip"] = _db_zip
 
 # Convert the DB dict into a typed HouseholdProfile if still missing after load.
 if st.session_state.get("household_db") and st.session_state.get("household") is None:
@@ -272,9 +279,11 @@ with col4:
         (st.session_state.get("household_db") or {}).get("zip_code", "")
         or st.session_state.get("home_zip", "")
     )
+    _zip_key = f"home_zip_input_{st.session_state.get('household_id') or 'new'}"
     home_zip_input = st.text_input(
         "Home zip code",
         value=_saved_zip,
+        key=_zip_key,
         placeholder="e.g. 22901",
         help="Your home zip code — pre-fills the Grocer Hub so it finds nearby stores automatically. "
              "You can override it in the Grocer Hub for travel without changing your profile.",

@@ -836,6 +836,10 @@ else:
 
     if st.button("✏️ Edit my stores", key="open_store_wizard"):
         st.session_state["show_store_wizard"] = True
+        # Clear cached wizard zip so it reinitialises from current home_zip.
+        # Without this, Streamlit's widget key cache shows the old typed value
+        # even after the household zip has been updated.
+        st.session_state.pop("wizard_zip_input", None)
         st.rerun()
     st.html("<div style='margin-bottom:8px;'></div>")
 
