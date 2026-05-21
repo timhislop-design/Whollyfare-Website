@@ -1372,6 +1372,20 @@ def approve_week_db():
 # PROD: Add delta-tracking (detect removed stores), audit log, multi-device
 #       sync, and per-store flyer URL resolution.
 
+def _coerce_source(src: str) -> str:
+    """Map app-side source labels to the DB CHECK constraint values.
+
+    DB constraint: source_type IN ('manual', 'pdf', 'api', 'pdf_and_api')
+    App historically used 'manual_pdf' and 'manual_pdf+api' — these are coerced here
+    so INSERTs don't fail the check constraint silently.
+    """
+    _MAP = {
+        "manual_pdf":     "manual",
+        "manual_pdf+api": "api",
+    }
+    return _MAP.get(src, src) if src else "manual"
+
+
 def save_grocers() -> tuple[bool, str]:
     """
     Persist the current grocer wizard selections to Supabase.
@@ -1433,7 +1447,7 @@ def save_grocers() -> tuple[bool, str]:
                 "household_id":         hid,
                 "chain_name":           g.get("chain", ""),
                 "location_description": g.get("location", ""),
-                "source_type":          g.get("source", "manual_pdf"),
+                "source_type":          _coerce_source(g.get("source", "manual")),
                 "rewards_enrolled":     bool(g.get("rewards", False)),
                 "delivery_preferred":   bool(g.get("delivery", False)),
                 "is_primary":           bool(g.get("is_primary", False)),
@@ -1505,7 +1519,7 @@ def _load_grocers_from_db():
             grocers.append({
                 "chain":          r.get("chain_name", ""),
                 "location":       r.get("location_description", ""),
-                "source":         r.get("source_type", "manual_pdf"),
+                "source":         r.get("source_type", "manual"),
                 "rewards":        bool(r.get("rewards_enrolled", False)),
                 "delivery":       bool(r.get("delivery_preferred", False)),
                 "is_primary":     bool(r.get("is_primary", False)),
