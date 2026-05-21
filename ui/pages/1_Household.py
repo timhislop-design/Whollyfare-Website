@@ -171,14 +171,16 @@ if _grocers:
         "<div style=\'font-size:0.68rem;font-weight:700;letter-spacing:0.1em;"
         "text-transform:uppercase;color:#3A8C4E;\'>"
         "Your Store Profile \u2014 " + _label + "</div>"
-        "<a href=\'/Grocer_Hub\' target=\'_self\'"
-        " style=\'font-size:0.78rem;font-weight:600;color:#3A8C4E;text-decoration:none;\'>"
-        "\u270f\ufe0f Edit stores \u2192</a></div>"
+        "</div>"
         "<div style=\'display:flex;flex-wrap:wrap;\'>" + _pills + "</div>"
         "<div style=\'font-size:0.75rem;color:#9AA8A0;margin-top:8px;\'>"
         "Your stores are saved to your profile \u2014 you won\u2019t need to pick them again each week."
         "</div></div>"
     )
+    # Use st.page_link — NOT a raw <a href> — so Streamlit handles navigation
+    # client-side over the existing WebSocket. A raw href causes a full browser
+    # reload which destroys session state and logs the user out.
+    st.page_link("pages/2_Grocer_Hub.py", label="✏️ Edit stores →")
 else:
     st.html(
         "<div style=\'background:#FFF8F0;border:1px solid #FFCC80;border-radius:12px;"
@@ -190,11 +192,10 @@ else:
         "No stores saved yet. Once you\u2019ve set up your household below, head to the "
         "<strong>Grocer Hub</strong> to pick your stores \u2014 you\u2019ll only need to do this once."
         "</div>"
-        "<a href=\'/Grocer_Hub\' target=\'_self\'"
-        " style=\'display:inline-block;margin-top:10px;font-size:0.82rem;"
-        "font-weight:600;color:#BF5E00;text-decoration:none;\'>"
-        "Set up your stores \u2192</a></div>"
+        "</div>"
     )
+    # Use st.page_link — same reason as above.
+    st.page_link("pages/2_Grocer_Hub.py", label="🏪 Set up your stores →")
 
 household = st.session_state.get("household")
 # Guard: if a previous failed save left a plain dict in session_state,
@@ -239,7 +240,8 @@ else:
             else:
                 st.warning("Enter your email and password.")
         st.html("<div style='font-size:0.75rem;color:#9AA8A0;margin-top:6px;'>"
-                "No account yet? <a href='/Account' style='color:#3A8C4E;'>Create one on the Account page →</a></div>")
+                "No account yet? Visit the Account page to create one.</div>")
+    st.page_link("pages/9_Account.py", label="Create an account →")
 
 # ── Household basics ──────────────────────────────────────────────────────────
 st.html(
