@@ -1,0 +1,231 @@
+{
+  "grocer": "Food Lion",
+  "store_location": "Palmyra, VA 22963",
+  "flyer_week": "2026-04-29",
+  "items": [
+    {
+      "name": "Boneless Skinless Chicken Breast",
+      "usda_fdc_id": "331960",
+      "allergens": [],
+      "category": "protein",
+      "tags": ["halal", "gluten-free", "low-fodmap"],
+      "sale_price_per_unit": 2.99,
+      "unit": "lb",
+      "standard_unit_weight_g": 453,
+      "nutrition": {
+        "protein_g": 31, "fiber_g": 0, "saturated_fat_g": 1.0,
+        "sodium_mg": 74, "added_sugar_g": 0, "iron_mg": 1.0,
+        "calcium_mg": 15, "potassium_mg": 256, "vitamin_c_mg": 0,
+        "sale_savings_pct": 25
+      }
+    },
+    {
+      "name": "85% Lean Ground Turkey",
+      "usda_fdc_id": "171115",
+      "allergens": [],
+      "category": "protein",
+      "tags": ["gluten-free", "low-fodmap"],
+      "sale_price_per_unit": 4.49,
+      "unit": "lb",
+      "standard_unit_weight_g": 453,
+      "nutrition": {
+        "protein_g": 27, "fiber_g": 0, "saturated_fat_g": 3.6,
+        "sodium_mg": 75, "added_sugar_g": 0, "iron_mg": 1.4,
+        "calcium_mg": 11, "potassium_mg": 244, "vitamin_c_mg": 0,
+        "sale_savings_pct": 18
+      }
+    },
+    {
+      "name": "Wild-Caught Salmon Fillet",
+      "usda_fdc_id": "175167",
+      "allergens": ["fish"],
+      "category": "protein",
+      "tags": ["gluten-free", "keto", "low-fodmap"],
+      "sale_price_per_unit": 7.99,
+      "unit": "lb",
+      "standard_unit_weight_g": 453,
+      "nutrition": {
+        "protein_g": 25, "fiber_g": 0, "saturated_fat_g": 1.4,
+        "sodium_mg": 50, "added_sugar_g": 0, "iron_mg": 0.5,
+        "calcium_mg": 9, "potassium_mg": 363, "vitamin_c_mg": 0,
+        "sale_savings_pct": 30
+      }
+    },
+    {
+      "name": "Canned Black Beans (15oz)",
+      "usda_fdc_id": "173735",
+      "allergens": [],
+      "category": "legume",
+      "tags": ["vegan", "vegetarian", "gluten-free", "low-glycemic"],
+      "sale_price_per_unit": 0.69,
+      "unit": "can",
+      "standard_unit_weight_g": 425,
+      "nutrition": {
+        "protein_g": 8.9, "fiber_g": 8.7, "saturated_fat_g": 0.1,
+        "sodium_mg": 400, "added_sugar_g": 0, "iron_mg": 2.3,
+        "calcium_mg": 46, "potassium_mg": 355, "vitamin_c_mg": 0,
+        "sale_savings_pct": 22
+      }
+    },
+    {
+      "name": "Dried Lentils (1 lb bag)",
+      "usda_fdc_id": "172420",
+      "allergens": [],
+      "category": "legume",
+      "tags": ["vegan", "vegetarian", "gluten-free", "low-glycemic"],
+      "sale_price_per_unit": 1.79,
+      "unit": "bag",
+      "standard_unit_weight_g": 453,
+      "nutrition": {
+        "protein_g": 9.0, "fiber_g": 7.9, "saturated_fat_g": 0.1,
+        "sodium_mg": 2, "added_sugar_g": 0, "iron_mg": 3.3,
+        "calcium_mg": 19, "potassium_mg": 369, "vitamin_c_mg": 1.5,
+        "sale_savings_pct": 12
+      }
+    },
+    {
+      "name": "Broccoli Crowns",
+      "usda_fdc_id": "170379",
+      "allergens": [],
+      "category": "produce",
+      "tags": ["vegan", "vegetarian", "gluten-free", "low-fodmap", "low-glycemic"],
+      "sale_price_per_unit": 1.29,
+      "unit": "lb",
+      "standard_unit_weight_g": 453,
+      "nutrition": {
+        "protein_g": 2.8, "fiber_g": 2.6, "saturated_fat_g": 0.1,
+        "sodium_mg": 33, "added_sugar_g": 0, "iron_mg": 0.7,
+        "calcium_mg": 47, "potassium_mg": 316, "vitamin_c_mg": 89,
+        "sale_savings_pct": 20
+      }
+    },
+    {
+      "name": "Roma Tomatoes",
+      "usda_fdc_id": "170457",
+      "allergens": [],
+      "category": "produce",
+      "tags": ["vegan", "vegetarian", "gluten-free", "low-glycemic"],
+      "sale_price_per_unit": 0.99,
+      "unit": "lb",
+      "standard_unit_weight_g": 453,
+      "nutrition": {
+        "protein_g": 0.9, "fiber_g": 1.2, "saturated_fat_g": 0.0,
+        "sodium_mg": 5, "added_sugar_g": 0, "iron_mg": 0.3,
+        "calcium_mg": 10, "potassium_mg": 237, "vitamin_c_mg": 19,
+        "sale_savings_pct": 28
+      }
+    },
+    {
+      "name": "Sweet Potatoes",
+      "usda_fdc_id": "168482",
+      "allergens": [],
+      "category": "produce",
+      "tags": ["vegan", "vegetarian", "gluten-free"],
+      "sale_price_per_unit": 0.79,
+      "unit": "lb",
+      "standard_unit_weight_g": 453,
+      "nutrition": {
+        "protein_g": 1.6, "fiber_g": 3.0, "saturated_fat_g": 0.0,
+        "sodium_mg": 55, "added_sugar_g": 0, "iron_mg": 0.6,
+        "calcium_mg": 30, "potassium_mg": 337, "vitamin_c_mg": 19,
+        "sale_savings_pct": 24
+      }
+    },
+    {
+      "name": "Bag Spinach (5 oz)",
+      "usda_fdc_id": "168462",
+      "allergens": [],
+      "category": "produce",
+      "tags": ["vegan", "vegetarian", "gluten-free", "low-fodmap"],
+      "sale_price_per_unit": 1.99,
+      "unit": "bag",
+      "standard_unit_weight_g": 142,
+      "nutrition": {
+        "protein_g": 2.9, "fiber_g": 2.2, "saturated_fat_g": 0.1,
+        "sodium_mg": 79, "added_sugar_g": 0, "iron_mg": 2.7,
+        "calcium_mg": 99, "potassium_mg": 558, "vitamin_c_mg": 28,
+        "sale_savings_pct": 15
+      }
+    },
+    {
+      "name": "Brown Rice (2 lb bag)",
+      "usda_fdc_id": "169704",
+      "allergens": [],
+      "category": "grain",
+      "tags": ["vegan", "vegetarian", "gluten-free", "low-glycemic"],
+      "sale_price_per_unit": 1.99,
+      "unit": "bag",
+      "standard_unit_weight_g": 907,
+      "nutrition": {
+        "protein_g": 2.6, "fiber_g": 1.8, "saturated_fat_g": 0.2,
+        "sodium_mg": 4, "added_sugar_g": 0, "iron_mg": 0.5,
+        "calcium_mg": 10, "potassium_mg": 84, "vitamin_c_mg": 0,
+        "sale_savings_pct": 20
+      }
+    },
+    {
+      "name": "Quinoa (1 lb bag)",
+      "usda_fdc_id": "168917",
+      "allergens": [],
+      "category": "grain",
+      "tags": ["vegan", "vegetarian", "gluten-free", "low-glycemic"],
+      "sale_price_per_unit": 3.49,
+      "unit": "bag",
+      "standard_unit_weight_g": 453,
+      "nutrition": {
+        "protein_g": 4.4, "fiber_g": 2.8, "saturated_fat_g": 0.2,
+        "sodium_mg": 7, "added_sugar_g": 0, "iron_mg": 1.5,
+        "calcium_mg": 17, "potassium_mg": 172, "vitamin_c_mg": 0,
+        "sale_savings_pct": 14
+      }
+    },
+    {
+      "name": "Large Eggs (dozen)",
+      "usda_fdc_id": "748967",
+      "allergens": ["eggs"],
+      "category": "protein",
+      "tags": ["vegetarian", "gluten-free", "low-fodmap", "keto"],
+      "sale_price_per_unit": 2.49,
+      "unit": "dozen",
+      "standard_unit_weight_g": 50,
+      "nutrition": {
+        "protein_g": 12.6, "fiber_g": 0, "saturated_fat_g": 3.3,
+        "sodium_mg": 124, "added_sugar_g": 0, "iron_mg": 1.8,
+        "calcium_mg": 56, "potassium_mg": 138, "vitamin_c_mg": 0,
+        "sale_savings_pct": 12
+      }
+    },
+    {
+      "name": "Whole Milk (1 gallon)",
+      "usda_fdc_id": "336070",
+      "allergens": ["milk"],
+      "category": "dairy",
+      "tags": ["vegetarian", "gluten-free"],
+      "sale_price_per_unit": 3.29,
+      "unit": "gallon",
+      "standard_unit_weight_g": 3785,
+      "nutrition": {
+        "protein_g": 3.2, "fiber_g": 0, "saturated_fat_g": 2.0,
+        "sodium_mg": 44, "added_sugar_g": 0, "iron_mg": 0.0,
+        "calcium_mg": 120, "potassium_mg": 150, "vitamin_c_mg": 0,
+        "sale_savings_pct": 10
+      }
+    },
+    {
+      "name": "Olive Oil (16.9 fl oz)",
+      "usda_fdc_id": "748608",
+      "allergens": [],
+      "category": "other",
+      "tags": ["vegan", "vegetarian", "gluten-free", "keto", "low-fodmap"],
+      "sale_price_per_unit": 5.99,
+      "unit": "bottle",
+      "standard_unit_weight_g": 500,
+      "nutrition": {
+        "protein_g": 0, "fiber_g": 0, "saturated_fat_g": 13.8,
+        "sodium_mg": 2, "added_sugar_g": 0, "iron_mg": 0.6,
+        "calcium_mg": 1, "potassium_mg": 1, "vitamin_c_mg": 0,
+        "sale_savings_pct": 17
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+[theme]
+# WhollyFare brand — Direction A: Leaf + Fork, garden green family
+primaryColor        = "#3A8C4E"   # Fresh Herb — buttons, links, active states
+backgroundColor     = "#FAFAF7"   # Cream — page background
+secondaryBackgroundColor = "#EEF7EE"  # Light sprout — sidebar, cards
+textColor           = "#1E3D25"   # Dark garden — body text
+
+[server]
+headless            = true
+enableCORS          = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats    = false
