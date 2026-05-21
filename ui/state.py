@@ -762,6 +762,14 @@ def _load_household_from_db():
     Internal: load household + members from DB into session_state.
     Called automatically on sign-in and on the Household page.
     Silently no-ops if the user has no household yet.
+
+    POC:  Uses direct REST (_sb_select) with the user JWT from session_state —
+          same pattern as save_household() and _load_grocers_from_db(). This
+          eliminates all supabase-py PostgREST / GoTrue dependency so auth is
+          drawn from session_state["_sb_access_token"] directly, not from the
+          shared @st.cache_resource client's internal GoTrue session state.
+    PROD: Add token refresh on 401, retry logic, and a user-visible banner
+          when the profile can't be loaded (e.g. "Saved locally — sync pending").
     """
     if not _DB_AVAILABLE or not is_authenticated():
         _log.warning("_load_household_from_db: skipped — DB available=%s authenticated=%s",
@@ -771,89 +779,54 @@ def _load_household_from_db():
     uid = current_user_id()
     _log.info("_load_household_from_db: looking up household for uid=%s", uid)
 
-    # POC: DB queries wrapped in try/except so a network error or token expiry
-    # does NOT crash the Household page and force a session reset (logout).
-    # PROD: add token refresh on 401, retry logic, and a user-visible banner
-    # when the profile can't be loaded (e.g. "Saved locally — sync pending").
     try:
-        db = get_authed_client()
-
-        # Find the household this user belongs to
-        rows = (
-            db.table("household_users")
-            .select("household_id, role")
-            .eq("user_id", uid)
-            .limit(1)
-            .execute()
-            .data
-        )
-        if not rows:
+        # ── Find the household this user belongs to ───────────────────────────
+        # Direct REST with user JWT — no GoTrue dependency.
+        hh_user_rows = _sb_select("household_users",
+                                  select="household_id,role",
+                                  filters={"user_id": uid})
+        if not hh_user_rows:
+            _log.info("_load_household_from_db: no household_users row for uid=%s", uid)
             return
 
-        hid = rows[0]["household_id"]
+        hid = hh_user_rows[0]["household_id"]
         st.session_state["household_id"] = hid
         _log.info("_load_household_from_db: found household_id=%s", hid)
 
-        # Load household record
-        hh_rows = (
-            db.table("households")
-            .select("*")
-            .eq("id", hid)
-            .limit(1)
-            .execute()
-            .data
-        )
+        # ── Load household record ─────────────────────────────────────────────
+        hh_rows = _sb_select("households", select="*", filters={"id": hid})
         if not hh_rows:
+            _log.warning("_load_household_from_db: no households row for hid=%s", hid)
             return
 
         hh = hh_rows[0]
 
-        # Load members with their constraints
-        members_rows = (
-            db.table("members")
-            .select("id, name, age, display_order")
-            .eq("household_id", hid)
-            .order("display_order")
-            .execute()
-            .data
-        )
+        # ── Load members with their constraints ───────────────────────────────
+        members_rows = _sb_select("members",
+                                  select="id,name,age,display_order",
+                                  filters={"household_id": hid},
+                                  order="display_order.asc")
 
         members = []
         for m in members_rows:
             mid = m["id"]
 
-            allergies = [
-                r["allergen"]
-                for r in db.table("member_allergies")
-                .select("allergen")
-                .eq("member_id", mid)
-                .execute()
-                .data
-            ]
-            diagnoses = [
-                r["diagnosis"]                          # DB column: diagnosis
-                for r in db.table("member_diagnoses")
-                .select("diagnosis")
-                .eq("member_id", mid)
-                .execute()
-                .data
-            ]
-            lifestyle = [
-                r["tag"]
-                for r in db.table("member_lifestyle_tags")
-                .select("tag")
-                .eq("member_id", mid)
-                .execute()
-                .data
-            ]
-            exclusions = [
-                r["exclusion_text"]                     # DB column: exclusion_text
-                for r in db.table("member_custom_exclusions")
-                .select("exclusion_text")
-                .eq("member_id", mid)
-                .execute()
-                .data
-            ]
+            allergies  = [r["allergen"]
+                          for r in _sb_select("member_allergies",
+                                              select="allergen",
+                                              filters={"member_id": mid})]
+            diagnoses  = [r["diagnosis"]
+                          for r in _sb_select("member_diagnoses",
+                                              select="diagnosis",
+                                              filters={"member_id": mid})]
+            lifestyle  = [r["tag"]
+                          for r in _sb_select("member_lifestyle_tags",
+                                              select="tag",
+                                              filters={"member_id": mid})]
+            exclusions = [r["exclusion_text"]
+                          for r in _sb_select("member_custom_exclusions",
+                                              select="exclusion_text",
+                                              filters={"member_id": mid})]
 
             members.append({
                 "id":         mid,
@@ -865,8 +838,7 @@ def _load_household_from_db():
                 "exclusions": exclusions,
             })
 
-        # Write into session_state in the shape save_household() expects
-        # (a plain dict — pages that need HouseholdProfile call _dict_to_profile())
+        # ── Write into session_state ──────────────────────────────────────────
         st.session_state["household_db"] = {
             "id":                hid,
             "name":              hh.get("name", ""),
@@ -880,21 +852,23 @@ def _load_household_from_db():
         }
 
         # Convert to HouseholdProfile so pages that read session_state["household"] work.
-        # Without this, sign-in populates household_db but leaves household=None.
-        # PROD: this conversion is always cheap; keep it here.
         profile = db_dict_to_profile(st.session_state["household_db"])
         if profile:
             st.session_state["household"] = profile
 
-        # Also restore zip into home_zip for Grocer Hub wizard
+        # Restore zip into home_zip so the Grocer Hub wizard pre-fills correctly.
         if hh.get("primary_zip"):
             st.session_state["home_zip"] = hh["primary_zip"]
+            _log.info("_load_household_from_db: restored home_zip=%s", hh["primary_zip"])
+
+        _log.info("_load_household_from_db: loaded %d members for hid=%s",
+                  len(members), hid)
 
     except Exception as _e:
         # Degrade gracefully — session_state keeps whatever was already loaded.
-        # Auth state is intentionally NOT cleared here; a DB hiccup should not
-        # log the user out. The inline sign-in on the Household page handles the
-        # case where auth genuinely expired.
+        # Auth state intentionally NOT cleared here — a DB hiccup should not log
+        # the user out. The inline sign-in on the Household page handles genuine
+        # auth expiry.
         _log.warning("_load_household_from_db: DB error for uid=%s: %s", uid, _e)
 
 
