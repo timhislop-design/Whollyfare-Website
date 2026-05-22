@@ -545,7 +545,7 @@ totals   = plan["totals"]
 meals    = plan["meals"]
 servings = plan["servings"]
 
-# ── Top metrics row ──────────────────────────────────────────────────────────
+# ── Shared lookups ───────────────────────────────────────────────────────────
 STORE_NAMES = {
     "kroger_palmyra": "Kroger", "food_lion_palmyra": "Food Lion",
     "aldi_rio": "Aldi", "harris_teeter_barracks": "Harris Teeter",
@@ -559,42 +559,16 @@ for meal in meals:
         store_counts[sid] = store_counts.get(sid, 0) + 1
 num_stores = len(store_counts)
 
-m1, m2, m3, m4 = st.columns(4)
-with m1:
-    st.metric("Your plan", f"${totals['whollyfare_plan']:.2f}",
-              delta=f"{len(meals)} dinners · {servings} servings each")
-with m2:
-    st.metric("vs. single store 🏪", f"+${totals['found_money']:.2f}",
-              delta="you keep this", delta_color="normal")
-with m3:
-    _hf_save = totals.get("vs_hellofresh", 0)
-    st.metric("vs. HelloFresh 💚", f"+${_hf_save:.2f}",
-              delta="you keep this", delta_color="normal")
-with m4:
-    st.metric("Stores shopped", num_stores,
-              delta="cross-store savings" if num_stores > 1 else "add more stores for savings")
-
-# ── Cross-store breakdown ─────────────────────────────────────────────────────
-if num_stores > 1:
-    store_parts = "  ·  ".join(
-        f"🏪 {STORE_NAMES.get(sid, sid)}: {count} item{'s' if count != 1 else ''}"
-        for sid, count in store_counts.items()
-    )
-    st.html(f"""<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;
-                        padding:10px 16px;margin:8px 0 4px 0;font-size:0.88rem;color:#5A3A00;'>
-      {store_parts} &nbsp;·&nbsp;
-      <strong style='color:#BF5E00;'>Cross-store shopping saves you
-      ${totals["found_money"]:.2f} vs. buying everything at one store</strong>
-    </div>""")
-
-# ── Meal kit comparison — per-serving is the headline ────────────────────────
-# The weekly total is real but the per-serving number is what makes people
-# cancel Blue Apron. $2-4/serving vs $9.99/serving is the visceral moment.
 _plan_cost      = totals["whollyfare_plan"]
 _kit_data       = totals.get("meal_kits", {})
 _kit_meta       = totals.get("meal_kit_meta", {})
 _n_servings     = totals.get("total_servings", servings * len(meals))
 _wf_per_serving = round(_plan_cost / max(_n_servings, 1), 2)
+
+# ════════════════════════════════════════════════════════════════════
+# SECTION 1 — SAVINGS SUMMARY
+# Per-serving hero + metrics + cross-store callout
+# ════════════════════════════════════════════════════════════════════
 
 if _kit_data:
     _cheapest_kit_pps = min(_kit_meta[k]["price_per_serving"] for k in _kit_meta)
@@ -602,10 +576,9 @@ if _kit_data:
     _min_save_pps = round(_cheapest_kit_pps - _wf_per_serving, 2)
     _max_save_pps = round(_priciest_kit_pps - _wf_per_serving, 2)
 
-    # Hero: per-serving number front and centre
     st.html(f"""
     <div style='background:linear-gradient(135deg,#1A2E1D 0%,#2D6A4F 100%);
-                border-radius:12px;padding:22px 24px 18px 24px;margin:16px 0 12px 0;'>
+                border-radius:12px;padding:22px 24px 18px 24px;margin:0 0 16px 0;'>
       <div style='color:#A8D5B5;font-size:0.75rem;font-weight:700;letter-spacing:0.1em;
                   text-transform:uppercase;margin-bottom:6px;'>
         Your cost per serving this week
@@ -628,44 +601,44 @@ if _kit_data:
       <div style='margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);
                   color:#5DDC8A;font-size:0.9rem;font-weight:700;'>
         You save ${_min_save_pps:.2f}–${_max_save_pps:.2f} per serving
-        &nbsp;·&nbsp; ${round((_min_save_pps)*_n_servings):.0f}–${round((_max_save_pps)*_n_servings):.0f} total this week
+        &nbsp;·&nbsp; ${round(_min_save_pps*_n_servings):.0f}–${round(_max_save_pps*_n_servings):.0f} total this week
       </div>
     </div>
     """)
 
-    # Expandable per-service breakdown
-    st.html("""<div style='font-size:0.78rem;font-weight:700;color:#5A7A62;
-                           letter-spacing:0.08em;text-transform:uppercase;
-                           margin:4px 0 8px 0;'>
-        Compare by service
+m1, m2, m3, m4 = st.columns(4)
+with m1:
+    st.metric("Plan total", f"${totals['whollyfare_plan']:.2f}",
+              delta=f"{len(meals)} dinners · {servings} servings each")
+with m2:
+    st.metric("vs. single store 🏪", f"+${totals['found_money']:.2f}",
+              delta="you keep this", delta_color="normal")
+with m3:
+    _hf_save = totals.get("vs_hellofresh", 0)
+    st.metric("vs. HelloFresh 💚", f"+${_hf_save:.2f}",
+              delta="you keep this", delta_color="normal")
+with m4:
+    st.metric("Stores shopped", num_stores,
+              delta="cross-store savings" if num_stores > 1 else "add more stores for savings")
+
+if num_stores > 1:
+    store_parts = "  ·  ".join(
+        f"🏪 {STORE_NAMES.get(sid, sid)}: {count} item{'s' if count != 1 else ''}"
+        for sid, count in store_counts.items()
+    )
+    st.html(f"""<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;
+                        padding:10px 16px;margin:8px 0 0 0;font-size:0.88rem;color:#5A3A00;'>
+      {store_parts} &nbsp;·&nbsp;
+      <strong style='color:#BF5E00;'>Cross-store saves you ${totals["found_money"]:.2f}
+      vs. buying everything at one store</strong>
     </div>""")
 
-    for kit_name, kit_total in sorted(_kit_data.items(),
-                                       key=lambda x: _kit_meta[x[0]]["price_per_serving"]):
-        _meta      = _kit_meta.get(kit_name, {})
-        _pps       = _meta.get("price_per_serving", 0)
-        _save_week = round(kit_total - _plan_cost, 2)
-        _save_srv  = round(_pps - _wf_per_serving, 2)
-        _label     = f"{kit_name}  —  ${_pps:.2f}/serving  ·  you save ${_save_srv:.2f}/serving"
-        with st.expander(_label):
-            _c1, _c2, _c3 = st.columns(3)
-            with _c1:
-                st.metric("Their cost / serving", f"${_pps:.2f}")
-            with _c2:
-                st.metric("Your cost / serving", f"${_wf_per_serving:.2f}",
-                          delta=f"-${_save_srv:.2f}", delta_color="normal")
-            with _c3:
-                st.metric(f"Your savings this week", f"${_save_week:.2f}",
-                          delta=f"vs. {kit_name}")
-            st.caption(
-                f"At {kit_name}'s ${_pps:.2f}/serving rate, "
-                f"{_n_servings} servings would cost **${kit_total:.2f}**. "
-                f"WhollyFare built the same {len(meals)} dinners for **${_plan_cost:.2f}** "
-                f"using this week's actual sale prices."
-            )
+st.divider()
 
-    st.caption("* Published starting rates for 2-person plans, May 2025. "
-               "Actual kit prices vary by plan size and promotions.")
+# ════════════════════════════════════════════════════════════════════
+# SECTION 2 — THIS WEEK'S MEALS
+# Meal cards + detail expanders
+# ════════════════════════════════════════════════════════════════════
 
 # Meal cards
 DAY_COLORS = ["#1E5C32", "#3A8C4E", "#5DAA6A", "#F28B30", "#BF5E00"]
@@ -731,6 +704,44 @@ for meal in meals:
             f"Meal total: ${meal['meal_cost']:.2f}</div>")
 
 st.divider()
+
+# ════════════════════════════════════════════════════════════════════
+# SECTION 3 — HOW DOES THIS COMPARE?
+# Per-service expandable breakdown
+# ════════════════════════════════════════════════════════════════════
+
+if _kit_data:
+    st.html("""<div style='font-size:0.78rem;font-weight:700;color:#5A7A62;
+                           letter-spacing:0.08em;text-transform:uppercase;
+                           margin:4px 0 10px 0;'>
+        Compare by meal kit service
+    </div>""")
+    for kit_name, kit_total in sorted(_kit_data.items(),
+                                       key=lambda x: _kit_meta[x[0]]["price_per_serving"]):
+        _meta      = _kit_meta.get(kit_name, {})
+        _pps       = _meta.get("price_per_serving", 0)
+        _save_week = round(kit_total - _plan_cost, 2)
+        _save_srv  = round(_pps - _wf_per_serving, 2)
+        _label     = f"{kit_name}  —  ${_pps:.2f}/serving  ·  you save ${_save_srv:.2f}/serving"
+        with st.expander(_label):
+            _ec1, _ec2, _ec3 = st.columns(3)
+            with _ec1:
+                st.metric("Their cost / serving", f"${_pps:.2f}")
+            with _ec2:
+                st.metric("Your cost / serving", f"${_wf_per_serving:.2f}",
+                          delta=f"-${_save_srv:.2f}", delta_color="normal")
+            with _ec3:
+                st.metric("Your savings this week", f"${_save_week:.2f}",
+                          delta=f"vs. {kit_name}")
+            st.caption(
+                f"At {kit_name}'s ${_pps:.2f}/serving, "
+                f"{_n_servings} servings would cost **${kit_total:.2f}**. "
+                f"WhollyFare built the same {len(meals)} dinners for **${_plan_cost:.2f}** "
+                f"from this week's actual sale prices."
+            )
+    st.caption("\* Published starting rates, 2-person plans, May 2025. "
+               "Actual prices vary by plan size and promotions.")
+    st.divider()
 
 # Constraint compliance
 _constraint_parts = []
