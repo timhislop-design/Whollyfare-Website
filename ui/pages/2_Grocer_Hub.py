@@ -1149,6 +1149,24 @@ def _pull_kroger(chain: str, location_id: str) -> int:
     try:
         from integrations.kroger.client import KrogerClient
         client = KrogerClient(client_id=client_id, client_secret=client_secret, location_id=_loc)
+        # Diagnostic: test first term raw so we can see exactly what the API returns
+        _raw_test = client._search_products("chicken breast", _loc)
+        if not _raw_test:
+            # Try fetching the raw response structure before full pull
+            client._ensure_token()
+            import urllib.request as _ur, urllib.parse as _up
+            _test_url = "https://api.kroger.com/v1/products?" + _up.urlencode({
+                "filter.term": "chicken", "filter.locationId": _loc, "filter.limit": 5,
+            })
+            _req = _ur.Request(_test_url, headers={"Accept": "application/json", "Authorization": f"Bearer {client._access_token}"})
+            try:
+                with _ur.urlopen(_req, timeout=15) as _r:
+                    _raw_json = _r.read().decode()
+            except Exception as _e:
+                _raw_json = f"Request failed: {_e}"
+            with st.expander("🔬 Kroger API raw response (debug)", expanded=True):
+                st.code(_raw_json[:2000])
+            return 0
         result = client.get_weekly_sales(flyer_week=st.session_state["active_week"])
         out = Path("app/data/flyers") / f"kroger_{st.session_state['active_week']}.json"
         client.save(result, out)
