@@ -392,12 +392,71 @@ st.divider()
 # 4. THE SOLUTION
 # ══════════════════════════════════════════════════════════════════════════════
 st.html('<div class="inv-section-label">The Solution</div>')
-st.html("### One engine. Three steps. Every Sunday.")
+st.html("### One engine. Seven steps. Every week.")
 st.markdown("""
 WhollyFare&#174; inverts the meal-kit model. Instead of charging a premium for pre-portioned ingredients,
 we use each week's **actual sale circulars** from your local grocers to build the lowest-cost,
-safe, constraint-compliant meal plan for your household — then hand you a shopping list by store.
+safe, constraint-compliant meal plan for your household — then hand you a shopping list by store,
+or send it straight to Instacart.
 """)
+
+st.html("""
+<div style='background:linear-gradient(160deg,#0A0F0D,#0F2518);border-radius:14px;
+            padding:32px 36px;margin-bottom:24px;'>
+  <div style='font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+              color:#5DAA6A;margin-bottom:14px;'>The Weekly Ritual</div>
+  <div style='display:flex;gap:0;align-items:stretch;flex-wrap:wrap;'>
+    <div style='flex:1;min-width:120px;text-align:center;padding:16px 10px;
+                border-right:1px solid rgba(93,170,106,.15);'>
+      <div style='font-size:1.4rem;margin-bottom:8px;'>🔐</div>
+      <div style='font-size:.75rem;font-weight:700;color:#9FD9A8;margin-bottom:4px;'>Login</div>
+      <div style='font-size:.70rem;color:rgba(255,255,255,.45);line-height:1.45;'>Account + household profile</div>
+    </div>
+    <div style='flex:1;min-width:120px;text-align:center;padding:16px 10px;
+                border-right:1px solid rgba(93,170,106,.15);'>
+      <div style='font-size:1.4rem;margin-bottom:8px;'>🏪</div>
+      <div style='font-size:.75rem;font-weight:700;color:#9FD9A8;margin-bottom:4px;'>Load Prices</div>
+      <div style='font-size:.70rem;color:rgba(255,255,255,.45);line-height:1.45;'>Sale circulars from your stores</div>
+    </div>
+    <div style='flex:1;min-width:120px;text-align:center;padding:16px 10px;
+                border-right:1px solid rgba(93,170,106,.15);'>
+      <div style='font-size:1.4rem;margin-bottom:8px;'>🍽️</div>
+      <div style='font-size:.75rem;font-weight:700;color:#9FD9A8;margin-bottom:4px;'>Set Preferences</div>
+      <div style='font-size:.70rem;color:rgba(255,255,255,.45);line-height:1.45;'>Cuisine, protein, schedule, notes</div>
+    </div>
+    <div style='flex:1;min-width:120px;text-align:center;padding:16px 10px;
+                border-right:1px solid rgba(93,170,106,.15);'>
+      <div style='font-size:1.4rem;margin-bottom:8px;'>⚙️</div>
+      <div style='font-size:.75rem;font-weight:700;color:#9FD9A8;margin-bottom:4px;'>Engine Runs</div>
+      <div style='font-size:.70rem;color:rgba(255,255,255,.45);line-height:1.45;'>Constrain → optimize → plan</div>
+    </div>
+    <div style='flex:1;min-width:120px;text-align:center;padding:16px 10px;
+                border-right:1px solid rgba(93,170,106,.15);'>
+      <div style='font-size:1.4rem;margin-bottom:8px;'>✅</div>
+      <div style='font-size:.75rem;font-weight:700;color:#9FD9A8;margin-bottom:4px;'>Approve</div>
+      <div style='font-size:.70rem;color:rgba(255,255,255,.45);line-height:1.45;'>Sunday Buy-Off — one screen, one tap</div>
+    </div>
+    <div style='flex:1;min-width:120px;text-align:center;padding:16px 10px;
+                border-right:1px solid rgba(93,170,106,.15);'>
+      <div style='font-size:1.4rem;margin-bottom:8px;'>🛒</div>
+      <div style='font-size:.75rem;font-weight:700;color:#9FD9A8;margin-bottom:4px;'>Shop</div>
+      <div style='font-size:.70rem;color:rgba(255,255,255,.45);line-height:1.45;'>List by store — or send to Instacart</div>
+    </div>
+    <div style='flex:1;min-width:120px;text-align:center;padding:16px 10px;'>
+      <div style='font-size:1.4rem;margin-bottom:8px;'>💰</div>
+      <div style='font-size:.75rem;font-weight:700;color:#9FD9A8;margin-bottom:4px;'>Ledger</div>
+      <div style='font-size:.70rem;color:rgba(255,255,255,.45);line-height:1.45;'>Receipt logged, Found Money banked</div>
+    </div>
+  </div>
+  <div style='margin-top:18px;padding-top:16px;border-top:1px solid rgba(93,170,106,.15);
+              font-size:.78rem;color:rgba(255,255,255,.45);line-height:1.55;'>
+    <strong style='color:#5DAA6A;'>Phase 1 (now):</strong> Steps 2–3 are manual — Tim enters flyers, household sets preferences.
+    &nbsp;·&nbsp; <strong style='color:#5DAA6A;'>Phase 2:</strong> Login + household setup automated, multi-household accounts.
+    &nbsp;·&nbsp; <strong style='color:#5DAA6A;'>Phase 3:</strong> Grocer APIs replace manual entry. Instacart/Shipt replace the clipboard.
+  </div>
+</div>
+""")
+
 col_s1, col_s2, col_s3 = st.columns(3)
 with col_s1:
     st.html("""<div class="step-card step-card-1">
@@ -1002,8 +1061,11 @@ with st.expander("Month 1 — Hislop Family Pilot · Live Now", expanded=False):
   <div style='font-size:0.84rem;color:#1A2E1D;line-height:1.8;'>
     Core constraint engine — safety before savings<br>
     Budget optimizer + meal planner<br>
+    4-step weekly preferences wizard (schedule, cuisine, protein, notes)<br>
+    Per-serving cost hero (~$2–4 vs. $9.99+ meal kits) + 6-service comparison<br>
     Manual flyer entry — all 4 Cville stores<br>
-    Sunday Buy-Off screen<br>
+    Kroger API — live, 239 items from Barracks Rd<br>
+    Sunday Buy-Off screen — net Found Money with trip cost offset<br>
     Shopping list — mobile-first, interactive checkboxes<br>
     Found Money Ledger + CSV export
   </div>
@@ -1056,6 +1118,8 @@ with st.expander("Months 2–3 — First Wave · 5–10 Pilot Households", expan
   <div style='font-size:0.84rem;color:#1A2E1D;line-height:1.8;'>
     Simple data persistence — SQLite or hosted Postgres<br>
     Basic authentication — email + password<br>
+    Admin shared-circular model — Tim loads flyers once, all households benefit<br>
+    Zip-native store matching — user's zip finds their nearest branch automatically<br>
     Weekly Found Money summary email (no marketing)<br>
     Error monitoring — know when the engine fails
   </div>
@@ -1103,7 +1167,7 @@ with st.expander("Month 6–12 — Regional Scale · API Integrations · Post-In
   for hundreds of households across multiple markets — same logic, same Sincere Strategy,
   no manual work required.
 </div>
-<div style='display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:16px;'>
+<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:16px;'>
 <div>
   <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
               color:#3A8C4E;margin-bottom:8px;'>Grocer API integrations</div>
@@ -1115,6 +1179,18 @@ with st.expander("Month 6–12 — Regional Scale · API Integrations · Post-In
     <strong>Walmart Grocery</strong> — Rollback pricing, pickup integration<br>
     <strong>Harris Teeter</strong> — VIC card pricing, digital coupons<br>
     <strong>Giant / Stop &amp; Shop</strong> — Northeast expansion
+  </div>
+</div>
+<div>
+  <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+              color:#3A8C4E;margin-bottom:8px;'>Delivery &amp; checkout hub</div>
+  <div style='font-size:0.84rem;color:#1A2E1D;line-height:1.85;'>
+    <strong>Instacart</strong> — send shopping list direct to cart, delivery or pickup<br>
+    <strong>Shipt</strong> — same-day from Target, Meijer, and regional chains<br>
+    <strong>Walmart+ Delivery</strong> — rollback pricing + same-day fulfillment<br>
+    <strong>Amazon Fresh</strong> — Prime household integration<br>
+    The WhollyFare list becomes the order — zero re-entry, full cost transparency<br>
+    Delivery fee shown honestly alongside trip cost: households choose eyes-open
   </div>
 </div>
 <div>

@@ -125,6 +125,63 @@ st.html("""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# THE WEEKLY RITUAL — what a household actually does
+# ══════════════════════════════════════════════════════════════════════════════
+st.html("""
+<div style='background:#F0F7F2;border:1px solid #B0D4B8;border-radius:12px;
+            padding:22px 24px 18px 24px;margin-bottom:24px;'>
+  <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+              color:#3A8C4E;margin-bottom:10px;'>The weekly ritual · 7 steps · under 10 minutes</div>
+  <div style='font-size:1.1rem;font-weight:800;color:#1A2E1D;margin-bottom:16px;'>
+    From sale prices to dinner on the table — without guesswork, without overpaying.
+  </div>
+  <div style='display:grid;grid-template-columns:repeat(7,1fr);gap:8px;'>
+    <div style='text-align:center;'>
+      <div style='font-size:1.4rem;'>🔐</div>
+      <div style='font-size:0.68rem;font-weight:700;color:#1A2E1D;margin-top:4px;'>Log in</div>
+      <div style='font-size:0.63rem;color:#5A7A62;margin-top:2px;'>Household profile &amp; dietary rules load automatically</div>
+    </div>
+    <div style='text-align:center;'>
+      <div style='font-size:1.4rem;'>🏪</div>
+      <div style='font-size:0.68rem;font-weight:700;color:#1A2E1D;margin-top:4px;'>Load prices</div>
+      <div style='font-size:0.63rem;color:#5A7A62;margin-top:2px;'>This week&apos;s sale circulars from your stores</div>
+    </div>
+    <div style='text-align:center;'>
+      <div style='font-size:1.4rem;'>🍽️</div>
+      <div style='font-size:0.68rem;font-weight:700;color:#1A2E1D;margin-top:4px;'>Set preferences</div>
+      <div style='font-size:0.63rem;color:#5A7A62;margin-top:2px;'>Cuisine mix, proteins, dinners, nights out</div>
+    </div>
+    <div style='text-align:center;'>
+      <div style='font-size:1.4rem;'>⚙️</div>
+      <div style='font-size:0.68rem;font-weight:700;color:#1A2E1D;margin-top:4px;'>Engine runs</div>
+      <div style='font-size:0.63rem;color:#5A7A62;margin-top:2px;'>Safety filter → budget optimizer → meal plan</div>
+    </div>
+    <div style='text-align:center;'>
+      <div style='font-size:1.4rem;'>✅</div>
+      <div style='font-size:0.68rem;font-weight:700;color:#1A2E1D;margin-top:4px;'>Approve</div>
+      <div style='font-size:0.63rem;color:#5A7A62;margin-top:2px;'>Sunday Buy-Off — confirm, swap, or skip any meal</div>
+    </div>
+    <div style='text-align:center;'>
+      <div style='font-size:1.4rem;'>🛒</div>
+      <div style='font-size:0.68rem;font-weight:700;color:#1A2E1D;margin-top:4px;'>Shop</div>
+      <div style='font-size:0.63rem;color:#5A7A62;margin-top:2px;'>Shopping list by store · Instacart/Shipt in Phase 3</div>
+    </div>
+    <div style='text-align:center;'>
+      <div style='font-size:1.4rem;'>💰</div>
+      <div style='font-size:0.68rem;font-weight:700;color:#1A2E1D;margin-top:4px;'>Ledger</div>
+      <div style='font-size:0.63rem;color:#5A7A62;margin-top:2px;'>Actual receipt vs. plan · Found Money confirmed</div>
+    </div>
+  </div>
+  <div style='margin-top:14px;padding-top:12px;border-top:1px solid #C8E0CC;
+              font-size:0.78rem;color:#3A8C4E;font-weight:600;'>
+    Phase 1: steps 1–5 are manual (circulars loaded by Tim, plans approved weekly).
+    Phase 2: multi-household accounts, step 6 mobile-native.
+    Phase 3: steps 2 &amp; 6 fully automated — circulars pulled by API, cart sent to Instacart/Shipt.
+  </div>
+</div>
+""")
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PHASE 1 — POC / PILOT (NOW)
 # ══════════════════════════════════════════════════════════════════════════════
 st.html("""
@@ -141,44 +198,60 @@ st.html("""
 
 st.html("<div style='height:10px;'></div>")
 
-p1c1, p1c2, p1c3 = st.columns(3)
+p1c1, p1c2, p1c3, p1c4 = st.columns(4)
 
 with p1c1:
     st.html("""
     <div class='feature-card built'>
       <div class='feature-icon'>🛡️</div>
-      <div class='feature-title'>Constraint Engine <span class='status-pill-built'>Built</span></div>
-      <div class='feature-body'>Hard-rule filtering for Top-14 allergens, celiac, CKD, diabetes,
-      MCAS, IBS, and more. Every rejection logged with reason + household member.
-      Safety is absolute — never traded for savings.</div>
-      <div class='feature-why'>Why: One peanut allergy in one household means every recommendation
-      must be bulletproof. Trust is built before anything else.</div>
+      <div class='feature-title'>Safety-First Engine <span class='status-pill-built'>Built</span></div>
+      <div class='feature-body'>Constraint engine → budget optimizer → meal planner, running
+      in sequence every week. Hard-rule filtering for Top-14 allergens, celiac, CKD, diabetes,
+      MCAS, IBS. Safety absolute — never traded for savings. Every rejection logged.</div>
+      <div class='feature-why'>Why: One peanut allergy in one household means every
+      recommendation must be bulletproof. Trust is built before anything else.</div>
     </div>
     """)
 
 with p1c2:
     st.html("""
     <div class='feature-card built'>
-      <div class='feature-icon'>🏪</div>
-      <div class='feature-title'>Multi-Tier Grocer Hub <span class='status-pill-built'>Built</span></div>
-      <div class='feature-body'>Four store tiers — Value, Full-Service, Specialty, and Local — with
-      zip-aware chain filtering and trip-cost awareness. Manual circular entry plus PDF parsing.
-      Charlottesville stores load in one click.</div>
-      <div class='feature-why'>Why: PDF parsing is unreliable. Manual entry is 100% reliable.
-      The pilot loop must work every Sunday without fail.</div>
+      <div class='feature-icon'>🍽️</div>
+      <div class='feature-title'>Weekly Preferences Wizard <span class='status-pill-built'>Built</span></div>
+      <div class='feature-body'>4-step weekly wizard: schedule (dinners + nights out),
+      cuisine mix (multi-select with smart recommendation), protein preferences (Chicken,
+      Beef, Pork, Seafood, Turkey + others), and notes. Saves to profile with flyer-week
+      expiration — resets automatically when new sale prices load.</div>
+      <div class='feature-why'>Why: "What do you want this week?" is the right question
+      before "here is your plan." Preferences make every week feel different.</div>
     </div>
     """)
 
 with p1c3:
     st.html("""
     <div class='feature-card built'>
+      <div class='feature-icon'>🏪</div>
+      <div class='feature-title'>Multi-Tier Grocer Hub <span class='status-pill-built'>Built</span></div>
+      <div class='feature-body'>Four store tiers — Value, Full-Service, Specialty, Local — with
+      zip-aware filtering and trip-cost math. Kroger live via API (239 items). Manual circular
+      entry + PDF parsing for Food Lion, Harris Teeter, Aldi.
+      Admin refresh model: Tim loads once, all pilot households benefit.</div>
+      <div class='feature-why'>Why: Manual entry is 100% reliable for the pilot.
+      Admin-shared circulars is the Phase 2 bridge to full automation.</div>
+    </div>
+    """)
+
+with p1c4:
+    st.html("""
+    <div class='feature-card built'>
       <div class='feature-icon'>💰</div>
-      <div class='feature-title'>Found Money Ledger <span class='status-pill-built'>Built</span></div>
-      <div class='feature-body'>Logs both the WhollyFare plan estimate and the actual receipt total.
-      Tracks accuracy week over week. Net savings after gas costs. Exports to CSV.
-      The annualised savings projection builds automatically.</div>
-      <div class='feature-why'>Why: A savings claim backed by real receipts is evidence.
-      One backed by estimates is marketing.</div>
+      <div class='feature-title'>Savings Dashboard <span class='status-pill-built'>Built</span></div>
+      <div class='feature-body'>Per-serving cost hero ($2–4 target vs. $5.99–$12.99 meal kits),
+      cross-store Found Money, and expandable per-service comparison — EveryPlate, HelloFresh,
+      Blue Apron, Green Chef and more. Found Money Ledger tracks actual receipts vs. plan
+      week over week, net of gas costs.</div>
+      <div class='feature-why'>Why: "$2.40/serving vs. $9.99 Blue Apron" on the same screen
+      as your actual meal plan is the moment that drives cancellations.</div>
     </div>
     """)
 
@@ -254,12 +327,14 @@ with p2r2c1:
     st.html("""
     <div class='feature-card beta'>
       <div class='feature-icon'>👨‍👩‍👧</div>
-      <div class='feature-title'>Multi-Household Accounts <span class='status-pill-next'>Phase 2</span></div>
-      <div class='feature-body'>User accounts so pilot friends can set up their own household
-      without Tim holding their hand. Each household has its own profile, plan history,
-      and Found Money ledger. Data stays isolated and private.</div>
-      <div class='feature-why'>Why: The product can't scale if every new user requires
-      a personal introduction.</div>
+      <div class='feature-title'>Multi-Household + Admin Data <span class='status-pill-next'>Phase 2</span></div>
+      <div class='feature-body'>Full user accounts with isolated household profiles, plan history,
+      and Found Money ledgers. Admin shared-circular model: Tim (or any admin) loads the
+      week's circulars once into a shared_flyers table — every household in the same market
+      benefits automatically. Zip-native store matching: your zip finds your nearest
+      Food Lion, not just the chain.</div>
+      <div class='feature-why'>Why: One person doing Sunday updates serves ten households.
+      That's the bridge from manual to automated — and it's already architectured in.</div>
     </div>
     """)
 

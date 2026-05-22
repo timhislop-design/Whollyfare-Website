@@ -179,32 +179,96 @@ def _run_engine(prefs: dict) -> bool:
                 n_meals=n_dinners,
             )
 
+        # ── Ingredient pooling — two-pass cost allocation ────────────────────────
+        # POC: naive per-meal cost attribution inflated the weekly total because
+        # each meal that used chicken counted the full purchase price.  The fix:
+        # count how many meals each ingredient appears in, then divide the
+        # purchase price across all meals that share it.
+        # PROD: same algorithm, but sourced from ingredient/recipe DB records.
+
+        # Pass 1 — collect all (meal_idx, ingredient) pairs and count usage
+        all_meal_ings: list = []   # [(meal_idx, meal_obj, scored_ing)]
+        usage_count: dict  = {}    # ingredient name → how many meals use it
+
+        for meal_idx, meal in enumerate(raw_plan.meals):
+            for scored_ing in meal.ingredients:
+                ing = scored_ing.ingredient
+                all_meal_ings.append((meal_idx, meal, scored_ing))
+                usage_count[ing.name] = usage_count.get(ing.name, 0) + 1
+
+        # Pass 2 — build plan_meals with allocated (shared) cost per ingredient
         plan_meals = []
         plan_total = 0.0
-        for meal in raw_plan.meals:
+
+        # We need to iterate per-meal, so group by meal_idx
+        from collections import defaultdict
+        meal_ings_by_idx: dict = defaultdict(list)
+        for meal_idx, meal, scored_ing in all_meal_ings:
+            meal_ings_by_idx[meal_idx].append((meal, scored_ing))
+
+        for meal_idx, meal in enumerate(raw_plan.meals):
             ing_list  = []
             meal_cost = 0.0
-            for scored_ing in meal.ingredients:
-                ing  = scored_ing.ingredient
-                cost = ing.sale_price_per_unit
-                qty  = _serving_qty(ing, hh.servings_per_meal)
+            for _meal_obj, scored_ing in meal_ings_by_idx[meal_idx]:
+                ing         = scored_ing.ingredient
+                n_uses      = usage_count[ing.name]
+                # Allocate only this meal's share of the purchase price
+                alloc_cost  = ing.sale_price_per_unit / n_uses
+                qty         = _serving_qty(ing, hh.servings_per_meal)
                 ing_list.append({
-                    "item":  ing.name,
-                    "qty":   qty,
-                    "store": getattr(ing, "source_store", "—"),
-                    "cost":  round(cost, 2),
+                    "item":     ing.name,
+                    "qty":      qty,
+                    "store":    getattr(ing, "source_store", "—"),
+                    "cost":     round(alloc_cost, 2),
+                    # Transparency flags for the UI
+                    "shared":   n_uses > 1,
+                    "used_in":  n_uses,
                 })
-                meal_cost += cost
+                meal_cost += alloc_cost
             plan_meals.append({
-                "day":           meal.day,
-                "name":          meal.name,
-                "gluten_free":   False,
+                "day":            meal.day,
+                "name":           meal.name,
+                "gluten_free":    False,
                 "allergen_notes": "",
-                "best_store":    "—",
-                "ingredients":   ing_list,
-                "meal_cost":     round(meal_cost, 2),
+                "best_store":     "—",
+                "ingredients":    ing_list,
+                "meal_cost":      round(meal_cost, 2),
             })
             plan_total += meal_cost
+
+        # ── Weekly shopping basket — deduplicated, sorted by category ─────────
+        # Shows what to actually buy (one purchase per ingredient) with full
+        # purchase price and how many meals it covers.
+        # POC: category priority is hardcoded. PROD: from ingredient DB.
+        CATEGORY_PRIORITY = {"protein": 0, "produce": 1, "dairy": 2,
+                              "grain": 3, "pantry": 4, "frozen": 5, "other": 6}
+
+        seen_basket: set = set()
+        basket_items: list = []
+        # Walk all_meal_ings to collect unique ingredients
+        for _meal_idx, _meal, scored_ing in all_meal_ings:
+            ing = scored_ing.ingredient
+            if ing.name in seen_basket:
+                continue
+            seen_basket.add(ing.name)
+            n_uses  = usage_count[ing.name]
+            qty_str = _serving_qty(ing, hh.servings_per_meal)
+            cat     = getattr(ing, "category", "other")
+            basket_items.append({
+                "item":        ing.name,
+                "total_cost":  round(ing.sale_price_per_unit, 2),
+                "meals":       n_uses,
+                "qty_total":   qty_str,
+                "store":       getattr(ing, "source_store", "—"),
+                "_sort_key":   CATEGORY_PRIORITY.get(cat, 6),
+            })
+
+        basket_items.sort(key=lambda x: (x["_sort_key"], x["item"]))
+        # Remove internal sort key before storing
+        weekly_shopping = [
+            {k: v for k, v in item.items() if k != "_sort_key"}
+            for item in basket_items
+        ]
 
         total_servings = len(plan_meals) * hh.servings_per_meal
         single_est     = round(plan_total * 1.18, 2)
@@ -226,10 +290,11 @@ def _run_engine(prefs: dict) -> bool:
         }
 
         st.session_state["plan"] = {
-            "week":     st.session_state["active_week"],
-            "servings": hh.servings_per_meal,
-            "meals":    plan_meals,
-            "prefs":    prefs,
+            "week":            st.session_state["active_week"],
+            "servings":        hh.servings_per_meal,
+            "meals":           plan_meals,
+            "prefs":           prefs,
+            "weekly_shopping": weekly_shopping,
             "totals": {
                 "whollyfare_plan":   round(plan_total, 2),
                 "single_store_best": single_est,
