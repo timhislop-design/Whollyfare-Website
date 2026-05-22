@@ -182,6 +182,9 @@ STORE_TIERS = [
             {"chain": "Kroger",         "source": "api", "rewards": True,  "delivery": True,
              "circular_support": "api",
              "flyer": "https://www.kroger.com/weeklyad",
+             # POC: location hardcoded for Charlottesville pilot (Barracks Rd store).
+             # PROD: resolved from household zip via Kroger Locations API.
+             "location": "01200441",
              "note": "Live API connected — WhollyFare pulls current prices automatically. Loyalty card unlocks stacked digital coupons."},
             {"chain": "Food Lion",      "source": "manual",     "rewards": True,  "delivery": False,
              "circular_support": "pdf_text",
@@ -1139,9 +1142,12 @@ def _pull_kroger(chain: str, location_id: str) -> int:
     if not client_id or not client_secret:
         st.warning("Kroger API credentials not set (KROGER_CLIENT_ID / KROGER_CLIENT_SECRET).", icon="🔑")
         return 0
+    # POC: fall back to Barracks Rd location if DB row has empty location_description.
+    # PROD: every household row will carry the user-selected location_id.
+    _loc = location_id or "01200441"
     try:
         from integrations.kroger.client import KrogerClient
-        client = KrogerClient(client_id=client_id, client_secret=client_secret, location_id=location_id)
+        client = KrogerClient(client_id=client_id, client_secret=client_secret, location_id=_loc)
         result = client.get_weekly_sales(flyer_week=st.session_state["active_week"])
         out = Path("app/data/flyers") / f"kroger_{st.session_state['active_week']}.json"
         client.save(result, out)
