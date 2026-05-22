@@ -135,19 +135,19 @@ STORE_TIERS = [
         "border":  "#FFCC80",
         "pill_bg": "#FFF3E0",
         "stores": [
-            {"chain": "ALDI",           "source": "manual",  "rewards": False, "delivery": False,
+            {"chain": "ALDI", "refresh_day": "Wednesday",           "source": "manual",  "rewards": False, "delivery": False,
              "circular_support": "pdf_image",
              "flyer": "https://www.aldi.us/en/weekly-specials/",
              "note": "No loyalty card. Weekly Specialbuys are image-based — upload the PDF and review results carefully, or enter key items manually."},
-            {"chain": "Lidl",           "source": "manual",  "rewards": False, "delivery": False,
+            {"chain": "Lidl", "refresh_day": "Wednesday",           "source": "manual",  "rewards": False, "delivery": False,
              "circular_support": "flipp",
              "flyer": "https://www.lidl.com/en/weekly-specials",
              "note": "Image-based circular similar to ALDI. PDF upload works via OCR — results vary. Manual entry for key items is more reliable."},
-            {"chain": "Walmart",        "source": "manual",  "rewards": False, "delivery": True,
+            {"chain": "Walmart", "refresh_day": None,        "source": "manual",  "rewards": False, "delivery": True,
              "circular_support": "manual_only",
              "flyer": "https://www.walmart.com/store/finder",
              "note": "No structured weekly circular. Rollback prices change continuously. Add items manually from the Walmart app or website."},
-            {"chain": "Dollar General", "source": "manual",  "rewards": True,  "delivery": False,
+            {"chain": "Dollar General", "refresh_day": "Wednesday", "source": "manual",  "rewards": True,  "delivery": False,
              "circular_support": "pdf_text",
              "flyer": "https://www.dollargeneral.com/weekly-ad",
              "note": "Strong on canned goods, pasta, and pantry staples. Text-based weekly ad parses well."},
@@ -159,7 +159,7 @@ STORE_TIERS = [
              "circular_support": "pdf_text",
              "flyer": "https://www.wincofoods.com/weekly-ad",
              "note": "Employee-owned. Consistently lowest prices in markets where it operates. Text circular parses well."},
-            {"chain": "Save-A-Lot",     "source": "manual",  "rewards": False, "delivery": False,
+            {"chain": "Save-A-Lot", "refresh_day": "Wednesday",     "source": "manual",  "rewards": False, "delivery": False,
              "circular_support": "pdf_text",
              "flyer": "https://www.savealot.com/savings/weekly-ad",
              "note": "Deep-discount regional chain. Strong in Southeast and Midwest. Standard text circular."},
@@ -179,70 +179,70 @@ STORE_TIERS = [
         "border":  "#D8EDD0",
         "pill_bg": "#E3F4E8",
         "stores": [
-            {"chain": "Kroger",         "source": "api", "rewards": True,  "delivery": True,
+            {"chain": "Kroger", "refresh_day": "Wednesday",         "source": "api", "rewards": True,  "delivery": True,
              "circular_support": "api",
              "flyer": "https://www.kroger.com/weeklyad",
              # POC: location hardcoded for Charlottesville pilot (Barracks Rd store).
              # PROD: resolved from household zip via Kroger Locations API.
              "location": "02900359",
              "note": "Live API connected — WhollyFare pulls current prices automatically. Loyalty card unlocks stacked digital coupons."},
-            {"chain": "Food Lion",      "source": "manual",     "rewards": True,  "delivery": False,
+            {"chain": "Food Lion", "refresh_day": "Wednesday",      "source": "manual",     "rewards": True,  "delivery": False,
              "circular_support": "flipp",
              "flyer": "https://stores.foodlion.com",
              "note": "MVP Card deals often beat Kroger on produce. Dedicated parser — PDF circular imports cleanly."},
-            {"chain": "Harris Teeter",  "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Harris Teeter", "refresh_day": "Wednesday",  "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "flipp",
              "flyer": "https://www.harristeeter.com/weeklyad",
              "note": "VIC card + e-VIC digital coupons. Text-based circular parses reliably. Super Double coupon events quarterly."},
-            {"chain": "Giant Food",     "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Giant Food", "refresh_day": "Wednesday",     "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "flipp",
              "flyer": "https://stores.giantfood.com",
              "note": "Giant Card + Gas Rewards. Mid-Atlantic staple. Text circular parses well."},
-            {"chain": "Wegmans",        "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Wegmans", "refresh_day": "Thursday",        "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "flipp",
              "flyer": "https://www.wegmans.com/weeklyad",
              "note": "Club card + app coupons. Known for quality and store-brand price. Text circular parses reliably."},
-            {"chain": "Publix",         "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Publix", "refresh_day": "Wednesday",         "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "flipp",
              "flyer": "https://www.publix.com/savings/weekly-ad",
              "note": "BOGO deals are a Publix signature. Well-structured text circular — one of the best-parsing PDFs."},
-            {"chain": "Safeway",        "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Safeway", "refresh_day": "Wednesday",        "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://www.safeway.com/weeklyad",
              "note": "Just for U digital coupons stack on Club Card pricing. Text circular parses well."},
-            {"chain": "Albertsons",     "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Albertsons", "refresh_day": "Wednesday",     "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://www.albertsons.com/weeklyad",
              "note": "Same ownership as Safeway. Strong BOGO weeks. Text circular parses reliably."},
-            {"chain": "Meijer",         "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Meijer", "refresh_day": "Sunday",         "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://www.meijer.com/shopping/weekly-deals.html",
              "note": "Midwest supercenter. mPerks digital coupons stack on weekly sales. Text circular."},
-            {"chain": "Hy-Vee",         "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Hy-Vee", "refresh_day": "Wednesday",         "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://www.hy-vee.com/weekly-deals/",
              "note": "Employee-owned Midwest chain. Fuel Saver + Perks program. Text circular parses well."},
-            {"chain": "Stop & Shop",    "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Stop & Shop", "refresh_day": "Friday",    "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://stopandshop.com/weeklyCircular/",
              "note": "Gas Points program. Northeast regional staple. Standard text circular."},
-            {"chain": "ShopRite",       "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "ShopRite", "refresh_day": "Sunday",       "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://www.shoprite.com/sm/planning/rsid/5002/weekly-specials",
              "note": "Price Plus card. Can-Can Sale in January is legendary. Text circular parses well."},
-            {"chain": "Giant Eagle",    "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Giant Eagle", "refresh_day": "Thursday",    "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://www.gianteagle.com/save/weekly-circular",
              "note": "fuelperks+ program. Strong in Ohio, Pennsylvania, West Virginia. Text circular."},
-            {"chain": "H-E-B",          "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "H-E-B", "refresh_day": "Wednesday",          "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://www.heb.com/static-page/weekly-ad",
              "note": "Texas institution. H-E-B Combo deals are a local savings fixture. Text circular parses well."},
-            {"chain": "Weis Markets",   "source": "manual",     "rewards": True,  "delivery": True,
+            {"chain": "Weis Markets", "refresh_day": "Wednesday",   "source": "manual",     "rewards": True,  "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://www.weismarkets.com/weeklyad",
              "note": "Mid-Atlantic regional. Weis Club card + digital deals. Text circular."},
-            {"chain": "Ingles Markets", "source": "manual",     "rewards": True,  "delivery": False,
+            {"chain": "Ingles Markets", "refresh_day": "Wednesday", "source": "manual",     "rewards": True,  "delivery": False,
              "circular_support": "pdf_text",
              "flyer": "https://www.ingles-markets.com/weeklyad",
              "note": "Southeast regional. Advantage Card savings + gas discounts. Text circular parses well."},
@@ -258,15 +258,15 @@ STORE_TIERS = [
         "border":  "#BBDEFB",
         "pill_bg": "#E3F2FD",
         "stores": [
-            {"chain": "Whole Foods",    "source": "manual",  "rewards": True,  "delivery": True,
+            {"chain": "Whole Foods", "refresh_day": "Wednesday",    "source": "manual",  "rewards": True,  "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://www.wholefoodsmarket.com/sales-flyer",
              "note": "Prime members get extra 10% off sale items. 365 brand is price-competitive. Text-based sales flyer parses well."},
-            {"chain": "Trader Joe's",   "source": "manual",  "rewards": False, "delivery": False,
+            {"chain": "Trader Joe's", "refresh_day": None,   "source": "manual",  "rewards": False, "delivery": False,
              "circular_support": "pdf_image",
              "flyer": "https://www.traderjoes.com/home/fearless-flyer",
              "note": "No weekly sale cycle — Fearless Flyer runs monthly and is magazine-style (image-based). Stable everyday pricing; manual entry is more reliable than PDF upload."},
-            {"chain": "Sprouts",        "source": "manual",  "rewards": False, "delivery": True,
+            {"chain": "Sprouts", "refresh_day": "Wednesday",        "source": "manual",  "rewards": False, "delivery": True,
              "circular_support": "pdf_text",
              "flyer": "https://www.sprouts.com/deals/weekly-ad/",
              "note": "Produce-forward. Double Ad Wednesdays overlap two sale weeks. Text circular parses well."},
@@ -274,7 +274,7 @@ STORE_TIERS = [
              "circular_support": "pdf_text",
              "flyer": "https://www.thefreshmarket.com/weekly-specials",
              "note": "Premium meats and produce. Weekly specials often include protein deals. Text circular."},
-            {"chain": "Earth Fare",     "source": "manual",  "rewards": True,  "delivery": False,
+            {"chain": "Earth Fare", "refresh_day": "Wednesday",     "source": "manual",  "rewards": True,  "delivery": False,
              "circular_support": "pdf_text",
              "flyer": "https://www.earthfare.com/deals/",
              "note": "No artificial ingredients policy. Regional natural chain, Southeast focus. Text circular."},
@@ -1058,25 +1058,36 @@ def _source(g: dict) -> str:
     return g.get("source") or g.get("source_type", "manual")
 
 def _flyer_status_strip(chain: str) -> str:
-    """Return an HTML status line showing item count, data age, and refresh hint."""
+    """Return an HTML status line: item count · expiry · refresh day · freshness."""
     import datetime
     meta = st.session_state.get("flyer_meta", {}).get(chain)
+    refresh_day = CHAIN_DATA.get(chain.lower(), {}).get("refresh_day")
+
     if not meta:
+        if refresh_day:
+            return (
+                f"<div style='font-size:0.75rem;color:#9AA8A0;margin-top:3px;'>"
+                f"No data loaded &nbsp;·&nbsp; Circular updates {refresh_day}s"
+                f"</div>"
+            )
         return ""
+
     count  = meta.get("count", 0)
     week   = meta.get("week", "")
     method = meta.get("method", "manual")
     fresh  = meta.get("fresh", False)
-
     method_icon = {"api": "🔗", "pdf": "📄", "manual": "✏️"}.get(method, "📋")
 
+    # Expiry
+    expiry_html = ""
+    stale = False
     try:
-        week_dt    = datetime.date.fromisoformat(week)
-        expires_dt = week_dt + datetime.timedelta(days=6)
+        expires_dt = datetime.date.fromisoformat(week) + datetime.timedelta(days=6)
         today      = datetime.date.today()
         days_left  = (expires_dt - today).days
         if days_left < 0:
-            expiry_html = "<span style='color:#BF5E00;font-weight:600;'>⚠ Prices may be stale — refresh recommended</span>"
+            expiry_html = "<span style='color:#BF5E00;font-weight:600;'>⚠ Prices may be stale</span>"
+            stale = True
         elif days_left == 0:
             expiry_html = "<span style='color:#BF5E00;font-weight:600;'>⚠ Expires today</span>"
         elif days_left <= 2:
@@ -1084,17 +1095,32 @@ def _flyer_status_strip(chain: str) -> str:
         else:
             expiry_html = f"<span style='color:#5A7A62;'>Valid through {expires_dt.strftime('%b %-d')}</span>"
     except Exception:
-        expiry_html = ""
+        pass
+
+    # Refresh day hint
+    refresh_html = ""
+    if refresh_day:
+        today = datetime.date.today()
+        today_name = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][today.weekday()]
+        if stale and today_name == refresh_day:
+            refresh_html = "<span style='color:#1E5C32;font-weight:600;'>🔄 New circular out today</span>"
+        elif stale:
+            refresh_html = f"<span style='color:#9AA8A0;'>New circular {refresh_day}s</span>"
+        else:
+            refresh_html = f"<span style='color:#9AA8A0;'>Refreshes {refresh_day}s</span>"
 
     source_color = "#3A8C4E" if fresh else "#9AA8A0"
     source_label = "Just refreshed" if fresh else "From last session"
 
+    parts = [f"{method_icon} <strong style='color:#1E5C32;'>{count} items</strong>"]
+    if expiry_html:   parts.append(expiry_html)
+    if refresh_html:  parts.append(refresh_html)
+    parts.append(f"<span style='color:{source_color};'>{source_label}</span>")
+
     return (
-        f"<div style='font-size:0.75rem;color:#5A7A62;margin-top:3px;line-height:1.6;'>"
-        f"{method_icon} <strong style='color:#1E5C32;'>{count} items</strong>"
-        + (f" &nbsp;·&nbsp; {expiry_html}" if expiry_html else "")
-        + f" &nbsp;·&nbsp; <span style='color:{source_color};'>{source_label}</span>"
-        f"</div>"
+        "<div style='font-size:0.75rem;color:#5A7A62;margin-top:3px;line-height:1.6;'>"
+        + " &nbsp;·&nbsp; ".join(parts)
+        + "</div>"
     )
 
 
