@@ -162,6 +162,63 @@ def _next_sunday() -> str:
     return d.isoformat()
 
 
+# ── Pantry defaults ──────────────────────────────────────────────────────────
+# Items virtually every household keeps on hand. Drawn from pantry_stable=True
+# ingredients across the recipe library.
+#
+# Pilot (Tier 1): These are assumed present — cost $0, excluded from shopping
+# list "buy this week" section, shown in "check your pantry" instead.
+#
+# Pilot (Tier 2): A "My Pantry" UI in the Account page lets households
+# customise this list and persist it to Supabase. pantry_items() returns the
+# customised set when available, these defaults otherwise.
+PANTRY_DEFAULTS: frozenset[str] = frozenset({
+    # Oils & fats
+    "olive oil", "vegetable oil", "sesame oil", "butter", "cooking spray",
+    # Acids & sauces
+    "soy sauce", "fish sauce", "worcestershire sauce", "hot sauce",
+    "apple cider vinegar", "white vinegar", "balsamic vinegar",
+    # Aromatics
+    "garlic", "onion", "shallot", "ginger",
+    # Dry spices & herbs
+    "salt", "black pepper", "red pepper flakes", "paprika", "smoked paprika",
+    "cumin", "chili powder", "oregano", "thyme", "basil", "bay leaves",
+    "coriander", "turmeric", "cinnamon", "cayenne", "italian seasoning",
+    "garlic powder", "onion powder",
+    # Baking & pantry staples
+    "flour", "cornstarch", "sugar", "brown sugar", "honey",
+    "chicken broth", "beef broth", "vegetable broth",
+    # Condiments
+    "dijon mustard", "tomato paste",
+    # Citrus (treat as pantry — usually on hand)
+    "lemon", "lime",
+})
+
+
+def pantry_items() -> frozenset[str]:
+    """
+    Return the household's pantry as a lowercase frozenset of item names.
+
+    Tier 1: Returns PANTRY_DEFAULTS (items we assume every household has).
+    Tier 2: Returns household_pantry from session_state when the user has
+            customised their list via the Account page.
+
+    Usage:
+        pantry = state.pantry_items()
+        if ingredient_name.lower() in pantry:
+            cost = 0.0   # assume on hand
+    """
+    custom = st.session_state.get("household_pantry")
+    if custom is not None:
+        return frozenset(s.lower() for s in custom)
+    return PANTRY_DEFAULTS
+
+
+def pantry_has(item_name: str) -> bool:
+    """True if item_name (case-insensitive) is in the household pantry."""
+    return item_name.lower().strip() in pantry_items()
+
+
 def init():
     """Ensure all session state keys exist with sensible defaults."""
     defaults = {
@@ -185,6 +242,8 @@ def init():
         "user":            None,   # Supabase auth user dict
         "household_id":    None,   # UUID string of households row
         "household_db":    None,   # plain dict loaded from DB (complement to HouseholdProfile)
+        # Pantry — None means "use PANTRY_DEFAULTS"; a set means user-customised
+        "household_pantry": None,
     }
     for key, val in defaults.items():
         if key not in st.session_state:

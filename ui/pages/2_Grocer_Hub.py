@@ -371,26 +371,6 @@ nearby_chains = (
 _wizard_done = st.session_state.get("store_wizard_done", False) and bool(grocers)
 _show_wizard = (not _wizard_done) or st.session_state.get("show_store_wizard", False)
 
-# ── Debug expander (temp — always visible; remove before pilot launch) ───────
-# Placed OUTSIDE the wizard block so it persists after Save triggers a rerun.
-# After clicking Save, expand this to read last_grocer_save (OK vs FAILED).
-import json as _json
-_db_zip_debug   = (st.session_state.get("household_db") or {}).get("zip_code", "") or home_zip
-_hh_id_debug    = st.session_state.get("household_id", "new")
-_wiz_key_debug  = f"wizard_zip_{_hh_id_debug}_{_db_zip_debug}"
-with st.expander("🔍 Debug: session state (remove before pilot)", expanded=False):
-    _db_state = {
-        "is_authenticated":      state.is_authenticated(),
-        "household_id":          st.session_state.get("household_id"),
-        "home_zip (session)":    st.session_state.get("home_zip"),
-        "db_zip (household_db)": (st.session_state.get("household_db") or {}).get("zip_code"),
-        "_wiz_zip_key":          _wiz_key_debug,
-        "grocers (count)":       len(st.session_state.get("grocers", [])),
-        "last_grocer_save":      st.session_state.get("_last_grocer_save_status", "not set"),
-        "jwt_expired":           state._jwt_is_expired(),
-    }
-    st.code(_json.dumps(_db_state, indent=2, default=str))
-
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # WIZARD — shown on first visit or when editing
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

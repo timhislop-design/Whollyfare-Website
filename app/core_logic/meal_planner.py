@@ -207,6 +207,16 @@ class MealPlanner:
         """
         n = n_meals or self.household.meals_per_week or 5
 
+        # Pantry: try to import from ui.state so the live household pantry
+        # (including user customisations) informs cost calculations.
+        # Falls back to an empty set so the heuristic path still works when
+        # running the engine outside the Streamlit UI (tests, scripts, etc.).
+        try:
+            from ui.state import pantry_items as _pantry_items
+            _pantry: frozenset = _pantry_items()
+        except Exception:
+            _pantry: frozenset = frozenset()
+
         plan = WeeklyPlan(
             household_name=self.household.household_name,
             flyer_week=flyer_week,
@@ -264,7 +274,11 @@ class MealPlanner:
                 if idx is not None and supports[idx] not in meal_ings:
                     meal_ings.append(supports[idx])
 
-            cost_per_serving = self._estimate_cost_per_serving(meal_ings, n)
+            cost_per_serving = self._estimate_cost_per_serving(
+                meal_ings, n,
+                recipe=recipe,
+                pantry=_pantry,
+            )
 
             # Advance format index for this plugin to avoid duplicate names
             fmt_idx = _plugin_format_idx.get(plugin_key, 0)
@@ -350,30 +364,113 @@ class MealPlanner:
         template = formats[fmt_idx % len(formats)]
         return template.format(protein=short)
 
+    # ── Category price estimates for non-sale recipe ingredients ─────────────
+    # These are conservative national averages used when a recipe ingredient
+    # isn't on sale at any configured store this week.
+    # Pilot: hard-coded estimates. Phase 2: live prices from Kroger API / Flipp.
+    CATEGORY_PRICE_ESTIMATES: dict[str, float] = {
+        "protein":  7.00,   # $/lb — pulled down by sale items that anchor the plan
+        "produce":  1.50,   # $/unit or bunch
+        "grain":    2.00,   # $/package
+        "dairy":    3.00,   # $/unit
+        "canned":   1.25,   # $/can
+        "legume":   1.50,   # $/can or bag
+        "frozen":   3.50,   # $/package
+        "pantry":   0.10,   # per-use estimate (rarely reaches $0 — e.g. cheese)
+        "spice":    0.05,   # per-use
+        "other":    2.00,
+    }
+
     def _estimate_cost_per_serving(
         self,
-        ingredients: list[ScoredIngredient],
+        hero_ingredients: list[ScoredIngredient],
         n_meals: int = 1,
+        recipe: Optional[dict] = None,
+        pantry: Optional[frozenset] = None,
     ) -> float:
         """
-        Estimate cost per serving for a single meal's ingredient subset.
+        Estimate cost per serving for a single meal.
 
-        Each ingredient in the list is assumed to be used primarily by this
-        meal (protein) or shared across 2-3 meals (produce/grain). The
-        n_meals parameter spreads shared-item cost across the week.
+        When a recipe is matched:
+          - pantry_stable ingredients → $0 (assumed on hand)
+          - ingredients matching a sale hero → use actual sale price × recipe qty
+          - remaining ingredients → CATEGORY_PRICE_ESTIMATES lookup
+        When no recipe matched (flavor-plugin fallback):
+          - heuristic 150g/serving against sale prices, shared across n_meals
 
-        POC: heuristic 150g/serving. PROD: USDA recipe quantities per item.
+        Pilot: recipe quantity conversion uses g as the common unit.
+               Non-gram quantities (tbsp, tsp, cup) use fixed gram conversions.
+        Phase 2: USDA density table replaces the fixed conversion map.
         """
+        servings = max(self.household.servings_per_meal, 1)
+        pantry_set = pantry or frozenset()
+
+        # ── Recipe-based cost (accurate path) ─────────────────────────────
+        if recipe:
+            # Build a lookup of sale items by normalised name for quick matching
+            sale_lookup: dict[str, ScoredIngredient] = {}
+            for s in hero_ingredients:
+                sale_lookup[s.ingredient.name.lower()] = s
+                # Also index by the first word (e.g. "chicken" matches "chicken thighs")
+                first = s.ingredient.name.lower().split()[0]
+                sale_lookup.setdefault(first, s)
+
+            # Unit → approximate grams conversion for cost normalisation
+            UNIT_TO_G: dict[str, float] = {
+                "g": 1.0, "kg": 1000.0, "oz": 28.35, "lb": 453.6,
+                "ml": 1.0, "l": 1000.0,
+                "tbsp": 15.0, "tsp": 5.0, "cup": 240.0,
+                "clove": 5.0, "piece": 100.0, "whole": 150.0,
+                "can": 400.0, "bunch": 100.0, "stalk": 60.0,
+                "slice": 30.0, "sprig": 2.0, "pinch": 1.0,
+            }
+
+            total = 0.0
+            for ing_dict in recipe.get("ingredients", []):
+                name       = ing_dict.get("name", "").lower().strip()
+                qty        = float(ing_dict.get("qty", 1))
+                unit       = ing_dict.get("unit", "g").lower()
+                is_pantry  = ing_dict.get("pantry_stable", False)
+                category   = ing_dict.get("category", "other")
+
+                # Pantry items cost nothing — household already has them
+                if is_pantry or name in pantry_set:
+                    continue
+
+                # Try to match against a sale hero ingredient
+                matched_sale = None
+                for key in (name, name.split()[0] if name else ""):
+                    if key in sale_lookup:
+                        matched_sale = sale_lookup[key]
+                        break
+
+                if matched_sale is not None:
+                    # Use actual sale price scaled to recipe quantity
+                    ing       = matched_sale.ingredient
+                    weight_g  = ing.standard_unit_weight_g or 453.6  # default 1 lb
+                    qty_g     = qty * UNIT_TO_G.get(unit, 100.0)
+                    cost      = (ing.sale_price_per_unit / weight_g) * qty_g
+                else:
+                    # Estimate from category — scale by a notional 200g portion
+                    qty_g     = qty * UNIT_TO_G.get(unit, 100.0)
+                    price_per_g = self.CATEGORY_PRICE_ESTIMATES.get(category, 2.0) / 453.6
+                    cost      = price_per_g * qty_g
+
+                total += cost
+
+            return round(total / servings, 2)
+
+        # ── Heuristic fallback (no recipe matched) ─────────────────────────
+        # Used when the recipe library has no match for this week's hero ingredients.
+        # Same logic as before: 150g/serving, shared items split across meals.
         total = 0.0
-        for s in ingredients:
-            ing      = s.ingredient
-            weight_g = ing.standard_unit_weight_g or 100
+        for s in hero_ingredients:
+            ing            = s.ingredient
+            weight_g       = ing.standard_unit_weight_g or 100
             price_per_100g = (ing.sale_price_per_unit / weight_g) * 100
-            # Proteins are meal-specific (full cost this meal).
-            # Produce/grain are shared — split across meals that use them.
             if ing.category == "protein":
                 share = 1.0
             else:
                 share = 1.0 / max(n_meals, 1)
             total += price_per_100g * 1.5 * share
-        return total / max(self.household.servings_per_meal, 1)
+        return round(total / servings, 2)
