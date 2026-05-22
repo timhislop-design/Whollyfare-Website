@@ -368,12 +368,24 @@ class FoodLionParser:
         Look up category, allergens, tags, and weight from the item registry,
         then assemble the full flyer JSON item dict.
 
-        Returns None if the item name can't be matched (noise).
+        POC: Registry misses fall through to inferred values so real circular
+        items aren't silently dropped. Unknown items get category="other" and
+        empty allergens — conservative but honest.
+        PROD: USDA FDC lookup fills in full nutrition + allergen data per item.
         """
         info = lookup(item.raw_name)
         if info is None:
-            logger.debug(f"No registry match for: {item.raw_name!r} — skipped")
-            return None
+            # Not in registry — infer what we can rather than dropping the item.
+            # Category inference uses the same keyword map as the generic ingestor.
+            inferred_cat = self._infer_category(item.raw_name)
+            info = {
+                "category":               inferred_cat,
+                "allergens":              [],
+                "tags":                   [],
+                "standard_unit_weight_g": 100.0,
+                "usda_fdc_id":            None,
+            }
+            logger.debug(f"No registry match for {item.raw_name!r} — using inferred cat={inferred_cat}")
 
         # Estimate savings % from regular-price hint if available
         savings_pct = item.sale_savings_pct
