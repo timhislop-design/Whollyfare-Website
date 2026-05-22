@@ -587,70 +587,85 @@ if num_stores > 1:
       ${totals["found_money"]:.2f} vs. buying everything at one store</strong>
     </div>""")
 
-# ── Meal kit comparison — the headline savings moment ────────────────────────
-_plan_cost   = totals["whollyfare_plan"]
-_kit_data    = totals.get("meal_kits", {})
-_kit_meta    = totals.get("meal_kit_meta", {})
-_n_servings  = totals.get("total_servings", servings * len(meals))
+# ── Meal kit comparison — per-serving is the headline ────────────────────────
+# The weekly total is real but the per-serving number is what makes people
+# cancel Blue Apron. $2-4/serving vs $9.99/serving is the visceral moment.
+_plan_cost      = totals["whollyfare_plan"]
+_kit_data       = totals.get("meal_kits", {})
+_kit_meta       = totals.get("meal_kit_meta", {})
+_n_servings     = totals.get("total_servings", servings * len(meals))
+_wf_per_serving = round(_plan_cost / max(_n_servings, 1), 2)
 
 if _kit_data:
-    _max_kit = max(_kit_data.values())
-    _min_save = round(min(_kit_data.values()) - _plan_cost, 2)
-    _max_save = round(_max_kit - _plan_cost, 2)
+    _cheapest_kit_pps = min(_kit_meta[k]["price_per_serving"] for k in _kit_meta)
+    _priciest_kit_pps = max(_kit_meta[k]["price_per_serving"] for k in _kit_meta)
+    _min_save_pps = round(_cheapest_kit_pps - _wf_per_serving, 2)
+    _max_save_pps = round(_priciest_kit_pps - _wf_per_serving, 2)
 
+    # Hero: per-serving number front and centre
     st.html(f"""
     <div style='background:linear-gradient(135deg,#1A2E1D 0%,#2D6A4F 100%);
-                border-radius:12px;padding:20px 24px 16px 24px;margin:16px 0 8px 0;'>
-      <div style='color:#A8D5B5;font-size:0.75rem;font-weight:700;
-                  letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;'>
-        What you would have paid
+                border-radius:12px;padding:22px 24px 18px 24px;margin:16px 0 12px 0;'>
+      <div style='color:#A8D5B5;font-size:0.75rem;font-weight:700;letter-spacing:0.1em;
+                  text-transform:uppercase;margin-bottom:6px;'>
+        Your cost per serving this week
       </div>
-      <div style='color:#FFFFFF;font-size:1.5rem;font-weight:800;line-height:1.1;
-                  margin-bottom:2px;'>
-        Save ${_min_save:.0f}–${_max_save:.0f} vs. meal kit delivery
-      </div>
-      <div style='color:#A8D5B5;font-size:0.85rem;margin-bottom:18px;'>
-        Same {len(meals)} dinners · {_n_servings} servings · your groceries, not theirs
-      </div>
-      <div style='display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;'>
-        <div style='text-align:center;min-width:90px;'>
-          <div style='background:rgba(255,255,255,0.12);border-radius:8px;
-                      padding:10px 8px 6px 8px;border:2px solid #3A8C4E;'>
-            <div style='font-size:0.68rem;color:#A8D5B5;font-weight:700;
-                        text-transform:uppercase;letter-spacing:0.06em;'>WhollyFare</div>
-            <div style='font-size:1.4rem;font-weight:800;color:#5DDC8A;
-                        margin-top:4px;'>${_plan_cost:.2f}</div>
-            <div style='font-size:0.65rem;color:#A8D5B5;margin-top:2px;'>your price</div>
+      <div style='display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;'>
+        <div>
+          <span style='color:#5DDC8A;font-size:3rem;font-weight:900;
+                       line-height:1;'>${_wf_per_serving:.2f}</span>
+          <span style='color:#A8D5B5;font-size:1rem;margin-left:6px;'> / serving</span>
+        </div>
+        <div style='padding-bottom:6px;'>
+          <div style='color:#FFFFFF;font-size:1.1rem;font-weight:700;line-height:1.2;'>
+            vs. ${_cheapest_kit_pps:.2f}–${_priciest_kit_pps:.2f} on meal kit services
+          </div>
+          <div style='color:#A8D5B5;font-size:0.82rem;margin-top:3px;'>
+            {len(meals)} dinners · {_n_servings} servings · your groceries, not theirs
           </div>
         </div>
+      </div>
+      <div style='margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);
+                  color:#5DDC8A;font-size:0.9rem;font-weight:700;'>
+        You save ${_min_save_pps:.2f}–${_max_save_pps:.2f} per serving
+        &nbsp;·&nbsp; ${round((_min_save_pps)*_n_servings):.0f}–${round((_max_save_pps)*_n_servings):.0f} total this week
+      </div>
+    </div>
     """)
 
-    for kit_name, kit_total in sorted(_kit_data.items(), key=lambda x: x[1]):
-        _save   = round(kit_total - _plan_cost, 2)
-        _meta   = _kit_meta.get(kit_name, {})
-        _pps    = _meta.get("price_per_serving", 0)
-        st.html(f"""
-        <div style='text-align:center;min-width:90px;'>
-          <div style='background:rgba(255,255,255,0.07);border-radius:8px;
-                      padding:10px 8px 6px 8px;'>
-            <div style='font-size:0.68rem;color:#A8D5B5;font-weight:600;
-                        text-transform:uppercase;letter-spacing:0.06em;'>{kit_name}</div>
-            <div style='font-size:1.1rem;font-weight:700;color:#FFFFFF;
-                        margin-top:4px;'>${kit_total:.2f}</div>
-            <div style='font-size:0.65rem;color:#7DB896;margin-top:2px;'>
-              ${_pps:.2f}/serving</div>
-            <div style='font-size:0.72rem;color:#5DDC8A;font-weight:700;margin-top:4px;'>
-              you save ${_save:.2f}</div>
-          </div>
-        </div>
-        """)
-
-    st.html("""</div>
-      <div style='font-size:0.7rem;color:#6B9E7A;margin-top:12px;'>
-        * Meal kit prices are published starting rates for 2-person plans (May 2025).
-        Actual costs vary by plan size and promotions.
-      </div>
+    # Expandable per-service breakdown
+    st.html("""<div style='font-size:0.78rem;font-weight:700;color:#5A7A62;
+                           letter-spacing:0.08em;text-transform:uppercase;
+                           margin:4px 0 8px 0;'>
+        Compare by service
     </div>""")
+
+    for kit_name, kit_total in sorted(_kit_data.items(),
+                                       key=lambda x: _kit_meta[x[0]]["price_per_serving"]):
+        _meta      = _kit_meta.get(kit_name, {})
+        _pps       = _meta.get("price_per_serving", 0)
+        _save_week = round(kit_total - _plan_cost, 2)
+        _save_srv  = round(_pps - _wf_per_serving, 2)
+        _label     = f"{kit_name}  —  ${_pps:.2f}/serving  ·  you save ${_save_srv:.2f}/serving"
+        with st.expander(_label):
+            _c1, _c2, _c3 = st.columns(3)
+            with _c1:
+                st.metric("Their cost / serving", f"${_pps:.2f}")
+            with _c2:
+                st.metric("Your cost / serving", f"${_wf_per_serving:.2f}",
+                          delta=f"-${_save_srv:.2f}", delta_color="normal")
+            with _c3:
+                st.metric(f"Your savings this week", f"${_save_week:.2f}",
+                          delta=f"vs. {kit_name}")
+            st.caption(
+                f"At {kit_name}'s ${_pps:.2f}/serving rate, "
+                f"{_n_servings} servings would cost **${kit_total:.2f}**. "
+                f"WhollyFare built the same {len(meals)} dinners for **${_plan_cost:.2f}** "
+                f"using this week's actual sale prices."
+            )
+
+    st.caption("* Published starting rates for 2-person plans, May 2025. "
+               "Actual kit prices vary by plan size and promotions.")
 
 # Meal cards
 DAY_COLORS = ["#1E5C32", "#3A8C4E", "#5DAA6A", "#F28B30", "#BF5E00"]
