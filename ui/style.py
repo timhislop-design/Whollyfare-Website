@@ -281,36 +281,35 @@ def sidebar_nav():
     # Hide Streamlit's auto-generated file-based nav
     st.html("<style>[data-testid=\"stSidebarNav\"] { display: none !important; }</style>")
 
-    # ── Logo (light strokes for dark sidebar background) ─────────────────────
-    SIDEBAR_LOGO = """
-<svg width="52" height="52" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"
-     aria-label="WhollyFare leaf and fork icon" role="img">
-  <g transform="translate(3, 2)">
-    <line x1="8"  y1="31" x2="8"  y2="6"  stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-    <line x1="5"  y1="6"  x2="5"  y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
-    <line x1="8"  y1="6"  x2="8"  y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
-    <line x1="11" y1="6"  x2="11" y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
-    <ellipse cx="19" cy="16" rx="9" ry="6" fill="#5DAA6A" transform="rotate(-28 19 16)"/>
-    <line x1="12" y1="21" x2="25" y2="12" stroke="#ffffff" stroke-width="0.9" stroke-linecap="round"/>
-    <circle cx="18" cy="15" r="1.2" fill="#ffffff"/>
-  </g>
-</svg>
-"""
-
-    st.html(SIDEBAR_LOGO)
-
-    # ── Wordmark & tagline ────────────────────────────────────────────────────
+    # ── Logo + wordmark in one block so they appear side-by-side ─────────────
+    # IMPORTANT: one single st.html() call keeps SVG + text in the same iframe.
+    # Splitting across two st.html() calls causes the bare SVG iframe to collapse
+    # to 0 height in Streamlit 1.31+ because it has no wrapper div to anchor it.
     st.html(
-        """<div style="margin-top:-4px; margin-bottom:4px;">
-          <a href="/" style="font-size:1.25rem; font-weight:700; color:#ffffff;
-                       font-family:Arial,sans-serif; letter-spacing:0.02em;
-                       text-decoration:none; display:inline-block;">
-            WhollyFare
-          </a><br>
-          <span style="font-size:0.75rem; color:#9FD9A8;
-                       font-family:Arial,sans-serif; font-style:italic;">
-            Eat well. Spend less.
-          </span>
+        """<div style="display:flex; align-items:center; gap:10px;
+                       padding:4px 0; margin-bottom:2px;">
+          <svg width="44" height="44" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"
+               aria-label="WhollyFare leaf and fork icon" role="img"
+               style="flex-shrink:0;">
+            <g transform="translate(3, 2)">
+              <line x1="8"  y1="31" x2="8"  y2="6"  stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
+              <line x1="5"  y1="6"  x2="5"  y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="8"  y1="6"  x2="8"  y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="11" y1="6"  x2="11" y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
+              <ellipse cx="19" cy="16" rx="9" ry="6" fill="#5DAA6A" transform="rotate(-28 19 16)"/>
+              <line x1="12" y1="21" x2="25" y2="12" stroke="#ffffff" stroke-width="0.9" stroke-linecap="round"/>
+              <circle cx="18" cy="15" r="1.2" fill="#ffffff"/>
+            </g>
+          </svg>
+          <div>
+            <div style="font-size:1.2rem; font-weight:700; color:#ffffff;
+                        font-family:Arial,sans-serif; letter-spacing:0.02em;
+                        line-height:1.2;">WhollyFare</div>
+            <div style="font-size:0.72rem; color:#9FD9A8;
+                        font-family:Arial,sans-serif; font-style:italic;">
+              The meal plan that pays you back.
+            </div>
+          </div>
         </div>"""
     )
 

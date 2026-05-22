@@ -512,22 +512,30 @@ if not state.is_setup_complete():
 
 # ── Branded header for auth users ────────────────────────────────────────────
 style.inject()
+# Dashboard brand header — fork+leaf logo + wordmark + tagline in one st.html() block.
+# Keep in one call: splitting SVG and text across multiple st.html() calls causes the
+# bare-SVG iframe to collapse to 0 height in Streamlit 1.31+.
 st.html("""
-<div style='display:flex;align-items:center;gap:10px;margin-top:10px;margin-bottom:12px;
-            padding:10px 18px;background:rgba(255,255,255,0.55);
-            backdrop-filter:blur(6px);border-radius:10px;
+<div style='display:flex;align-items:center;gap:14px;margin-top:10px;margin-bottom:12px;
+            padding:12px 20px;background:rgba(255,255,255,0.60);
+            backdrop-filter:blur(6px);border-radius:12px;
             border:1px solid rgba(93,170,106,0.22);'>
-  <svg width="26" height="26" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+  <svg width="48" height="48" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
+       aria-label="WhollyFare logo" role="img" style="flex-shrink:0;">
     <line x1="14" y1="46" x2="14" y2="10" stroke="#3A8C4E" stroke-width="2.8" stroke-linecap="round"/>
     <line x1="9"  y1="10" x2="9"  y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
     <line x1="14" y1="10" x2="14" y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
     <line x1="19" y1="10" x2="19" y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
     <ellipse cx="36" cy="26" rx="13" ry="8.5" fill="#5DAA6A" transform="rotate(-28 36 26)"/>
     <line x1="24" y1="35" x2="46" y2="18" stroke="#9FD9A8" stroke-width="1.3" stroke-linecap="round"/>
+    <line x1="28" y1="32" x2="40" y2="21" stroke="#9FD9A8" stroke-width="0.7" stroke-linecap="round" opacity="0.7"/>
   </svg>
-  <span style='font-size:1.05rem;font-weight:700;color:#1E5C32;'>WhollyFare</span>
-  <span style='color:#C8DFC8;margin:0 4px;'>·</span>
-  <span style='font-size:0.82rem;color:#666;'>Eat well. Spend less.</span>
+  <div>
+    <div style='font-size:1.2rem;font-weight:800;color:#1E5C32;line-height:1.15;'>WhollyFare</div>
+    <div style='font-size:0.8rem;color:#3A8C4E;font-style:italic;margin-top:1px;'>
+      The meal plan that pays you back.
+    </div>
+  </div>
 </div>
 """)
 
