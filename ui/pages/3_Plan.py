@@ -84,8 +84,35 @@ def _run_engine(prefs: dict) -> bool:
     if not candidates or not st.session_state.get("household"):
         return False
 
-    hh = st.session_state["household"]
+    hh        = st.session_state["household"]
     n_dinners = prefs.get("dinners", getattr(hh, "meals_per_week", 5))
+
+    # Protein preferences from wizard — enforce variety across hero pool
+    # POC: keyword match on ingredient name. PROD: USDA category tag lookup.
+    pref_proteins = [p.lower() for p in prefs.get("proteins", [])]
+
+    def _serving_qty(ing, n_servings: int) -> str:
+        """
+        Compute a human-readable per-purchase quantity for the shopping list.
+        Protein: ~3 oz/serving in a mixed dish (taco, bowl, stir-fry).
+        Produce/dairy: ~2 oz/serving. Grain/pantry: 1 pkg/bunch.
+        POC: fixed portion heuristics. PROD: USDA recipe quantities per dish.
+        """
+        cat = getattr(ing, "category", "other")
+        unit = getattr(ing, "unit", "each")
+        if cat == "protein":
+            total_oz = n_servings * 3          # 3 oz/serving — realistic for mixed dish
+            if unit == "lb" or total_oz >= 16:
+                lbs = total_oz / 16
+                return f"{lbs:.2g} lb"
+            return f"{total_oz} oz"
+        elif cat in ("produce", "dairy"):
+            total_oz = n_servings * 2          # 2 oz/serving side
+            if unit == "lb":
+                return f"{total_oz/16:.2g} lb"
+            return f"{total_oz} oz"
+        else:
+            return f"1 {unit}"                 # grain, pantry, frozen — buy one unit
 
     try:
         with st.spinner("Running constraint engine — checking dietary rules…"):
@@ -100,15 +127,56 @@ def _run_engine(prefs: dict) -> bool:
                 servings_per_meal=hh.servings_per_meal,
                 meals_per_week=n_dinners,
             )
-            scored   = optimizer.score(result.passed)
-            selected = optimizer.select_ingredients(scored)
+            all_scored = optimizer.score(result.passed)
+
+            # ── Protein variety enforcement ───────────────────────────────────
+            # If user specified protein preferences, pick the best-scoring
+            # candidate for each preferred protein type before filling the
+            # rest of the basket. This prevents all meals defaulting to
+            # whichever single protein scores highest (usually chicken).
+            if pref_proteins:
+                proteins_scored = [s for s in all_scored
+                                   if s.ingredient.category == "protein"]
+                non_proteins    = [s for s in all_scored
+                                   if s.ingredient.category != "protein"]
+                # Pick one best candidate per preferred protein
+                chosen_proteins: list = []
+                used_prefs: set = set()
+                for pref in pref_proteins:
+                    for s in proteins_scored:
+                        if pref in s.ingredient.name.lower() and pref not in used_prefs:
+                            chosen_proteins.append(s)
+                            used_prefs.add(pref)
+                            break
+                # If a preferred protein had no match in flyers, fall back to top scorer
+                if not chosen_proteins:
+                    chosen_proteins = proteins_scored[:2]
+                # Re-assemble pool: chosen proteins first, then non-proteins
+                filtered_pool = chosen_proteins + non_proteins
+            else:
+                # No protein pref — still force variety: take top 2 proteins max
+                proteins_scored  = [s for s in all_scored
+                                    if s.ingredient.category == "protein"]
+                non_proteins     = [s for s in all_scored
+                                    if s.ingredient.category != "protein"]
+                # Limit to 2 distinct proteins max so meals vary
+                seen_protein_keys: set = set()
+                deduplicated_proteins: list = []
+                for s in proteins_scored:
+                    key = s.ingredient.name.lower().split()[0]  # "chicken", "beef", etc.
+                    if key not in seen_protein_keys and len(seen_protein_keys) < 2:
+                        seen_protein_keys.add(key)
+                        deduplicated_proteins.append(s)
+                filtered_pool = deduplicated_proteins + non_proteins
+
+            selected = optimizer.select_ingredients(filtered_pool)
 
         with st.spinner("Assembling your meal plan…"):
             from app.core_logic.meal_planner import MealPlanner
             raw_plan = MealPlanner(hh).assemble_week(
                 hero_ingredients=selected,
                 flyer_week=st.session_state["active_week"],
-                n_meals=n_dinners,   # respects weekly preference, not profile default
+                n_meals=n_dinners,
             )
 
         plan_meals = []
@@ -119,9 +187,10 @@ def _run_engine(prefs: dict) -> bool:
             for scored_ing in meal.ingredients:
                 ing  = scored_ing.ingredient
                 cost = ing.sale_price_per_unit
+                qty  = _serving_qty(ing, hh.servings_per_meal)
                 ing_list.append({
                     "item":  ing.name,
-                    "qty":   f"1 {ing.unit}",
+                    "qty":   qty,
                     "store": getattr(ing, "source_store", "—"),
                     "cost":  round(cost, 2),
                 })
@@ -300,11 +369,73 @@ if _show_prefs:
 
     st.html("<div style='height:20px;'></div>")
 
-    # ── Step 3: Notes ─────────────────────────────────────────────────────────
+    # ── Step 3: Protein preferences ───────────────────────────────────────────
+    st.html("""
+    <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
+                text-transform:uppercase;margin-bottom:6px;'>
+        Step 3 of 4 &nbsp;·&nbsp; Proteins this week
+    </div>
+    <div style='font-size:0.85rem;color:#3A8C4E;margin-bottom:14px;'>
+        Pick 1–3. We'll find the best-priced cuts on sale and vary them across your meals.
+    </div>""")
+
+    PROTEINS_MAIN = [
+        ("🍗", "Chicken",  "chicken"),
+        ("🥩", "Beef",     "beef"),
+        ("🐷", "Pork",     "pork"),
+        ("🦃", "Turkey",   "turkey"),
+        ("🐟", "Seafood",  "fish|salmon|shrimp|tilapia|cod|tuna"),
+    ]
+    PROTEINS_OTHER = [
+        ("🐑", "Lamb",       "lamb"),
+        ("🍤", "Shrimp",     "shrimp"),
+        ("🐠", "Salmon",     "salmon"),
+        ("🥚", "Eggs",       "egg"),
+        ("🥦", "Vegetarian", "tofu|tempeh|lentil|bean"),
+    ]
+
+    _default_proteins = prefs.get("proteins", ["Chicken", "Beef"])
+    _pr_cols = st.columns(5)
+    _selected_proteins = []
+    for i, (icon, label, _kw) in enumerate(PROTEINS_MAIN):
+        with _pr_cols[i]:
+            _checked = st.checkbox(label, value=(label in _default_proteins),
+                                   key=f"p_{label}", label_visibility="collapsed")
+            _bg      = "#D8EDD0" if _checked else "#FFFFFF"
+            _border  = "#2D6A4F" if _checked else "#C8DFC8"
+            _fw      = "700"     if _checked else "500"
+            _tick    = "☑" if _checked else "☐"
+            st.html(f"""<div style='background:{_bg};border:2px solid {_border};
+                border-radius:10px;padding:10px 8px 10px 8px;text-align:center;
+                margin-top:-8px;min-height:80px;'>
+              <div style='font-size:0.7rem;color:#3A8C4E;text-align:left;
+                          font-weight:700;padding:0 2px;'>{_tick}</div>
+              <div style='font-size:1.3rem;line-height:1;margin-top:-2px;'>{icon}</div>
+              <div style='font-size:0.82rem;font-weight:{_fw};color:#1A2E1D;
+                          margin-top:5px;'>{label}</div>
+            </div>""")
+            if _checked:
+                _selected_proteins.append(label)
+
+    with st.expander("More options — Fish, Lamb, Eggs, Vegetarian"):
+        _other_cols = st.columns(5)
+        for i, (icon, label, _kw) in enumerate(PROTEINS_OTHER):
+            with _other_cols[i]:
+                _checked2 = st.checkbox(label, value=(label in _default_proteins),
+                                        key=f"po_{label}")
+                if _checked2 and label not in _selected_proteins:
+                    _selected_proteins.append(label)
+
+    if not _selected_proteins:
+        st.caption("No protein selected — we'll pick the best-value options from your flyers.")
+
+    st.html("<div style='height:20px;'></div>")
+
+    # ── Step 4: Notes ─────────────────────────────────────────────────────────
     st.html("""
     <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
                 text-transform:uppercase;margin-bottom:12px;'>
-        Step 3 of 3 &nbsp;·&nbsp; Anything to avoid or request?
+        Step 4 of 4 &nbsp;·&nbsp; Anything to avoid or request?
     </div>""")
 
     _notes = st.text_input(
@@ -321,28 +452,30 @@ if _show_prefs:
         "<div style='background:#FFF8E1;border-left:3px solid #FFD54F;"
         "border-radius:0 6px 6px 0;padding:8px 14px;font-size:0.78rem;"
         "color:#7A5C00;margin-bottom:20px;line-height:1.5;'>"
-        "🧪 <strong>Pilot note:</strong> Cuisine selections are saved to your profile for this "
-        "flyer week and will auto-reset when new sale prices load. Phase 2 wires cuisine to the "
-        "full recipe library."
+        "🧪 <strong>Pilot note:</strong> Protein preferences tell the engine which cuts to "
+        "prioritise. If your chosen proteins aren't on sale this week, it falls back to the "
+        "best available. Preferences save to your profile and reset with each new flyer week."
         "</div>"
     )
 
-    _cuisine_display = " + ".join(_selected_cuisines) if _selected_cuisines else "no cuisines selected"
+    _cuisine_display  = " + ".join(_selected_cuisines) if _selected_cuisines else "any cuisine"
+    _protein_display  = " + ".join(_selected_proteins) if _selected_proteins else "best value"
 
     if st.button(
-        f"💾 Save to Profile & Build Plan  →  {_cuisine_display}",
+        f"💾 Save to Profile & Build Plan  →  {_protein_display}  ·  {_cuisine_display}",
         type="primary",
         use_container_width=True,
         disabled=(_n_selected == 0),
     ):
         new_prefs = {
             "cuisines":   _selected_cuisines,
-            "cuisine":    _selected_cuisines[0] if _selected_cuisines else "Mix it up",  # back-compat
+            "cuisine":    _selected_cuisines[0] if _selected_cuisines else "Mix it up",
+            "proteins":   _selected_proteins,
             "dinners":    int(_dinners),
             "nights_out": int(_nights_out),
             "occasion":   _occasion,
             "notes":      _notes,
-            "flyer_week": st.session_state.get("active_week", ""),  # expiration key
+            "flyer_week": st.session_state.get("active_week", ""),
         }
         st.session_state["weekly_prefs"] = new_prefs
         st.session_state["_show_prefs_form"] = False
