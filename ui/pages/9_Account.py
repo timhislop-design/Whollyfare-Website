@@ -370,10 +370,7 @@ if state.is_authenticated():
 # ════════════════════════════════════════════════════════════════════════════
 
 # Determine which tab to open by default — ?auth=signin routes to Sign In
-_default_tab = st.query_params.get("auth", "create")
-# Clear the param so navigating away and back starts fresh
-if "auth" in st.query_params:
-    st.query_params.clear()
+_default_tab = st.session_state.pop("_auth_tab", "create")
 
 # Centred card layout
 _, card_col, _ = st.columns([1, 2, 1])
