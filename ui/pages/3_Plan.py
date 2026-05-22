@@ -39,6 +39,15 @@ household = st.session_state.get("household")
 plan      = st.session_state.get("plan")
 prefs     = st.session_state.get("weekly_prefs", {})
 
+# Auto-expire preferences + plan when the flyer week rolls over.
+# POC: flyer_week stored alongside prefs. PROD: weekly_prefs table has flyer_week column.
+_active_week = st.session_state.get("active_week", "")
+if prefs.get("flyer_week") and prefs["flyer_week"] != _active_week:
+    st.session_state.pop("weekly_prefs", None)
+    st.session_state.pop("plan", None)
+    prefs = {}
+    plan  = None
+
 # ── Guard: household required ─────────────────────────────────────────────────
 if not household:
     style.page_header("This Week's Plan", "Set up your household first.")
@@ -154,7 +163,8 @@ def _run_engine(prefs: dict) -> bool:
 # ══════════════════════════════════════════════════════════════════════════════
 # PHASE 1 — WEEKLY PREFERENCES
 # Shown when there's no plan yet (or user clicks "Change preferences")
-# POC: Preferences stored in session_state. PROD: persisted to weekly_prefs table.
+# POC: Preferences stored in session_state with flyer_week expiration.
+# PROD: persisted to weekly_prefs table; expires when new circular is loaded.
 # ══════════════════════════════════════════════════════════════════════════════
 
 _show_prefs = not plan or st.session_state.get("_show_prefs_form", False)
@@ -163,62 +173,14 @@ if _show_prefs:
     style.page_header(
         "What do you want this week?",
         f"Prices are current as of {st.session_state.get('active_week', 'this week')}. "
-        "Set your preferences and we'll build your plan from today's best sales.",
+        "Set your preferences — your choices are saved until new sale prices load.",
     )
 
-    # ── Section 1: Cuisine ────────────────────────────────────────────────────
+    # ── Step 1: How many dinners? (drives cuisine recommendation) ─────────────
     st.html("""
     <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
                 text-transform:uppercase;margin:4px 0 12px 0;'>
-        Step 1 of 3 &nbsp;·&nbsp; Cuisine preference
-    </div>""")
-
-    CUISINES = [
-        ("🌮", "Mexican",       "Tacos, fajitas, rice bowls"),
-        ("🍜", "Asian",         "Stir-fry, noodles, fried rice"),
-        ("🍝", "Italian",       "Pasta, chicken, hearty sauces"),
-        ("🍗", "American",      "Comfort food, BBQ, classics"),
-        ("🥗", "Mediterranean", "Light, fresh, veggie-forward"),
-        ("🌶️", "Mix it up",     "Best prices win this week"),
-    ]
-
-    _saved_cuisine = prefs.get("cuisine", "Mix it up")
-    # Radio gives a real selection — st.radio with horizontal feels like a toggle row
-    _cuisine_labels = [c[1] for c in CUISINES]
-    _cuisine_icons  = {c[1]: c[0] for c in CUISINES}
-    _cuisine_descs  = {c[1]: c[2] for c in CUISINES}
-
-    _c_cols = st.columns(6)
-    _selected_cuisine = st.session_state.get("_pref_cuisine", _saved_cuisine)
-
-    for i, (icon, label, desc) in enumerate(CUISINES):
-        with _c_cols[i]:
-            _active = (_selected_cuisine == label)
-            _bg     = "#D8EDD0" if _active else "#FFFFFF"
-            _border = "#2D6A4F" if _active else "#C8DFC8"
-            _fw     = "700"     if _active else "500"
-            _check  = "✓ " if _active else ""
-            st.html(f"""<div style='background:{_bg};border:2px solid {_border};
-                border-radius:10px;padding:12px 8px 10px 8px;text-align:center;
-                margin-bottom:2px;min-height:88px;'>
-              <div style='font-size:1.5rem;line-height:1;'>{icon}</div>
-              <div style='font-size:0.82rem;font-weight:{_fw};color:#1A2E1D;
-                          margin-top:6px;'>{_check}{label}</div>
-              <div style='font-size:0.68rem;color:#5A7A62;margin-top:3px;
-                          line-height:1.3;'>{desc}</div>
-            </div>""")
-            if st.button(label, key=f"cuisine_{label}", use_container_width=True,
-                         type="primary" if _active else "secondary"):
-                st.session_state["_pref_cuisine"] = label
-                st.rerun()
-
-    st.html("<div style='height:20px;'></div>")
-
-    # ── Section 2: Schedule ───────────────────────────────────────────────────
-    st.html("""
-    <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
-                text-transform:uppercase;margin-bottom:12px;'>
-        Step 2 of 3 &nbsp;·&nbsp; This week's schedule
+        Step 1 of 3 &nbsp;·&nbsp; This week's schedule
     </div>""")
 
     _sched_cols = st.columns([1, 1, 2])
@@ -250,7 +212,73 @@ if _show_prefs:
 
     st.html("<div style='height:20px;'></div>")
 
-    # ── Section 3: Notes ─────────────────────────────────────────────────────
+    # ── Step 2: Cuisine — multi-select with smart recommendation ──────────────
+    import math as _math
+    _suggested_count = max(1, _math.ceil(int(_dinners) / 2))
+
+    st.html(f"""
+    <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
+                text-transform:uppercase;margin-bottom:6px;'>
+        Step 2 of 3 &nbsp;·&nbsp; Cuisine mix
+    </div>
+    <div style='font-size:0.85rem;color:#3A8C4E;margin-bottom:14px;'>
+        For {int(_dinners)} dinners we recommend picking
+        <strong>{_suggested_count} cuisine{"s" if _suggested_count != 1 else ""}</strong>.
+        Check as many as you like.
+    </div>""")
+
+    CUISINES = [
+        ("🌮", "Mexican",       "Tacos, fajitas, rice bowls"),
+        ("🍜", "Asian",         "Stir-fry, noodles, fried rice"),
+        ("🍝", "Italian",       "Pasta, chicken, hearty sauces"),
+        ("🍗", "American",      "Comfort food, BBQ, classics"),
+        ("🥗", "Mediterranean", "Light, fresh, veggie-forward"),
+        ("🌶️", "Mix it up",     "Best prices win this week"),
+    ]
+
+    # Restore saved cuisines or default to Match it up for new users
+    _default_cuisines = prefs.get("cuisines", ["Mix it up"])
+    if isinstance(_default_cuisines, str):           # back-compat single value
+        _default_cuisines = [_default_cuisines]
+
+    _c_cols = st.columns(6)
+    _selected_cuisines = []
+
+    for i, (icon, label, desc) in enumerate(CUISINES):
+        with _c_cols[i]:
+            _default_checked = label in _default_cuisines
+            _checked = st.checkbox(label, value=_default_checked, key=f"c_{label}",
+                                   label_visibility="collapsed")
+            _bg     = "#D8EDD0" if _checked else "#FFFFFF"
+            _border = "#2D6A4F" if _checked else "#C8DFC8"
+            _fw     = "700"     if _checked else "500"
+            _check  = "☑" if _checked else "☐"
+            st.html(f"""<div style='background:{_bg};border:2px solid {_border};
+                border-radius:10px;padding:10px 8px 10px 8px;text-align:center;
+                margin-top:-8px;min-height:88px;'>
+              <div style='font-size:0.7rem;color:#3A8C4E;text-align:left;
+                          font-weight:700;padding:0 2px;'>{_check}</div>
+              <div style='font-size:1.4rem;line-height:1;margin-top:-2px;'>{icon}</div>
+              <div style='font-size:0.82rem;font-weight:{_fw};color:#1A2E1D;
+                          margin-top:5px;'>{label}</div>
+              <div style='font-size:0.68rem;color:#5A7A62;margin-top:3px;
+                          line-height:1.3;'>{desc}</div>
+            </div>""")
+            if _checked:
+                _selected_cuisines.append(label)
+
+    # Warn if count differs from recommendation
+    _n_selected = len(_selected_cuisines)
+    if _n_selected == 0:
+        st.warning("Pick at least one cuisine to continue.", icon="⚠️")
+    elif _n_selected < _suggested_count:
+        st.html(f"<div style='font-size:0.8rem;color:#BF5E00;margin-top:6px;'>💡 You've picked {_n_selected} — {_suggested_count} would give more variety across your {int(_dinners)} dinners.</div>")
+    elif _n_selected > _suggested_count + 1:
+        st.html(f"<div style='font-size:0.8rem;color:#5A7A62;margin-top:6px;'>ℹ️ {_n_selected} cuisines across {int(_dinners)} dinners — meals may repeat some styles.</div>")
+
+    st.html("<div style='height:20px;'></div>")
+
+    # ── Step 3: Notes ─────────────────────────────────────────────────────────
     st.html("""
     <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
                 text-transform:uppercase;margin-bottom:12px;'>
@@ -271,29 +299,30 @@ if _show_prefs:
         "<div style='background:#FFF8E1;border-left:3px solid #FFD54F;"
         "border-radius:0 6px 6px 0;padding:8px 14px;font-size:0.78rem;"
         "color:#7A5C00;margin-bottom:20px;line-height:1.5;'>"
-        "🧪 <strong>Pilot note:</strong> Cuisine shapes meal names where sale items allow. "
-        "Phase 2 adds the full recipe library — then cuisine drives every ingredient choice. "
-        "Come back each week after loading new sale prices and hit the button below."
+        "🧪 <strong>Pilot note:</strong> Cuisine selections are saved to your profile for this "
+        "flyer week and will auto-reset when new sale prices load. Phase 2 wires cuisine to the "
+        "full recipe library."
         "</div>"
     )
 
-    # Resolve cuisine from session state (button clicks update it above)
-    _final_cuisine = st.session_state.get("_pref_cuisine", _saved_cuisine)
+    _cuisine_display = " + ".join(_selected_cuisines) if _selected_cuisines else "no cuisines selected"
 
     if st.button(
-        f"💾 Save & Build This Week's Plan  →  {_final_cuisine}",
+        f"💾 Save to Profile & Build Plan  →  {_cuisine_display}",
         type="primary",
         use_container_width=True,
+        disabled=(_n_selected == 0),
     ):
         new_prefs = {
-            "cuisine":    _final_cuisine,
+            "cuisines":   _selected_cuisines,
+            "cuisine":    _selected_cuisines[0] if _selected_cuisines else "Mix it up",  # back-compat
             "dinners":    int(_dinners),
             "nights_out": int(_nights_out),
             "occasion":   _occasion,
             "notes":      _notes,
+            "flyer_week": st.session_state.get("active_week", ""),  # expiration key
         }
         st.session_state["weekly_prefs"] = new_prefs
-        st.session_state.pop("_pref_cuisine", None)
         st.session_state["_show_prefs_form"] = False
         ok = _run_engine(new_prefs)
         if ok:
