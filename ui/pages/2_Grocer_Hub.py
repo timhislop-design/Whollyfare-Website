@@ -1149,23 +1149,35 @@ def _pull_kroger(chain: str, location_id: str) -> int:
     try:
         from integrations.kroger.client import KrogerClient
         client = KrogerClient(client_id=client_id, client_secret=client_secret, location_id=_loc)
-        # Diagnostic: test first term raw so we can see exactly what the API returns
+        # Diagnostic: test with and without locationId to isolate the issue
         _raw_test = client._search_products("chicken breast", _loc)
         if not _raw_test:
-            # Try fetching the raw response structure before full pull
             client._ensure_token()
-            import urllib.request as _ur, urllib.parse as _up
-            _test_url = "https://api.kroger.com/v1/products?" + _up.urlencode({
-                "filter.term": "chicken", "filter.locationId": _loc, "filter.limit": 5,
+            import urllib.request as _ur, urllib.parse as _up, json as _json
+            _auth = {"Accept": "application/json", "Authorization": f"Bearer {client._access_token}"}
+            # Test 1: without location filter
+            _url_no_loc = "https://api.kroger.com/v1/products?" + _up.urlencode({
+                "filter.term": "chicken", "filter.limit": 3,
             })
-            _req = _ur.Request(_test_url, headers={"Accept": "application/json", "Authorization": f"Bearer {client._access_token}"})
             try:
-                with _ur.urlopen(_req, timeout=15) as _r:
-                    _raw_json = _r.read().decode()
+                with _ur.urlopen(_ur.Request(_url_no_loc, headers=_auth), timeout=15) as _r:
+                    _no_loc = _json.loads(_r.read())
             except Exception as _e:
-                _raw_json = f"Request failed: {_e}"
-            with st.expander("🔬 Kroger API raw response (debug)", expanded=True):
-                st.code(_raw_json[:2000])
+                _no_loc = {"error": str(_e)}
+            # Test 2: find stores for zip to verify location ID
+            _url_stores = "https://api.kroger.com/v1/locations?" + _up.urlencode({
+                "filter.zipCode.near": "22901", "filter.limit": 5, "filter.chain": "KROGER",
+            })
+            try:
+                with _ur.urlopen(_ur.Request(_url_stores, headers=_auth), timeout=15) as _r:
+                    _stores = _json.loads(_r.read())
+            except Exception as _e:
+                _stores = {"error": str(_e)}
+            with st.expander("🔬 Kroger API diagnostics", expanded=True):
+                st.markdown("**Without locationId (should return products if auth is OK):**")
+                st.code(_json.dumps(_no_loc, indent=2)[:1500])
+                st.markdown("**Stores near 22901 (shows correct locationId):**")
+                st.code(_json.dumps(_stores, indent=2)[:1500])
             return 0
         result = client.get_weekly_sales(flyer_week=st.session_state["active_week"])
         out = Path("app/data/flyers") / f"kroger_{st.session_state['active_week']}.json"
