@@ -195,6 +195,45 @@ PANTRY_DEFAULTS: frozenset[str] = frozenset({
 })
 
 
+# ── Weekly Regulars defaults ─────────────────────────────────────────────────
+# Items bought every week regardless of the meal plan — not recipe-driven.
+# Tier 2 pantry: milk, eggs, cheese, cold cuts, etc.
+#
+# Pilot: Customizable list shown in "Weekly Regulars" section of the Pantry page.
+#        Stored in st.session_state["weekly_regulars"]; defaults used when None.
+#        NOT included in WhollyFare Found Money savings math (Sincere Strategy:
+#        weekly regulars are a household baseline, not a meal-plan optimisation).
+#        Shopping List shows them in a separate "Weekly Regulars" section with
+#        a separate cost line: "Meal plan: $X · Weekly regulars: ~$Y · Total: $Z"
+#
+# Phase 2: Match regulars against grocer price data and surface "grab eggs at
+#           Kroger this week — on sale" style hints (store intelligence).
+WEEKLY_REGULARS_DEFAULTS: list[dict] = [
+    {"name": "Whole milk",       "qty": "1",   "unit": "gallon", "store_pref": None},
+    {"name": "Eggs",             "qty": "1",   "unit": "dozen",  "store_pref": None},
+    {"name": "Butter",           "qty": "1",   "unit": "lb",     "store_pref": None},
+    {"name": "Cheddar cheese",   "qty": "8",   "unit": "oz",     "store_pref": None},
+    {"name": "Bread",            "qty": "1",   "unit": "loaf",   "store_pref": None},
+    {"name": "Yogurt",           "qty": "32",  "unit": "oz",     "store_pref": None},
+    {"name": "Cold cuts",        "qty": "0.5", "unit": "lb",     "store_pref": None},
+]
+
+
+def weekly_regulars_items() -> list[dict]:
+    """
+    Return the household's weekly regulars list.
+    Each item is a dict: {name, qty, unit, store_pref}.
+
+    Falls back to WEEKLY_REGULARS_DEFAULTS when user hasn't customised.
+    Pilot: stored in session_state["weekly_regulars"].
+    PROD: persisted to Supabase household_pantry / weekly_regulars table.
+    """
+    custom = st.session_state.get("weekly_regulars")
+    if custom is not None:
+        return custom
+    return WEEKLY_REGULARS_DEFAULTS
+
+
 def pantry_items() -> frozenset[str]:
     """
     Return the household's pantry as a lowercase frozenset of item names.
@@ -244,6 +283,8 @@ def init():
         "household_db":    None,   # plain dict loaded from DB (complement to HouseholdProfile)
         # Pantry — None means "use PANTRY_DEFAULTS"; a set means user-customised
         "household_pantry": None,
+        # Weekly regulars — None means "use WEEKLY_REGULARS_DEFAULTS"; a list means user-customised
+        "weekly_regulars":   None,
     }
     for key, val in defaults.items():
         if key not in st.session_state:

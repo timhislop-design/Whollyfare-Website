@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import streamlit as st
 import ui.state as state
+from ui.state import WEEKLY_REGULARS_DEFAULTS
 import ui.style as style
 
 st.set_page_config(page_title="Shopping List - WhollyFare", page_icon="🛒", layout="centered")
@@ -139,10 +140,44 @@ for meal in meals:
             if day and day not in pantry_check[name]:
                 pantry_check[name].append(day)
 
+# -- Section 1.5: Weekly Regulars -----------------------------------------------
+# Items the household buys every week regardless of the meal plan.
+# Shown as a separate section between sale items and recipe extras.
+# Sincere Strategy: separate cost line -- not mixed into Found Money.
+# Sale intelligence: cross-reference regulars against this week's flyer.
+weekly_regulars_raw = st.session_state.get("weekly_regulars") or state.WEEKLY_REGULARS_DEFAULTS
+
+# Build a flat set of sale item names (for cross-referencing)
+all_sale_items_lower: set = set()
+for _sid, _sitems in store_items.items():
+    for _sname in _sitems:
+        all_sale_items_lower.add(_sname.lower())
+
+# Find sale matches for weekly regulars
+regular_sale_hints: dict = {}  # {reg_name: [{store, item_name, price}]}
+for reg in weekly_regulars_raw:
+    reg_lower = reg["name"].lower()
+    keywords  = [w for w in reg_lower.split() if len(w) > 3]
+    for _sid, _candidates in st.session_state.get("flyer_data", {}).items():
+        _store_label = STORE_NAMES.get(_sid, _sid)
+        for _c in _candidates:
+            _cname = (getattr(_c, "name", "") if hasattr(_c, "name")
+                      else _c.get("name", "") if isinstance(_c, dict) else "")
+            if any(kw in _cname.lower() for kw in keywords):
+                _price = (getattr(_c, "sale_price_per_unit", 0.0) if hasattr(_c, "sale_price_per_unit")
+                          else _c.get("sale_price", 0.0) if isinstance(_c, dict) else 0.0)
+                regular_sale_hints.setdefault(reg["name"], []).append({
+                    "store":     _store_label,
+                    "item_name": _cname,
+                    "price":     _price,
+                })
+                break  # one hint per store is enough
+
 # -- Progress tracking --
 sale_count  = sum(len(items) for items in store_items.values())
 extra_count = len(recipe_extras)
-total_items = sale_count + extra_count
+reg_count   = len(weekly_regulars_raw)
+total_items = sale_count + extra_count + reg_count
 
 total_checked = sum(
     1 for sid, items in store_items.items()
@@ -236,6 +271,71 @@ if store_items:
 
 
 # ============================================================
+# SECTION 1.5 -- WEEKLY REGULARS
+# Household staples bought every week -- milk, eggs, cheese, etc.
+# Shown with their own header and a separate cost line.
+# Not included in Found Money math (Sincere Strategy: honest accounting).
+# ============================================================
+if weekly_regulars_raw:
+    reg_checked = sum(
+        1 for r in weekly_regulars_raw
+        if st.session_state.get("check_reg_" + r["name"], False)
+    )
+    all_reg_done = reg_checked == len(weekly_regulars_raw)
+    hdr_reg      = "#3A8C4E" if all_reg_done else "#4A6E8A"
+    st.html(
+        "<div style='background:" + hdr_reg + ";color:#FFFFFF;border-radius:8px 8px 0 0;"
+        "padding:12px 18px;margin-top:20px;'>"
+        "<span style='font-size:1.05rem;font-weight:700;'>Weekly Regulars</span>"
+        "<span style='font-size:0.85rem;color:#C8DFF4;margin-left:10px;'>"
+        "Every week / separate from meal plan / "
+        + str(reg_checked) + "/" + str(len(weekly_regulars_raw)) + "</span></div>")
+
+    for reg in weekly_regulars_raw:
+        rname     = reg["name"]
+        check_key = "check_reg_" + rname
+        checked   = st.session_state.get(check_key, False)
+        qty_label = (str(reg.get("qty", "")) + " " + str(reg.get("unit", ""))).strip()
+
+        # Check if on sale this week
+        hints = regular_sale_hints.get(rname, [])
+
+        col_check, col_info, col_hint = st.columns([0.5, 5, 2])
+        with col_check:
+            st.checkbox(label=rname, value=checked, key=check_key,
+                        label_visibility="collapsed")
+        with col_info:
+            now = st.session_state.get(check_key, False)
+            name_style = "text-decoration:line-through;color:#9AA8A0;" if now else "color:#1A2E1D;"
+            meta_style = "color:#9AA8A0;" if now else "color:#5A7A62;"
+            st.html(
+                "<div style='padding:6px 0;'>"
+                "<div style='font-size:1rem;font-weight:600;" + name_style + "'>" + rname + "</div>"
+                "<div style='font-size:0.78rem;" + meta_style + "'>" + qty_label + "</div>"
+                "</div>")
+        with col_hint:
+            if hints:
+                hint_parts = []
+                for h in hints:
+                    price_str = ("$" + "{:.2f}".format(h["price"])) if h.get("price") else ""
+                    hint_parts.append(h["store"] + (" " + price_str if price_str else ""))
+                _sale_str = " / ".join(hint_parts)
+                st.html(
+                    "<div style='padding:8px 0;font-size:0.78rem;color:#1E5C32;"
+                    "background:#E3F4E8;border-radius:4px;padding:4px 8px;'>"
+                    "Sale: " + _sale_str + "</div>")
+        st.html("<hr style='margin:0;border:none;border-top:1px solid #EEF3EE;'>")
+
+    footer_reg = "All in the cart" if all_reg_done else "Grab these on your regular run -- tracked separately from meal savings."
+    st.html(
+        "<div style='background:#E8F0F8;border-radius:0 0 8px 8px;padding:10px 18px;"
+        "border-top:2px solid #4A6E8A;margin-bottom:4px;font-size:0.82rem;color:#2A5070;'>"
+        + ("(done) " if all_reg_done else "") + footer_reg + "</div>")
+
+    st.divider()
+
+
+# ============================================================
 # SECTION 2 -- ALSO NEEDED THIS WEEK (recipe extras)
 # Non-pantry recipe ingredients not covered by the sale list.
 # Pilot: no store assigned. Phase 2: matched to nearest store.
@@ -311,6 +411,16 @@ with btn_col1:
             lines.append("  []  " + item_name.ljust(32) + data["qty"].ljust(10)
                          + "  $" + "{:.2f}".format(data["cost"]))
         lines += ["  Subtotal".ljust(46) + "  $" + "{:.2f}".format(store_total), ""]
+    if weekly_regulars_raw:
+        lines += ["-" * 48, "  WEEKLY REGULARS (every week)", "-" * 48]
+        for reg in weekly_regulars_raw:
+            sale_hint = ""
+            if regular_sale_hints.get(reg["name"]):
+                h = regular_sale_hints[reg["name"]][0]
+                sale_hint = "  <- on sale at " + h["store"]
+            qty_label = (str(reg.get("qty","")) + " " + str(reg.get("unit",""))).strip()
+            lines.append("  []  " + reg["name"].ljust(32) + qty_label + sale_hint)
+        lines.append("")
     if recipe_extras:
         lines += ["-" * 48, "  ALSO NEEDED (pick up anywhere)", "-" * 48]
         for item_name, data in recipe_extras.items():
@@ -344,6 +454,8 @@ with btn_col2:
                 st.session_state["check_" + sid + "_" + item_name] = False
         for item_name in recipe_extras:
             st.session_state["check_extra_" + item_name] = False
+        for reg in weekly_regulars_raw:
+            st.session_state["check_reg_" + reg["name"]] = False
         st.rerun()
 
 st.html("<br>")

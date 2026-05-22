@@ -23,7 +23,7 @@ import streamlit as st
 import ui.state as state
 import ui.style as style
 
-st.set_page_config(page_title="My Pantry - WhollyFare", page_icon="🧂", layout="centered")
+st.set_page_config(page_title="My Pantry - WhollyFare", page_icon="\U0001f9c2", layout="centered")
 state.init()
 
 with st.sidebar:
@@ -31,7 +31,7 @@ with st.sidebar:
 
 style.page_header("My Pantry", "Items WhollyFare assumes you have on hand. Keep this accurate to keep your cost estimates real.")
 
-# ── Load current pantry ───────────────────────────────────────────────────────
+# -- Load current pantry -------------------------------------------------------
 # If household_pantry is None, we're using PANTRY_DEFAULTS.
 # Once the user makes any change, we copy the defaults into session_state
 # and work from there.
@@ -43,7 +43,7 @@ else:
     current_pantry = set(raw)
     using_defaults = False
 
-# ── Intro banner ──────────────────────────────────────────────────────────────
+# -- Intro banner --------------------------------------------------------------
 st.html(
     "<div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;"
     "padding:12px 18px;margin-bottom:20px;font-size:0.9rem;color:#1E5C32;'>"
@@ -52,7 +52,7 @@ st.html(
     + (" &nbsp;<span style='color:#5A7A62;font-size:0.82rem;'>(using defaults)</span>" if using_defaults else "")
     + "</div>")
 
-# ── Categorised pantry display ────────────────────────────────────────────────
+# -- Categorised pantry display ------------------------------------------------
 CATEGORIES = {
     "Oils & Fats":        ["olive oil", "vegetable oil", "sesame oil", "butter", "cooking spray"],
     "Acids & Sauces":     ["soy sauce", "fish sauce", "worcestershire sauce", "hot sauce",
@@ -92,7 +92,7 @@ for category, items in CATEGORIES.items():
                         current_pantry.discard(item)
                     changed = True
 
-# ── Custom items section ──────────────────────────────────────────────────────
+# -- Custom items section ------------------------------------------------------
 st.divider()
 st.markdown("**Your custom items**")
 
@@ -113,7 +113,7 @@ else:
         "<div style='font-size:0.85rem;color:#9AA8A0;font-style:italic;padding:4px 0;'>"
         "No custom items yet.</div>")
 
-# ── Add custom item ───────────────────────────────────────────────────────────
+# -- Add custom item -----------------------------------------------------------
 with st.form("add_pantry_item", clear_on_submit=True):
     new_item = st.text_input("Add an item to your pantry",
                              placeholder="e.g. rice vinegar, tahini, miso paste...")
@@ -125,7 +125,7 @@ with st.form("add_pantry_item", clear_on_submit=True):
             changed = True
             st.success(clean.title() + " added to pantry.")
 
-# ── Out-of-stock summary + explicit save ─────────────────────────────────────
+# -- Out-of-stock summary + explicit save -------------------------------------
 # Show items unchecked from defaults so the user sees what will hit their
 # shopping list before committing the change.
 out_of_stock_current = {item for item in state.PANTRY_DEFAULTS if item not in current_pantry}
@@ -136,7 +136,7 @@ if out_of_stock_current:
     _oos_names = " &nbsp;&middot;&nbsp; ".join(sorted(i.title() for i in out_of_stock_current))
     st.html(
         "<div style='font-size:0.9rem;font-weight:700;color:#BF5E00;margin-bottom:6px;'>"
-        + "🛒 Will be added to this week's shopping list (" + _oos_count + " items)</div>")
+        + "\U0001f6d2 Will be added to this week's shopping list (" + _oos_count + " items)</div>")
     st.html(
         "<div style='font-size:0.85rem;color:#5A3A00;background:#FFF8F0;"
         "border:1px solid #FFCC80;border-radius:8px;padding:10px 14px;line-height:1.8;'>"
@@ -149,7 +149,7 @@ if changed:
     st.divider()
     col_save, col_discard = st.columns([2, 1])
     with col_save:
-        if st.button("✅  Save pantry changes", type="primary", use_container_width=True):
+        if st.button("Save pantry changes", type="primary", use_container_width=True):
             st.session_state["household_pantry"] = current_pantry
 
             # Track out-of-stock for shopping list
@@ -174,7 +174,7 @@ if changed:
         if st.button("Discard changes", use_container_width=True):
             st.rerun()
 
-# ── Reset to defaults ─────────────────────────────────────────────────────────
+# -- Reset to defaults ---------------------------------------------------------
 st.divider()
 if not using_defaults:
     col_r1, col_r2 = st.columns([3, 1])
@@ -187,15 +187,167 @@ if not using_defaults:
             st.session_state["household_pantry"] = None
             st.rerun()
 
-# ── How this works ────────────────────────────────────────────────────────────
+
+# ==============================================================================
+# SECTION 2 -- WEEKLY REGULARS
+# Items bought every week regardless of the meal plan: milk, eggs, cheese, etc.
+# Separate from pantry staples and from meal-plan savings math.
+#
+# Sincere Strategy: shown as a separate cost line on the shopping list --
+# not folded into WhollyFare Found Money. Honest accounting.
+#
+# Sale intelligence: if a regular matches this week's flyer, surface a hint
+# ("eggs on sale at Kroger -- grab them there") to add value without confusion.
+# ==============================================================================
+st.divider()
+st.html(
+    "<div style='font-size:1.1rem;font-weight:700;color:#1E5C32;margin-bottom:4px;'>"
+    "Weekly Regulars</div>"
+    "<div style='font-size:0.85rem;color:#5A7A62;margin-bottom:16px;'>"
+    "Items you buy every week regardless of the meal plan - milk, eggs, cold cuts, etc. "
+    "Shown as a separate section on your shopping list so the savings math stays honest.</div>")
+
+# Load current weekly regulars
+current_regulars = list(
+    st.session_state.get("weekly_regulars") or state.WEEKLY_REGULARS_DEFAULTS
+)
+
+# Check for sale hints -- if a regular matches this week's flyer, surface it
+flyer_data = st.session_state.get("flyer_data", {})
+STORE_DISPLAY = {
+    "kroger_palmyra":           "Kroger",
+    "food_lion_palmyra":        "Food Lion",
+    "aldi_rio":                 "Aldi",
+    "harris_teeter_barracks":   "Harris Teeter",
+    "Kroger":                   "Kroger",
+    "Food Lion":                "Food Lion",
+    "Aldi":                     "Aldi",
+    "Harris Teeter":            "Harris Teeter",
+}
+
+sale_hints = {}  # {regular_name: [{store, item_name, price}]}
+for reg in current_regulars:
+    reg_lower = reg["name"].lower()
+    keywords  = [w for w in reg_lower.split() if len(w) > 3]
+    for store_key, candidates in flyer_data.items():
+        store_label = STORE_DISPLAY.get(store_key, store_key)
+        for c in candidates:
+            item_name = (getattr(c, "name", "") if hasattr(c, "name")
+                         else c.get("name", "") if isinstance(c, dict) else "")
+            if any(kw in item_name.lower() for kw in keywords):
+                price = (getattr(c, "sale_price_per_unit", 0.0) if hasattr(c, "sale_price_per_unit")
+                         else c.get("sale_price", 0.0) if isinstance(c, dict) else 0.0)
+                sale_hints.setdefault(reg["name"], []).append({
+                    "store":     store_label,
+                    "item_name": item_name,
+                    "price":     price,
+                })
+                break  # one match per store per regular
+
+# Column headers
+hdr1, hdr2, hdr3, hdr4 = st.columns([4, 1.5, 1.5, 0.8])
+with hdr1:
+    st.html("<div style='font-size:0.78rem;color:#9AA8A0;padding:2px 0;'>Item</div>")
+with hdr2:
+    st.html("<div style='font-size:0.78rem;color:#9AA8A0;padding:2px 0;'>Qty</div>")
+with hdr3:
+    st.html("<div style='font-size:0.78rem;color:#9AA8A0;padding:2px 0;'>Unit</div>")
+
+# Display / edit weekly regulars
+reg_changed = False
+updated_regulars = []
+
+for idx, reg in enumerate(current_regulars):
+    col_name, col_qty, col_unit, col_rm = st.columns([4, 1.5, 1.5, 0.8])
+    with col_name:
+        new_name = st.text_input(
+            "Item", value=reg["name"],
+            key="wr_name_" + str(idx),
+            label_visibility="collapsed",
+        )
+    with col_qty:
+        new_qty = st.text_input(
+            "Qty", value=reg["qty"],
+            key="wr_qty_" + str(idx),
+            label_visibility="collapsed",
+        )
+    with col_unit:
+        new_unit = st.text_input(
+            "Unit", value=reg["unit"],
+            key="wr_unit_" + str(idx),
+            label_visibility="collapsed",
+        )
+    with col_rm:
+        remove = st.button("x", key="wr_rm_" + str(idx), help="Remove this item")
+
+    if not remove:
+        updated_regulars.append({
+            "name":       (new_name.strip() or reg["name"]),
+            "qty":        (new_qty.strip()  or reg["qty"]),
+            "unit":       (new_unit.strip() or reg["unit"]),
+            "store_pref": reg.get("store_pref"),
+        })
+        if (new_name.strip() != reg["name"] or
+                new_qty.strip() != reg["qty"] or
+                new_unit.strip() != reg["unit"]):
+            reg_changed = True
+    else:
+        reg_changed = True
+
+    # Sale hint for this item
+    hints = sale_hints.get(reg["name"], [])
+    if hints:
+        hint_parts = []
+        for h in hints:
+            price_str = ("$" + "{:.2f}".format(h["price"])) if h["price"] else ""
+            hint_parts.append(h["store"] + (" " + price_str if price_str else ""))
+        _hint_text = " / ".join(hint_parts)
+        st.html(
+            "<div style='font-size:0.78rem;color:#1E5C32;background:#E3F4E8;"
+            "border-radius:4px;padding:3px 8px;margin-top:-6px;margin-bottom:6px;'>"
+            "On sale this week: " + _hint_text + "</div>")
+
+# Add a new regular
+with st.form("add_regular_form", clear_on_submit=True):
+    nr_c1, nr_c2, nr_c3, nr_c4 = st.columns([4, 1.5, 1.5, 1])
+    with nr_c1:
+        nr_name = st.text_input("Item name", placeholder="e.g. Orange juice")
+    with nr_c2:
+        nr_qty = st.text_input("Qty", value="1")
+    with nr_c3:
+        nr_unit = st.text_input("Unit", value="each")
+    with nr_c4:
+        st.html("<div style='padding-top:28px;'></div>")
+        nr_add = st.form_submit_button("Add", use_container_width=True)
+
+    if nr_add and nr_name.strip():
+        updated_regulars.append({
+            "name":       nr_name.strip(),
+            "qty":        nr_qty.strip() or "1",
+            "unit":       nr_unit.strip() or "each",
+            "store_pref": None,
+        })
+        reg_changed = True
+
+# Persist changes immediately (no explicit save button needed -- list edits are low-stakes)
+if reg_changed:
+    st.session_state["weekly_regulars"] = updated_regulars
+    st.rerun()
+
+
+# -- How this works ------------------------------------------------------------
 with st.expander("How does the pantry work?", expanded=False):
     st.html(
         "<div style='font-size:0.88rem;color:#3A3A3A;line-height:1.6;'>"
-        "<strong>Items in your pantry:</strong><br>"
+        "<strong>Pantry staples:</strong><br>"
         "- Are excluded from your shopping list's 'buy this week' section<br>"
         "- Cost $0 in per-serving meal estimates<br>"
         "- Appear in the collapsed 'Pantry check' section on your shopping list "
         "as a reminder to verify you have them before you shop<br><br>"
+        "<strong>Weekly Regulars:</strong><br>"
+        "- Shown as a separate section on your shopping list<br>"
+        "- Cost is tracked separately (not mixed into WhollyFare Found Money)<br>"
+        "- When a regular matches a store's sale this week, a hint appears above<br><br>"
         "<strong>Keep it accurate:</strong><br>"
         "If you run out of something (e.g. olive oil), uncheck it so WhollyFare "
         "adds it to your shopping list this week. Check it again once you restock.<br><br>"
