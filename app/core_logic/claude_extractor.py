@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Model config
 # ---------------------------------------------------------------------------
-_MODEL        = "claude-3-5-haiku-20241022"   # fast + cheap for extraction
+_MODEL        = "claude-3-haiku-20240307"     # fast + cheap; universally available
 _MAX_TOKENS   = 2048
 _MAX_PAGES    = 20          # safety cap — most circulars are 8–16 pages
 _DPI          = 72          # 72 DPI is enough for Claude to read sale prices
