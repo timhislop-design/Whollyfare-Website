@@ -39,3 +39,6 @@ python-dateutil>=2.8.0
 
 # Environment / secrets loading
 python-dotenv>=1.0.0
+
+# Claude API (PDF circular extraction)
+anthropic>=0.25.0
