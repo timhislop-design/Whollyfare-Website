@@ -1268,10 +1268,15 @@ for g in manual_stores:
         if _circ_support == "manual_only":
             _tab_labels = ["✏️ Manual entry"]
         else:
-            _tab_labels = ["✏️ Manual entry", "📄 PDF upload"]
+            _tab_labels = ["📄 Upload circular", "✏️ Manual entry"]
         _tabs = st.tabs(_tab_labels)
-        tab_manual = _tabs[0]
-        tab_pdf    = _tabs[1] if len(_tabs) > 1 else None
+        # PDF is now tab 0 (default). Manual entry is tab 1 (collapsed by default).
+        if _circ_support == "manual_only":
+            tab_manual = _tabs[0]
+            tab_pdf    = None
+        else:
+            tab_pdf    = _tabs[0]
+            tab_manual = _tabs[1]
 
         # For manual_only stores, show a gentle disclaimer above the tab
         if _circ_support == "manual_only":
@@ -1294,52 +1299,61 @@ for g in manual_stores:
             )
 
         with tab_manual:
-            st.html("<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:10px;'>"
-                    "Type items directly from the weekly circular or store visit.</div>")
-            with st.form(key=f"manual_form_{chain}", clear_on_submit=True):
-                f1, f2, f3 = st.columns([3, 1.5, 1.5])
-                with f1:
-                    item_name = st.text_input("Item name",
-                                              placeholder="e.g. Chicken Breast, Boneless Skinless",
-                                              label_visibility="collapsed")
-                with f2:
-                    item_cat  = st.selectbox("Category", options=CATEGORIES,
-                                             label_visibility="collapsed")
-                with f3:
-                    item_unit = st.selectbox("Unit", options=UNITS,
-                                             label_visibility="collapsed")
-                f4, f5, f6 = st.columns([1.5, 1.5, 3])
-                with f4:
-                    sale_price = st.number_input("Sale price ($)", min_value=0.0, max_value=500.0,
-                                                 step=0.01, format="%.2f")
-                with f5:
-                    reg_price  = st.number_input("Regular price ($)", min_value=0.0, max_value=500.0,
-                                                 step=0.01, format="%.2f",
-                                                 help="Optional — shows % savings in the Ledger")
-                with f6:
-                    item_allergens = st.multiselect("Allergens (if any)", options=ALLERGENS)
-                submitted = st.form_submit_button("＋ Add item", type="primary",
-                                                  use_container_width=True)
-                if submitted and item_name.strip():
-                    st.session_state["manual_items"].append({
-                        "store":      chain,
-                        "name":       item_name.strip(),
-                        "category":   item_cat,
-                        "unit":       item_unit,
-                        "sale_price": round(sale_price, 2),
-                        "reg_price":  round(reg_price, 2) if reg_price > 0 else None,
-                        "allergens":  item_allergens,
-                        "tags":       [],
-                        "week":       st.session_state["active_week"],
-                    })
-                    _merge_manual_into_flyer(chain)
-                    st.success(f"Added: {item_name.strip()} @ ${sale_price:.2f}/{item_unit}")
-                    st.rerun()
-                elif submitted:
-                    st.warning("Item name is required.")
+            _store_items = [m for m in st.session_state.get("manual_items", [])
+                            if m["store"] == chain]
+            _exp_label = (
+                f"✏️ Enter items manually · {len(_store_items)} added"
+                if _store_items else "✏️ Enter items manually"
+            )
+            # Collapsed by default — expand if no items yet or user wants to add
+            with st.expander(_exp_label, expanded=len(_store_items) == 0):
+                st.html("<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:10px;'>"
+                        "Type items directly from the weekly circular or store visit. "
+                        "Useful for items the PDF upload missed, or stores without a circular.</div>")
+                with st.form(key=f"manual_form_{chain}", clear_on_submit=True):
+                    f1, f2, f3 = st.columns([3, 1.5, 1.5])
+                    with f1:
+                        item_name = st.text_input("Item name",
+                                                  placeholder="e.g. Chicken Breast, Boneless Skinless",
+                                                  label_visibility="collapsed")
+                    with f2:
+                        item_cat  = st.selectbox("Category", options=CATEGORIES,
+                                                 label_visibility="collapsed")
+                    with f3:
+                        item_unit = st.selectbox("Unit", options=UNITS,
+                                                 label_visibility="collapsed")
+                    f4, f5, f6 = st.columns([1.5, 1.5, 3])
+                    with f4:
+                        sale_price = st.number_input("Sale price ($)", min_value=0.0, max_value=500.0,
+                                                     step=0.01, format="%.2f")
+                    with f5:
+                        reg_price  = st.number_input("Regular price ($)", min_value=0.0, max_value=500.0,
+                                                     step=0.01, format="%.2f",
+                                                     help="Optional — shows % savings in the Ledger")
+                    with f6:
+                        item_allergens = st.multiselect("Allergens (if any)", options=ALLERGENS)
+                    submitted = st.form_submit_button("＋ Add item", type="primary",
+                                                      use_container_width=True)
+                    if submitted and item_name.strip():
+                        st.session_state["manual_items"].append({
+                            "store":      chain,
+                            "name":       item_name.strip(),
+                            "category":   item_cat,
+                            "unit":       item_unit,
+                            "sale_price": round(sale_price, 2),
+                            "reg_price":  round(reg_price, 2) if reg_price > 0 else None,
+                            "allergens":  item_allergens,
+                            "tags":       [],
+                            "week":       st.session_state["active_week"],
+                        })
+                        _merge_manual_into_flyer(chain)
+                        st.success(f"Added: {item_name.strip()} @ ${sale_price:.2f}/{item_unit}")
+                        st.rerun()
+                    elif submitted:
+                        st.warning("Item name is required.")
 
-            store_items = [m for m in st.session_state.get("manual_items", [])
-                           if m["store"] == chain]
+            # Items list always visible below the expander
+            store_items = _store_items
             if store_items:
                 st.html(f"<div style='font-size:0.78rem;font-weight:700;color:#1E5C32;"
                         f"margin-bottom:6px;margin-top:8px;'>{len(store_items)} items entered</div>")
@@ -1369,115 +1383,112 @@ for g in manual_stores:
                             st.session_state["manual_items"].pop(full_idx)
                             _merge_manual_into_flyer(chain)
                             st.rerun()
-            else:
-                st.html("<div style='font-size:0.82rem;color:#9AA8A0;padding:8px 0;'>"
-                        "No items yet — add your first item above, or upload the PDF circular.</div>")
 
         if tab_pdf is not None:
-         with tab_pdf:
-            if dl_url:
-                st.html(f"<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:8px;'>"
-                        f"Download the weekly circular from "
-                        f"<a href='{dl_url}' target='_blank' style='color:#3A8C4E;font-weight:600;'>"
-                        f"{chain}'s website</a>, then upload it here.</div>")
-            elif g.get("tier") == "local":
-                st.html("<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:8px;'>"
-                        "If this store prints a paper flyer, scan or photograph it and upload the PDF. "
-                        "Or use Manual Entry — works just as well.</div>")
+            with tab_pdf:
+                if dl_url:
+                    st.html(f"<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:8px;'>"
+                            f"Download the weekly circular from "
+                            f"<a href='{dl_url}' target='_blank' style='color:#3A8C4E;font-weight:600;'>"
+                            f"{chain}'s website</a>, then upload it here.</div>")
+                elif g.get("tier") == "local":
+                    st.html("<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:8px;'>"
+                            "If this store prints a paper flyer, scan or photograph it and upload the PDF. "
+                            "Or use Manual Entry — works just as well.</div>")
 
-            st.html("<div style='font-size:0.75rem;color:#9AA8A0;margin-bottom:8px;'>"
-                    "⚠ PDF parsing is heuristic. Review what was extracted before running the engine.")
+                st.html("<div style='font-size:0.75rem;color:#9AA8A0;margin-bottom:8px;'>"
+                        "⚠ PDF parsing is heuristic. Review what was extracted before running the engine.")
 
-            uploaded = st.file_uploader(
-                f"Upload {chain} circular (PDF or JSON)",
-                type=["pdf", "json"],
-                key=f"upload_{chain}",
-                label_visibility="collapsed",
-            )
-            if uploaded:
-                ext = Path(uploaded.name).suffix.lower()
-                with st.spinner(f"Parsing {chain} flyer…"):
-                    if ext == ".json":
-                        ingestor = FlyerIngestor()
-                        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
-                            tmp.write(uploaded.read())
-                            candidates = ingestor.from_json(Path(tmp.name))
-                        flyer = st.session_state.get("flyer_data", {})
-                        existing_manual = [c for c in flyer.get(chain, [])
-                                           if getattr(c, "_manual", False)]
-                        flyer[chain] = candidates + existing_manual
-                        st.session_state["flyer_data"] = flyer
-                        n = len(candidates)
+                uploaded = st.file_uploader(
+                    f"Upload {chain} circular (PDF or JSON)",
+                    type=["pdf", "json"],
+                    key=f"upload_{chain}",
+                    label_visibility="collapsed",
+                )
+                if uploaded:
+                    ext = Path(uploaded.name).suffix.lower()
+                    with st.spinner(f"Parsing {chain} flyer…"):
+                        if ext == ".json":
+                            ingestor = FlyerIngestor()
+                            with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+                                tmp.write(uploaded.read())
+                                candidates = ingestor.from_json(Path(tmp.name))
+                            flyer = st.session_state.get("flyer_data", {})
+                            existing_manual = [c for c in flyer.get(chain, [])
+                                               if getattr(c, "_manual", False)]
+                            flyer[chain] = candidates + existing_manual
+                            st.session_state["flyer_data"] = flyer
+                            n = len(candidates)
+                        else:
+                            n, candidates = _load_pdf_flyer(chain, uploaded.read())
+
+                    if n:
+                        st.success(f"✅ {n} items parsed from **{uploaded.name}**.")
+                        st.html("<div style='font-size:0.8rem;font-weight:600;color:#1E5C32;"
+                                "margin:10px 0 4px 0;'>Review — remove anything that looks wrong</div>")
+
+                        review_key = f"pdf_review_{chain}"
+                        if review_key not in st.session_state:
+                            st.session_state[review_key] = {i: True for i in range(n)}
+
+                        flyer_items = st.session_state.get("flyer_data", {}).get(chain, [])
+                        pdf_items   = [c for c in flyer_items if not getattr(c, "_manual", False)]
+
+                        # Confidence summary
+                        _conf_counts = {"high": 0, "medium": 0, "low": 0}
+                        for _itm in pdf_items[:50]:
+                            _conf_counts[getattr(_itm, "_confidence", "medium")] += 1
+                        _conf_html = (
+                            f"<span style='color:#3A8C4E;font-weight:600;'>{_conf_counts['high']} high</span> · "
+                            f"<span style='color:#F28B30;font-weight:600;'>{_conf_counts['medium']} medium</span> · "
+                            f"<span style='color:#BF5E00;font-weight:600;'>{_conf_counts['low']} low</span> confidence"
+                        )
+                        st.html(f"<div style='font-size:0.75rem;color:#5A7A62;margin-bottom:8px;'>"
+                                f"Parser confidence: {_conf_html}. "
+                                f"Remove anything that looks wrong before running the engine.</div>")
+
+                        for i, item in enumerate(pdf_items[:50]):
+                            name  = item.name if hasattr(item, "name") else item.get("name", "?")
+                            price = item.sale_price_per_unit if hasattr(item, "sale_price_per_unit") else item.get("sale_price_per_unit", 0)
+                            unit  = item.unit if hasattr(item, "unit") else item.get("unit", "each")
+                            cat   = item.category if hasattr(item, "category") else item.get("category", "other")
+                            keep  = st.session_state[review_key].get(i, True)
+                            conf  = getattr(item, "_confidence", "medium")
+                            conf_dot = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(conf, "🟡")
+
+                            ri_a, ri_b, ri_c, ri_d = st.columns([3.5, 1.5, 0.5, 0.5])
+                            with ri_a:
+                                col = "#1A2E1D" if keep else "#9AA8A0"
+                                st.html(f"<div style='font-size:0.85rem;color:{col};padding:2px 0;'>"
+                                        f"{'<s>' if not keep else ''}{name}{'</s>' if not keep else ''}"
+                                        f" <span style='color:#9AA8A0;font-size:0.72rem;'>· {cat}</span>"
+                                        f"</div>")
+                            with ri_b:
+                                st.html(f"<div style='font-size:0.85rem;color:#F28B30;padding:2px 0;'>"
+                                        f"${price:.2f}/{unit}</div>")
+                            with ri_c:
+                                st.html(f"<div style='font-size:0.9rem;padding:2px 0;' title='{conf} confidence'>{conf_dot}</div>")
+                            with ri_d:
+                                if keep and st.button("✕", key=f"reject_{chain}_{i}"):
+                                    st.session_state[review_key][i] = False
+                                    flyer = st.session_state.get("flyer_data", {})
+                                    all_pdf = [c for c in flyer.get(chain, [])
+                                               if not getattr(c, "_manual", False)]
+                                    kept    = [c for j, c in enumerate(all_pdf)
+                                               if st.session_state[review_key].get(j, True)]
+                                    manual  = [c for c in flyer.get(chain, [])
+                                               if getattr(c, "_manual", False)]
+                                    flyer[chain] = kept + manual
+                                    st.session_state["flyer_data"] = flyer
+                                    st.rerun()
+                        if n > 50:
+                            st.caption(f"Showing first 50 of {n} items. All {n} are in the engine.")
                     else:
-                        n, candidates = _load_pdf_flyer(chain, uploaded.read())
-
-                if n:
-                    st.success(f"✅ {n} items parsed from **{uploaded.name}**.")
-                    st.html("<div style='font-size:0.8rem;font-weight:600;color:#1E5C32;"
-                            "margin:10px 0 4px 0;'>Review — remove anything that looks wrong</div>")
-
-                    review_key = f"pdf_review_{chain}"
-                    if review_key not in st.session_state:
-                        st.session_state[review_key] = {i: True for i in range(n)}
-
-                    flyer_items = st.session_state.get("flyer_data", {}).get(chain, [])
-                    pdf_items   = [c for c in flyer_items if not getattr(c, "_manual", False)]
-
-                    # Confidence summary
-                    _conf_counts = {"high": 0, "medium": 0, "low": 0}
-                    for _itm in pdf_items[:50]:
-                        _conf_counts[getattr(_itm, "_confidence", "medium")] += 1
-                    _conf_html = (
-                        f"<span style='color:#3A8C4E;font-weight:600;'>{_conf_counts['high']} high</span> · "
-                        f"<span style='color:#F28B30;font-weight:600;'>{_conf_counts['medium']} medium</span> · "
-                        f"<span style='color:#BF5E00;font-weight:600;'>{_conf_counts['low']} low</span> confidence"
-                    )
-                    st.html(f"<div style='font-size:0.75rem;color:#5A7A62;margin-bottom:8px;'>"
-                            f"Parser confidence: {_conf_html}. "
-                            f"Remove anything that looks wrong before running the engine.</div>")
-
-                    for i, item in enumerate(pdf_items[:50]):
-                        name  = item.name if hasattr(item, "name") else item.get("name", "?")
-                        price = item.sale_price_per_unit if hasattr(item, "sale_price_per_unit") else item.get("sale_price_per_unit", 0)
-                        unit  = item.unit if hasattr(item, "unit") else item.get("unit", "each")
-                        cat   = item.category if hasattr(item, "category") else item.get("category", "other")
-                        keep  = st.session_state[review_key].get(i, True)
-                        conf  = getattr(item, "_confidence", "medium")
-                        conf_dot = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(conf, "🟡")
-
-                        ri_a, ri_b, ri_c, ri_d = st.columns([3.5, 1.5, 0.5, 0.5])
-                        with ri_a:
-                            col = "#1A2E1D" if keep else "#9AA8A0"
-                            st.html(f"<div style='font-size:0.85rem;color:{col};padding:2px 0;'>"
-                                    f"{'<s>' if not keep else ''}{name}{'</s>' if not keep else ''}"
-                                    f" <span style='color:#9AA8A0;font-size:0.72rem;'>· {cat}</span>"
-                                    f"</div>")
-                        with ri_b:
-                            st.html(f"<div style='font-size:0.85rem;color:#F28B30;padding:2px 0;'>"
-                                    f"${price:.2f}/{unit}</div>")
-                        with ri_c:
-                            st.html(f"<div style='font-size:0.9rem;padding:2px 0;' title='{conf} confidence'>{conf_dot}</div>")
-                        with ri_d:
-                            if keep and st.button("✕", key=f"reject_{chain}_{i}"):
-                                st.session_state[review_key][i] = False
-                                flyer = st.session_state.get("flyer_data", {})
-                                all_pdf = [c for c in flyer.get(chain, [])
-                                           if not getattr(c, "_manual", False)]
-                                kept    = [c for j, c in enumerate(all_pdf)
-                                           if st.session_state[review_key].get(j, True)]
-                                manual  = [c for c in flyer.get(chain, [])
-                                           if getattr(c, "_manual", False)]
-                                flyer[chain] = kept + manual
-                                st.session_state["flyer_data"] = flyer
-                                st.rerun()
-                    if n > 50:
-                        st.caption(f"Showing first 50 of {n} items. All {n} are in the engine.")
-                else:
-                    st.warning(
-                        "Parser returned 0 items — this PDF format may not be supported yet. "
-                        "Use Manual Entry to add the key sale items.",
-                        icon="⚠️",
-                    )
+                        st.warning(
+                            "Parser returned 0 items — this PDF format may not be supported yet. "
+                            "Use Manual Entry to add the key sale items.",
+                            icon="⚠️",
+                        )
 
 
 # ── Item drill-down ───────────────────────────────────────────────────────────
