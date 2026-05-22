@@ -1142,9 +1142,10 @@ def _pull_kroger(chain: str, location_id: str) -> int:
     if not client_id or not client_secret:
         st.warning("Kroger API credentials not set (KROGER_CLIENT_ID / KROGER_CLIENT_SECRET).", icon="🔑")
         return 0
-    # POC: fall back to Barracks Rd location if DB row has empty location_description.
+    # POC: fall back to Barracks Rd location if DB row has empty or non-ID location_description.
+    # A valid Kroger location_id is exactly 8 alphanumeric characters.
     # PROD: every household row will carry the user-selected location_id.
-    _loc = location_id or "01200441"
+    _loc = location_id if (location_id and len(location_id) == 8 and location_id.isalnum()) else "01200441"
     try:
         from integrations.kroger.client import KrogerClient
         client = KrogerClient(client_id=client_id, client_secret=client_secret, location_id=_loc)
