@@ -1220,9 +1220,78 @@ def _pull_kroger(chain: str, location_id: str) -> int:
         return 0
 
 
+def _pull_flipp(chain: str, postal_code: str = "22901") -> int:
+    """
+    Pull the current weekly circular for `chain` via the Flipp API.
+
+    Returns item count on success, 0 on failure.
+
+    POC: Uses Flipp's unofficial public JSON API — no credentials required.
+         Food Lion + Harris Teeter are the primary targets for the Cville pilot.
+    PROD: Replace with official Flipp Retail Data API (enterprise contract) or
+          direct chain EDI feeds once per-chain API relationships are established.
+    """
+    try:
+        from integrations.flipp.client import FlippClient
+        client = FlippClient()
+
+        # Use household zip if set, else default to Charlottesville
+        _zip = postal_code or st.session_state.get("home_zip", "22901") or "22901"
+
+        candidates, meta = client.get_weekly_sales(chain=chain, postal_code=_zip)
+
+        if not candidates:
+            raw = meta.get("raw_total", "?")
+            st.warning(
+                f"Flipp returned {raw} items for {chain} but none passed filters. "
+                f"The chain may not publish on Flipp near {_zip}, or the flyer "
+                f"hasn't updated yet this week.",
+                icon="ℹ️",
+            )
+            return 0
+
+        # Save to session state
+        flyer = st.session_state.get("flyer_data", {})
+        flyer[chain] = candidates
+        st.session_state["flyer_data"] = flyer
+
+        # Persist to Supabase so next login doesn't need a re-pull
+        ok, msg = state.save_flyer_items(chain, candidates, method="api")
+        if not ok:
+            _log.warning("Flipp flyer DB save for %s: %s", chain, msg)
+
+        # Update flyer_meta for the status strip
+        valid_to = meta.get("valid_to") or ""
+        from datetime import date, timedelta
+        try:
+            _exp = str(valid_to)[:10] if valid_to else str(date.today() + timedelta(days=6))
+        except Exception:
+            _exp = str(date.today() + timedelta(days=6))
+
+        st.session_state.setdefault("flyer_meta", {})[chain] = {
+            "count":   len(candidates),
+            "week":    _exp,
+            "method":  "api",
+            "fresh":   True,
+        }
+        return len(candidates)
+
+    except Exception as e:
+        st.error(f"Flipp pull failed for {chain}: {e}")
+        return 0
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # STORE CARDS — price entry per store
 # ══════════════════════════════════════════════════════════════════════════════
+
+# Chains that publish on Flipp — these get a "Pull from Flipp" button.
+# POC: covers the Charlottesville pilot stores (Food Lion + Harris Teeter).
+# PROD: auto-detect from FlippClient.list_supported_chains() per household zip.
+FLIPP_CHAINS = {
+    "Food Lion", "Harris Teeter", "Giant", "Wegmans",
+    "Publix", "Lidl", "Walmart",
+}
 
 CATEGORIES = ["produce", "protein", "dairy", "grain", "legume", "pantry",
                "bakery", "frozen", "beverage", "other"]
@@ -1308,6 +1377,29 @@ for g in manual_stores:
                 st.html(f"<a href='{dl_url}' target='_blank' style='font-size:0.78rem;"
                         f"color:#3A8C4E;font-weight:600;text-decoration:none;'>"
                         f"↗ Weekly circular</a>")
+
+        # ── Flipp pull button (for supported chains) ───────────────────────────
+        # Shown above the PDF/manual tabs — fastest path to getting data.
+        # POC: Food Lion + Harris Teeter are the primary Flipp targets.
+        if chain in FLIPP_CHAINS:
+            _flipp_loaded = chain in loaded
+            _f1, _f2, _f3 = st.columns([2, 2, 3])
+            with _f1:
+                _flipp_label = "🔗 Re-pull Flipp" if _flipp_loaded else "🔗 Pull from Flipp"
+                if st.button(_flipp_label, key=f"flipp_{chain}", use_container_width=True,
+                             type="primary" if not _flipp_loaded else "secondary"):
+                    _zip = st.session_state.get("home_zip", "22901") or "22901"
+                    with st.spinner(f"Pulling {chain} from Flipp…"):
+                        _n = _pull_flipp(chain, _zip)
+                    if _n:
+                        st.toast(f"✅ {_n} items loaded from {chain}", icon="🛒")
+                        st.rerun()
+            with _f3:
+                st.html(
+                    "<span style='font-size:0.74rem;color:#5A7A62;line-height:2.2;'>"
+                    "Pulls this week's sale prices directly from Flipp · "
+                    "PDF / manual below as fallback</span>"
+                )
 
         # Determine circular support for this store
         _circ_support = CHAIN_DATA.get(chain.lower(), {}).get("circular_support", "pdf_text")
