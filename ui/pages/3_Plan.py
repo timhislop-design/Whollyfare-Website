@@ -139,19 +139,40 @@ def _run_engine(prefs: dict) -> bool:
 
         total_servings = len(plan_meals) * hh.servings_per_meal
         single_est     = round(plan_total * 1.18, 2)
-        hf_equiv       = round(total_servings * 9.99, 2)
+
+        # Meal kit comparison prices (per serving, approximate 2025 retail rates).
+        # POC: hardcoded. PROD: fetched weekly from pricing API or admin-maintained table.
+        # Sources: published starting prices for 2-person plans as of May 2025.
+        MEAL_KITS = [
+            ("EveryPlate",   5.99,  "#6B8F71"),   # HelloFresh budget brand
+            ("Dinnerly",     6.49,  "#7A9E7E"),
+            ("HelloFresh",   9.99,  "#1A936F"),
+            ("Blue Apron",   9.99,  "#2D6A9F"),
+            ("Home Chef",    9.95,  "#8B5E3C"),
+            ("Green Chef",  12.99,  "#3A7D44"),
+        ]
+        kit_totals = {
+            name: round(total_servings * price_per_serving, 2)
+            for name, price_per_serving, _ in MEAL_KITS
+        }
 
         st.session_state["plan"] = {
             "week":     st.session_state["active_week"],
             "servings": hh.servings_per_meal,
             "meals":    plan_meals,
-            "prefs":    prefs,   # store alongside plan for display
+            "prefs":    prefs,
             "totals": {
                 "whollyfare_plan":   round(plan_total, 2),
                 "single_store_best": single_est,
-                "hellofresh_equiv":  hf_equiv,
                 "found_money":       round(single_est - plan_total, 2),
-                "vs_hellofresh":     round(hf_equiv - plan_total, 2),
+                # Legacy key kept for back-compat
+                "hellofresh_equiv":  kit_totals.get("HelloFresh", 0),
+                "vs_hellofresh":     round(kit_totals.get("HelloFresh", 0) - plan_total, 2),
+                # Full meal kit comparison
+                "meal_kits":         kit_totals,
+                "meal_kit_meta":     {n: {"price_per_serving": p, "color": c}
+                                      for n, p, c in MEAL_KITS},
+                "total_servings":    total_servings,
             },
         }
         return True
@@ -391,19 +412,7 @@ totals   = plan["totals"]
 meals    = plan["meals"]
 servings = plan["servings"]
 
-# Summary metrics
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.metric("Plan cost", f"${totals['whollyfare_plan']:.2f}")
-with c2:
-    st.metric("Found Money 💚", f"${totals['found_money']:.2f}",
-              delta="saved vs. one store", delta_color="normal")
-with c3:
-    st.metric("vs. HelloFresh", f"${totals['vs_hellofresh']:.2f}", delta="you keep this")
-with c4:
-    st.metric("Dinners planned", len(meals))
-
-# Cross-store callout
+# ── Top metrics row ──────────────────────────────────────────────────────────
 STORE_NAMES = {
     "kroger_palmyra": "Kroger", "food_lion_palmyra": "Food Lion",
     "aldi_rio": "Aldi", "harris_teeter_barracks": "Harris Teeter",
@@ -415,22 +424,99 @@ for meal in meals:
     for ing in meal["ingredients"]:
         sid = ing["store"]
         store_counts[sid] = store_counts.get(sid, 0) + 1
+num_stores = len(store_counts)
 
-num_stores  = len(store_counts)
-store_parts = "  ·  ".join(
-    f"🏪 {STORE_NAMES.get(sid, sid)}: {count} items"
-    for sid, count in store_counts.items()
-)
-callout_text = (
-    f"{store_parts}  &nbsp;·&nbsp;  "
-    f"<strong style='color:#BF5E00;'>Shopping across {num_stores} stores "
-    f"saves you ${totals['found_money']:.2f} this week</strong>"
-) if num_stores > 1 else store_parts
+m1, m2, m3, m4 = st.columns(4)
+with m1:
+    st.metric("Your plan", f"${totals['whollyfare_plan']:.2f}",
+              delta=f"{len(meals)} dinners · {servings} servings each")
+with m2:
+    st.metric("vs. single store 🏪", f"+${totals['found_money']:.2f}",
+              delta="you keep this", delta_color="normal")
+with m3:
+    _hf_save = totals.get("vs_hellofresh", 0)
+    st.metric("vs. HelloFresh 💚", f"+${_hf_save:.2f}",
+              delta="you keep this", delta_color="normal")
+with m4:
+    st.metric("Stores shopped", num_stores,
+              delta="cross-store savings" if num_stores > 1 else "add more stores for savings")
 
-if callout_text:
+# ── Cross-store breakdown ─────────────────────────────────────────────────────
+if num_stores > 1:
+    store_parts = "  ·  ".join(
+        f"🏪 {STORE_NAMES.get(sid, sid)}: {count} item{'s' if count != 1 else ''}"
+        for sid, count in store_counts.items()
+    )
     st.html(f"""<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;
-                        padding:10px 16px;margin:12px 0 20px 0;font-size:0.9rem;color:#5A3A00;'>
-      {callout_text}
+                        padding:10px 16px;margin:8px 0 4px 0;font-size:0.88rem;color:#5A3A00;'>
+      {store_parts} &nbsp;·&nbsp;
+      <strong style='color:#BF5E00;'>Cross-store shopping saves you
+      ${totals["found_money"]:.2f} vs. buying everything at one store</strong>
+    </div>""")
+
+# ── Meal kit comparison — the headline savings moment ────────────────────────
+_plan_cost   = totals["whollyfare_plan"]
+_kit_data    = totals.get("meal_kits", {})
+_kit_meta    = totals.get("meal_kit_meta", {})
+_n_servings  = totals.get("total_servings", servings * len(meals))
+
+if _kit_data:
+    _max_kit = max(_kit_data.values())
+    _min_save = round(min(_kit_data.values()) - _plan_cost, 2)
+    _max_save = round(_max_kit - _plan_cost, 2)
+
+    st.html(f"""
+    <div style='background:linear-gradient(135deg,#1A2E1D 0%,#2D6A4F 100%);
+                border-radius:12px;padding:20px 24px 16px 24px;margin:16px 0 8px 0;'>
+      <div style='color:#A8D5B5;font-size:0.75rem;font-weight:700;
+                  letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;'>
+        What you would have paid
+      </div>
+      <div style='color:#FFFFFF;font-size:1.5rem;font-weight:800;line-height:1.1;
+                  margin-bottom:2px;'>
+        Save ${_min_save:.0f}–${_max_save:.0f} vs. meal kit delivery
+      </div>
+      <div style='color:#A8D5B5;font-size:0.85rem;margin-bottom:18px;'>
+        Same {len(meals)} dinners · {_n_servings} servings · your groceries, not theirs
+      </div>
+      <div style='display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;'>
+        <div style='text-align:center;min-width:90px;'>
+          <div style='background:rgba(255,255,255,0.12);border-radius:8px;
+                      padding:10px 8px 6px 8px;border:2px solid #3A8C4E;'>
+            <div style='font-size:0.68rem;color:#A8D5B5;font-weight:700;
+                        text-transform:uppercase;letter-spacing:0.06em;'>WhollyFare</div>
+            <div style='font-size:1.4rem;font-weight:800;color:#5DDC8A;
+                        margin-top:4px;'>${_plan_cost:.2f}</div>
+            <div style='font-size:0.65rem;color:#A8D5B5;margin-top:2px;'>your price</div>
+          </div>
+        </div>
+    """)
+
+    for kit_name, kit_total in sorted(_kit_data.items(), key=lambda x: x[1]):
+        _save   = round(kit_total - _plan_cost, 2)
+        _meta   = _kit_meta.get(kit_name, {})
+        _pps    = _meta.get("price_per_serving", 0)
+        st.html(f"""
+        <div style='text-align:center;min-width:90px;'>
+          <div style='background:rgba(255,255,255,0.07);border-radius:8px;
+                      padding:10px 8px 6px 8px;'>
+            <div style='font-size:0.68rem;color:#A8D5B5;font-weight:600;
+                        text-transform:uppercase;letter-spacing:0.06em;'>{kit_name}</div>
+            <div style='font-size:1.1rem;font-weight:700;color:#FFFFFF;
+                        margin-top:4px;'>${kit_total:.2f}</div>
+            <div style='font-size:0.65rem;color:#7DB896;margin-top:2px;'>
+              ${_pps:.2f}/serving</div>
+            <div style='font-size:0.72rem;color:#5DDC8A;font-weight:700;margin-top:4px;'>
+              you save ${_save:.2f}</div>
+          </div>
+        </div>
+        """)
+
+    st.html("""</div>
+      <div style='font-size:0.7rem;color:#6B9E7A;margin-top:12px;'>
+        * Meal kit prices are published starting rates for 2-person plans (May 2025).
+        Actual costs vary by plan size and promotions.
+      </div>
     </div>""")
 
 # Meal cards
