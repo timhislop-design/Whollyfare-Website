@@ -108,6 +108,7 @@ def _run_engine(prefs: dict) -> bool:
             raw_plan = MealPlanner(hh).assemble_week(
                 hero_ingredients=selected,
                 flyer_week=st.session_state["active_week"],
+                n_meals=n_dinners,   # respects weekly preference, not profile default
             )
 
         plan_meals = []
