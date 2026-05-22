@@ -1255,6 +1255,9 @@ for g in manual_stores:
             st.html("✅" if is_ok else "📋")
         with cinfo:
             st.markdown(f"**{chain}** &nbsp; {_status_badge(chain)}", unsafe_allow_html=True)
+            _strip = _flyer_status_strip(chain)
+            if _strip:
+                st.html(_strip)
             loc = g.get("location", "")
             if g.get("is_primary"): loc += "  · ⭐ Primary"
             if note: loc = (loc + "  · " if loc else "") + f"*{note}*"
@@ -1429,6 +1432,12 @@ for g in manual_stores:
 
                     if n:
                         st.success(f"✅ {n} items parsed from **{uploaded.name}**.")
+                        st.session_state.setdefault("flyer_meta", {})[chain] = {
+                            "count":  n,
+                            "week":   st.session_state.get("active_week", ""),
+                            "method": "pdf",
+                            "fresh":  True,
+                        }
                         st.html("<div style='font-size:0.8rem;font-weight:600;color:#1E5C32;"
                                 "margin:10px 0 4px 0;'>Review — remove anything that looks wrong</div>")
 

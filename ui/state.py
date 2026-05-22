@@ -167,7 +167,8 @@ def init():
     defaults = {
         "household":       None,
         "grocers":         [],
-        "flyer_data":      {},   # store_name → list[IngredientCandidate]
+        "flyer_data":      {},
+        "flyer_meta":      {},   # {chain: {count, week, method, fresh}}   # store_name → list[IngredientCandidate]
         "filter_result":   None,
         "plan":            None,
         "approved_weeks":  [],
@@ -1760,6 +1761,18 @@ def _load_flyer_items_from_db():
 
         if total:
             st.session_state["flyer_data"] = flyer_data
+            # Populate flyer_meta so store cards show freshness status
+            meta = st.session_state.setdefault("flyer_meta", {})
+            for fw in fw_rows:
+                chain_name = grocer_map.get(fw["grocer_id"], "")
+                chain_items = flyer_data.get(chain_name, [])
+                if chain_items and chain_name:
+                    meta[chain_name] = {
+                        "count":  len(chain_items),
+                        "week":   week,
+                        "method": fw.get("load_method", "manual"),
+                        "fresh":  False,   # restored from DB, not pulled this session
+                    }
             _log.info("_load_flyer_items_from_db: restored %d items for week=%s", total, week)
 
     except Exception as e:
