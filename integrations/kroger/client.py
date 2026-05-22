@@ -203,11 +203,19 @@ class KrogerClient:
         seen_upcs: set[str] = set()
         api_calls = 0
         total_found = 0
+        raw_total = 0
+        no_promo = 0
 
         for term in search_terms:
             products = self._search_products(term, loc_id)
             api_calls += 1
+            raw_total += len(products)
             for product in products:
+                # Track promo-filter drops for diagnostics
+                p_items = product.get("items", [{}])
+                price_info = p_items[0].get("price", {}) if p_items else {}
+                if not price_info.get("promo") or price_info.get("promo", 0) >= price_info.get("regular", 0):
+                    no_promo += 1
                 item = self._product_to_item(product, min_savings_pct)
                 if item is None:
                     continue
@@ -224,11 +232,16 @@ class KrogerClient:
             "location_id": loc_id,
             "search_terms": search_terms,
             "api_calls": api_calls,
+            "raw_products_seen": raw_total,
+            "dropped_no_promo": no_promo,
             "total_items": total_found,
             "min_savings_pct_filter": min_savings_pct,
             "pulled_at": datetime.utcnow().isoformat() + "Z",
         }
-        logger.info(f"Kroger: {total_found} sale items from {api_calls} queries.")
+        logger.info(
+            f"Kroger: {total_found} sale items from {api_calls} queries "
+            f"({raw_total} raw, {no_promo} dropped: no active promo)."
+        )
         return result
 
     def get_coupons(
@@ -407,10 +420,16 @@ class KrogerClient:
         size_desc = items[0].get("size", "") if items else ""
         unit = self._infer_unit(size_desc)
 
-        # Enrich from item registry
-        info = lookup(name)
-        if info is None:
-            return None  # skip items we can't categorise
+        # Enrich from item registry.
+        # POC: items not in the registry get a sensible default instead of being dropped.
+        # PROD: registry expanded via USDA FDC fuzzy match + user corrections.
+        info = lookup(name) or {
+            "category": "other",
+            "allergens": [],
+            "tags": [],
+            "standard_unit_weight_g": 100.0,
+            "usda_fdc_id": None,
+        }
 
         upc = product.get("upc", "")
         usda_id = info.get("usda_fdc_id")

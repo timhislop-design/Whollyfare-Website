@@ -1155,6 +1155,18 @@ def _pull_kroger(chain: str, location_id: str) -> int:
         flyer = st.session_state.get("flyer_data", {})
         flyer[chain] = candidates
         st.session_state["flyer_data"] = flyer
+        # Diagnostic: show raw vs. filtered counts so we know what happened
+        meta = result.parse_metadata
+        raw   = meta.get("raw_products_seen", "?")
+        no_p  = meta.get("dropped_no_promo", "?")
+        found = meta.get("total_items", len(candidates))
+        if found == 0:
+            st.warning(
+                f"Kroger API returned {raw} products, but {no_p} had no active promo price. "
+                f"0 sale items passed filters. Kroger may not have active sales on these "
+                f"search terms right now, or promo pricing is unavailable.",
+                icon="ℹ️",
+            )
         return len(candidates)
     except Exception as e:
         st.error(f"Kroger pull failed: {e}")
