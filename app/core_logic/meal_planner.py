@@ -274,12 +274,6 @@ class MealPlanner:
                 if idx is not None and supports[idx] not in meal_ings:
                     meal_ings.append(supports[idx])
 
-            cost_per_serving = self._estimate_cost_per_serving(
-                meal_ings, n,
-                recipe=recipe,
-                pantry=_pantry,
-            )
-
             # Advance format index for this plugin to avoid duplicate names
             fmt_idx = _plugin_format_idx.get(plugin_key, 0)
             _plugin_format_idx[plugin_key] = fmt_idx + 1
@@ -315,6 +309,14 @@ class MealPlanner:
                 meal_name   = self._compose_meal_name(plugin, meal_ings, fmt_idx)
                 recipe_id   = None
                 recipe_ings = []
+
+            # Cost calculation runs after recipe match so we have real quantities.
+            # Passes matched recipe (or None) and household pantry to the cost engine.
+            cost_per_serving = self._estimate_cost_per_serving(
+                meal_ings, n,
+                recipe=recipe,
+                pantry=_pantry,
+            )
 
             meal = Meal(
                 day=day,

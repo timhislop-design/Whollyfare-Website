@@ -129,6 +129,15 @@ with st.form("add_pantry_item", clear_on_submit=True):
 if changed:
     st.session_state["household_pantry"] = current_pantry
 
+    # Items that were in PANTRY_DEFAULTS but are now unchecked = "I ran out / don't have this."
+    # Track them in session_state so the shopping list can surface them as
+    # "also buy this week" items, keeping the cost comparison honest.
+    # Phase 2: persisted to DB with a restock_flag so the app knows to watch for
+    # a good price on this item in future circulars.
+    default_items = state.PANTRY_DEFAULTS
+    out_of_stock  = {item for item in default_items if item not in current_pantry}
+    st.session_state["pantry_out_of_stock"] = out_of_stock
+
     # Pilot: persist to Supabase households row if authenticated.
     # Stores as a JSON array in the pantry_items column.
     # PROD: dedicated pantry table with quantity + restock_threshold per item.

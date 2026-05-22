@@ -60,6 +60,11 @@ servings = plan["servings"]
 # -- Resolve household pantry --
 pantry = state.pantry_items()
 
+# Out-of-stock: pantry defaults the user unchecked on the Pantry page.
+# These need to be bought this week even though they're normally assumed on hand.
+# Examples: ran out of olive oil, no more soy sauce, etc.
+out_of_stock: set = st.session_state.get("pantry_out_of_stock", set())
+
 # -- Section 1: sale items by store --
 store_items: dict = {}
 sale_item_names: set = set()
@@ -91,7 +96,10 @@ for meal in meals:
         name       = ri.get("name", "")
         name_lower = name.lower().strip()
         is_pantry  = ri.get("pantry_stable", False)
-        if is_pantry or name_lower in pantry:
+        # If item is pantry_stable but user flagged it out of stock, include it
+        if name_lower in out_of_stock:
+            pass   # fall through — needs to be bought this week
+        elif is_pantry or name_lower in pantry:
             continue
         if any(name_lower in sn or sn in name_lower for sn in sale_item_names):
             continue
@@ -105,6 +113,17 @@ for meal in meals:
         else:
             if meal_day and meal_day not in recipe_extras[name]["meals"]:
                 recipe_extras[name]["meals"].append(meal_day)
+
+# -- Out-of-stock pantry items not already captured via recipe_ingredients --
+# These are items the user ran out of (unchecked on Pantry page). They don't
+# come from recipes but still need to be on the buy list this week.
+for oos_item in sorted(out_of_stock):
+    if oos_item not in recipe_extras and oos_item not in sale_item_names:
+        recipe_extras[oos_item.title()] = {
+            "qty_label": "restock",
+            "meals":     ["pantry restock"],
+            "category":  "pantry",
+        }
 
 # -- Section 3: pantry check --
 pantry_check: dict = {}
