@@ -1056,6 +1056,47 @@ def _chain_name(g: dict) -> str:
 def _source(g: dict) -> str:
     return g.get("source") or g.get("source_type", "manual")
 
+def _flyer_status_strip(chain: str) -> str:
+    """Return an HTML status line showing item count, data age, and refresh hint."""
+    import datetime
+    meta = st.session_state.get("flyer_meta", {}).get(chain)
+    if not meta:
+        return ""
+    count  = meta.get("count", 0)
+    week   = meta.get("week", "")
+    method = meta.get("method", "manual")
+    fresh  = meta.get("fresh", False)
+
+    method_icon = {"api": "🔗", "pdf": "📄", "manual": "✏️"}.get(method, "📋")
+
+    try:
+        week_dt    = datetime.date.fromisoformat(week)
+        expires_dt = week_dt + datetime.timedelta(days=6)
+        today      = datetime.date.today()
+        days_left  = (expires_dt - today).days
+        if days_left < 0:
+            expiry_html = "<span style='color:#BF5E00;font-weight:600;'>⚠ Prices may be stale — refresh recommended</span>"
+        elif days_left == 0:
+            expiry_html = "<span style='color:#BF5E00;font-weight:600;'>⚠ Expires today</span>"
+        elif days_left <= 2:
+            expiry_html = f"<span style='color:#F28B30;'>Expires {expires_dt.strftime('%b %-d')} ({days_left}d)</span>"
+        else:
+            expiry_html = f"<span style='color:#5A7A62;'>Valid through {expires_dt.strftime('%b %-d')}</span>"
+    except Exception:
+        expiry_html = ""
+
+    source_color = "#3A8C4E" if fresh else "#9AA8A0"
+    source_label = "Just refreshed" if fresh else "From last session"
+
+    return (
+        f"<div style='font-size:0.75rem;color:#5A7A62;margin-top:3px;line-height:1.6;'>"
+        f"{method_icon} <strong style='color:#1E5C32;'>{count} items</strong>"
+        + (f" &nbsp;·&nbsp; {expiry_html}" if expiry_html else "")
+        + f" &nbsp;·&nbsp; <span style='color:{source_color};'>{source_label}</span>"
+        f"</div>"
+    )
+
+
 def _status_badge(chain: str) -> str:
     manual = sum(1 for m in st.session_state.get("manual_items", []) if m["store"] == chain)
     if chain in loaded:
@@ -1220,7 +1261,7 @@ if api_stores:
                         with st.spinner(f"Pulling {chain}…"):
                             n = _pull_kroger(chain, g.get("location", ""))
                         if n:
-                            st.success(f"{n} items loaded.")
+                            st.toast(f"✅ {n} items loaded from {chain}", icon="🛒")
                             st.rerun()
                 with b2:
                     if is_ok and st.button("View items", key=f"view_{chain}", use_container_width=True):
