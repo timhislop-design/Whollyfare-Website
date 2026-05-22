@@ -173,10 +173,17 @@ def _run_engine(prefs: dict) -> bool:
 
         with st.spinner("Assembling your meal plan…"):
             from app.core_logic.meal_planner import MealPlanner
+            # Pass cuisine + protein preferences so the recipe library
+            # can match recipes to what the user actually wants this week.
+            # POC: lowercase conversion maps UI labels to library keys.
+            cuisine_prefs = [c.lower() for c in prefs.get("cuisines", [])]
+            protein_prefs_lib = [p.lower() for p in prefs.get("proteins", [])]
             raw_plan = MealPlanner(hh).assemble_week(
                 hero_ingredients=selected,
                 flyer_week=st.session_state["active_week"],
                 n_meals=n_dinners,
+                cuisine_prefs=cuisine_prefs or None,
+                protein_prefs=protein_prefs_lib or None,
             )
 
         # ── Ingredient pooling — two-pass cost allocation ────────────────────────
@@ -226,13 +233,16 @@ def _run_engine(prefs: dict) -> bool:
                 })
                 meal_cost += alloc_cost
             plan_meals.append({
-                "day":            meal.day,
-                "name":           meal.name,
-                "gluten_free":    False,
-                "allergen_notes": "",
-                "best_store":     "—",
-                "ingredients":    ing_list,
-                "meal_cost":      round(meal_cost, 2),
+                "day":               meal.day,
+                "name":              meal.name,
+                "gluten_free":       False,
+                "allergen_notes":    "",
+                "best_store":        "—",
+                "ingredients":       ing_list,
+                "meal_cost":         round(meal_cost, 2),
+                # Recipe library data — populated when a library match was found
+                "recipe_id":         getattr(meal, "recipe_id", None),
+                "recipe_ingredients": getattr(meal, "recipe_ingredients", []),
             })
             plan_total += meal_cost
 
@@ -747,8 +757,39 @@ for meal in meals:
         if meal.get("allergen_notes"):
             st.info(f"⚠️ **Allergen notes:** {meal['allergen_notes']}", icon="🛡️")
 
+        # ── Recipe ingredients (from library) ─────────────────────────────
+        recipe_ings = meal.get("recipe_ingredients", [])
+        if recipe_ings:
+            st.html("""<div style='font-size:11px;font-weight:700;color:#3A8C4E;
+                                   letter-spacing:0.08em;text-transform:uppercase;
+                                   margin-bottom:6px;'>What you need for this recipe</div>""")
+            # Group by pantry_stable — show what to buy vs. assume on hand
+            to_buy     = [i for i in recipe_ings if not i.get("pantry_stable", False)]
+            pantry_ok  = [i for i in recipe_ings if i.get("pantry_stable", False)]
+
+            if to_buy:
+                for ri in to_buy:
+                    qty_str = f"{ri['qty']} {ri['unit']}"
+                    st.html(f"""<div style='display:flex;justify-content:space-between;
+                                            padding:4px 0;border-bottom:1px solid #F0F9F2;
+                                            font-size:13px;'>
+                      <span style='color:#1A2E1D;'>🛒 {ri["name"]}</span>
+                      <span style='color:#5A7A62;font-size:12px;'>{qty_str}</span>
+                    </div>""")
+            if pantry_ok:
+                pantry_names = ", ".join(i["name"] for i in pantry_ok)
+                st.html(f"""<div style='font-size:11px;color:#888;margin-top:6px;
+                                        font-style:italic;'>
+                    Pantry / assume on hand: {pantry_names}
+                </div>""")
+            st.html("<div style='height:8px'></div>")
+
+        # ── Sale items (optimizer selected) ────────────────────────────────
         ings = meal.get("ingredients", [])
         if ings:
+            st.html("""<div style='font-size:11px;font-weight:700;color:#F28B30;
+                                   letter-spacing:0.08em;text-transform:uppercase;
+                                   margin-bottom:6px;'>On sale this week — anchors this plan</div>""")
             h1, h2, h3, h4 = st.columns([3, 1, 2, 1])
             with h1: st.html("**Item**")
             with h2: st.markdown("**Qty**")
@@ -758,7 +799,8 @@ for meal in meals:
             for ing in ings:
                 c1, c2, c3, c4 = st.columns([3, 1, 2, 1])
                 sname = STORE_NAMES.get(ing.get("store",""), ing.get("store","")) or "—"
-                with c1: st.caption(ing["item"])
+                shared_note = f" ×{ing['used_in']}" if ing.get("shared") else ""
+                with c1: st.caption(ing["item"] + shared_note)
                 with c2: st.caption(ing["qty"])
                 with c3: st.caption(sname)
                 with c4: st.caption(f"${ing['cost']:.2f}")

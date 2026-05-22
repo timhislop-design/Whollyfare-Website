@@ -24,6 +24,15 @@ from typing import Optional
 from .budget_optimizer import ScoredIngredient
 from .profile_schema import HouseholdProfile
 
+# Recipe library — graceful fallback if path not resolved
+try:
+    from ..data.recipe_library import (
+        recipes_for_sale_items, get_recipe_shopping_items, query_recipes
+    )
+    _RECIPE_LIB = True
+except ImportError:
+    _RECIPE_LIB = False
+
 
 # ── Flavor Plugins ────────────────────────────────────────────────────────────
 # Each plugin is a "voice" the same base ingredients can be cooked in. The
@@ -90,6 +99,8 @@ class Meal:
     cost_per_serving: float               # for the dashboard budget audit
     servings: int
     safety_attestation: list[str]         # member names this meal is verified safe for
+    recipe_id: Optional[str] = None       # recipe_library ID if matched
+    recipe_ingredients: list = field(default_factory=list)  # non-pantry items from library
 
     @property
     def total_cost(self) -> float:
@@ -151,12 +162,33 @@ class MealPlanner:
             compatible.append(key)
         return compatible
 
+    def _dietary_flags(self) -> dict:
+        """Translate household allergies/prefs to recipe_library dietary_flags format."""
+        flags: dict = {}
+        for member in self.household.members:
+            for allergy in getattr(member, "allergies", []):
+                al = allergy.lower()
+                if any(k in al for k in ["gluten", "wheat", "celiac"]):
+                    flags["gluten_free"] = True
+                if any(k in al for k in ["dairy", "milk", "lactose"]):
+                    flags["dairy_free"] = True
+                if any(k in al for k in ["nut", "peanut"]):
+                    flags["nut_free"] = True
+            for pref in getattr(member, "dietary_preferences", []):
+                pl = pref.lower()
+                if "vegetarian" in pl: flags["vegetarian"] = True
+                if "vegan"      in pl: flags["vegan"]      = True
+        return flags
+
     def assemble_week(
         self,
         hero_ingredients: list[ScoredIngredient],
         flyer_week: Optional[str] = None,
         grocer: Optional[str] = None,
         n_meals: Optional[int] = None,
+        cuisine_prefs: Optional[list] = None,
+        protein_prefs: Optional[list] = None,
+        exclude_recipe_ids: Optional[list] = None,
     ) -> WeeklyPlan:
         """
         Build a weekly dinner plan from the supplied hero ingredients.
@@ -183,6 +215,25 @@ class MealPlanner:
 
         if not hero_ingredients or not self._safe_plugins:
             return plan
+
+        # ── Query recipe library for this week ─────────────────────────────
+        # Grab names of all sale items so we can match recipe proteins to what
+        # is actually on sale. Dietary flags from the household profile apply
+        # as hard filters (Sincere Strategy: safety before savings, always).
+        candidate_recipes: list = []
+        if _RECIPE_LIB:
+            try:
+                sale_names  = [s.ingredient.name for s in hero_ingredients]
+                hh_flags    = self._dietary_flags()
+                candidate_recipes = recipes_for_sale_items(
+                    sale_item_names=sale_names,
+                    proteins=protein_prefs or None,
+                    cuisines=cuisine_prefs or None,
+                    dietary_flags=hh_flags if hh_flags else None,
+                    exclude_ids=exclude_recipe_ids or [],
+                )
+            except Exception:
+                candidate_recipes = []
 
         # Sort hero ingredients into protein anchor + supporting cast
         priority = {"protein": 0, "produce": 1, "legume": 2, "grain": 3,
@@ -219,10 +270,42 @@ class MealPlanner:
             fmt_idx = _plugin_format_idx.get(plugin_key, 0)
             _plugin_format_idx[plugin_key] = fmt_idx + 1
 
+            # ── Recipe library match ────────────────────────────────────────
+            # Try to find a library recipe whose protein matches today's anchor
+            # and hasn't been used earlier this week (no repeats).
+            recipe      = None
+            recipe_ings: list = []
+            used_ids    = {m.recipe_id for m in plan.meals if m.recipe_id}
+            anchor_name = anchor_ing.ingredient.name.lower()
+
+            if candidate_recipes:
+                for r in candidate_recipes:
+                    if r["id"] in used_ids:
+                        continue
+                    # Prefer recipe whose protein keyword matches the anchor
+                    if r["primary_protein"] in anchor_name or                        anchor_name in r["primary_protein"]:
+                        recipe = r
+                        break
+                # Second pass: any unused recipe if no protein match found
+                if recipe is None:
+                    for r in candidate_recipes:
+                        if r["id"] not in used_ids:
+                            recipe = r
+                            break
+
+            if recipe is not None:
+                meal_name   = recipe["name"]
+                recipe_id   = recipe["id"]
+                recipe_ings = get_recipe_shopping_items(recipe) if _RECIPE_LIB else []
+            else:
+                meal_name   = self._compose_meal_name(plugin, meal_ings, fmt_idx)
+                recipe_id   = None
+                recipe_ings = []
+
             meal = Meal(
                 day=day,
                 slot=self.DEFAULT_SLOT,
-                name=self._compose_meal_name(plugin, meal_ings, fmt_idx),
+                name=meal_name,
                 ingredients=meal_ings,
                 flavor_plugin=plugin_key,
                 pantry_seasonings=plugin["pantry_seasonings"],
@@ -230,6 +313,8 @@ class MealPlanner:
                 cost_per_serving=round(cost_per_serving, 2),
                 servings=self.household.servings_per_meal,
                 safety_attestation=[m.name for m in self.household.members],
+                recipe_id=recipe_id,
+                recipe_ingredients=recipe_ings,
             )
             plan.meals.append(meal)
 
