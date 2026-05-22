@@ -370,7 +370,8 @@ class KrogerClient:
         except error.HTTPError as e:
             body = e.read().decode()
             logger.error(f"Kroger API {endpoint} failed ({e.code}): {body}")
-            return {}
+            # Raise so the caller sees the real error instead of empty results.
+            raise RuntimeError(f"Kroger /products returned HTTP {e.code}: {body[:200]}")
 
     # ── Product → Item ────────────────────────────────────────────────────────
 
