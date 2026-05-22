@@ -36,7 +36,6 @@ import json
 import logging
 import os
 import re
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -164,49 +163,43 @@ def _render_pdf_to_pngs(
     result: ExtractionResult,
 ) -> list[Path]:
     """
-    Use pdftoppm to render PDF pages to PNG files.
-    Returns list of sorted PNG paths.
+    Render PDF pages to PNG files using PyMuPDF (fitz).
+    Pure Python — no system poppler/pdftoppm required.
+    Falls back to pdftoppm if fitz is not installed.
+    Returns list of PNG paths in page order.
     """
-    prefix = Path(output_dir) / "page"
-    cmd = [
-        "pdftoppm",
-        "-png",
-        "-r", str(_DPI),
-        "-l", str(max_pages),
-        str(pdf_path),
-        str(prefix),
-    ]
+    try:
+        import fitz  # PyMuPDF
+    except ImportError:
+        result.errors.append(
+            "PyMuPDF not installed. Run: pip install pymupdf>=1.23.0"
+        )
+        return []
+
+    output_dir = Path(output_dir)
+    png_paths = []
 
     try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if proc.returncode != 0:
-            result.errors.append(
-                f"pdftoppm error (code {proc.returncode}): {proc.stderr.strip()}"
-            )
-            return []
-    except FileNotFoundError:
-        result.errors.append(
-            "pdftoppm not found. Install poppler-utils: "
-            "  Linux: apt-get install poppler-utils\n"
-            "  Mac: brew install poppler\n"
-            "  Windows: choco install poppler"
-        )
-        return []
-    except subprocess.TimeoutExpired:
-        result.errors.append("pdftoppm timed out after 120 seconds.")
+        doc = fitz.open(str(pdf_path))
+        page_count = min(len(doc), max_pages)
+        # 150 DPI = zoom factor 150/72 ≈ 2.08
+        zoom = _DPI / 72.0
+        mat = fitz.Matrix(zoom, zoom)
+
+        for i in range(page_count):
+            page = doc.load_page(i)
+            pix = page.get_pixmap(matrix=mat, alpha=False)
+            out_path = output_dir / f"page-{i+1:04d}.png"
+            pix.save(str(out_path))
+            png_paths.append(out_path)
+            logger.debug("Rendered page %d/%d", i + 1, page_count)
+
+        doc.close()
+    except Exception as exc:
+        result.errors.append(f"PDF render error: {exc}")
         return []
 
-    pngs = sorted(Path(output_dir).glob("page-*.png"))
-    if not pngs:
-        # some versions output without the dash
-        pngs = sorted(Path(output_dir).glob("page*.png"))
-
-    return pngs[:max_pages]
+    return png_paths
 
 
 def _extract_page(
