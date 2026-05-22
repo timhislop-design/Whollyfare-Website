@@ -1315,8 +1315,10 @@ def _pull_flipp(chain: str, postal_code: str = "22901") -> int:
 # Chains that publish on Flipp — these get a "Pull from Flipp" button.
 # POC: covers the Charlottesville pilot stores (Food Lion + Harris Teeter).
 # PROD: auto-detect from FlippClient.list_supported_chains() per household zip.
+# Food Lion + Harris Teeter removed — Flipp is a SPA, returns HTML not JSON.
+# Kept for future enterprise API access. Food Lion → pdf_text, HT → manual_only.
 FLIPP_CHAINS = {
-    "Food Lion", "Harris Teeter", "Giant Food", "Wegmans",
+    "Giant Food", "Wegmans",
     "Publix", "Lidl",
 }
 

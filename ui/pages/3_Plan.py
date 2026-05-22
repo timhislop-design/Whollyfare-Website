@@ -154,74 +154,91 @@ def _run_engine(prefs: dict) -> bool:
 # ══════════════════════════════════════════════════════════════════════════════
 # PHASE 1 — WEEKLY PREFERENCES
 # Shown when there's no plan yet (or user clicks "Change preferences")
+# POC: Preferences stored in session_state. PROD: persisted to weekly_prefs table.
 # ══════════════════════════════════════════════════════════════════════════════
 
 _show_prefs = not plan or st.session_state.get("_show_prefs_form", False)
 
 if _show_prefs:
     style.page_header(
-        "What does your family want this week?",
-        "Tell us the vibe — we'll build around what's actually on sale.",
+        "What do you want this week?",
+        f"Prices are current as of {st.session_state.get('active_week', 'this week')}. "
+        "Set your preferences and we'll build your plan from today's best sales.",
     )
 
-    # Cuisine cards
+    # ── Section 1: Cuisine ────────────────────────────────────────────────────
+    st.html("""
+    <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
+                text-transform:uppercase;margin:4px 0 12px 0;'>
+        Step 1 of 3 &nbsp;·&nbsp; Cuisine preference
+    </div>""")
+
     CUISINES = [
-        ("🌮", "Mexican",       "Tacos, fajitas, enchiladas"),
-        ("🍜", "Asian",         "Stir-fry, rice bowls, noodles"),
+        ("🌮", "Mexican",       "Tacos, fajitas, rice bowls"),
+        ("🍜", "Asian",         "Stir-fry, noodles, fried rice"),
         ("🍝", "Italian",       "Pasta, chicken, hearty sauces"),
         ("🍗", "American",      "Comfort food, BBQ, classics"),
         ("🥗", "Mediterranean", "Light, fresh, veggie-forward"),
-        ("🌶️", "Mix it up",     "Whatever saves the most money"),
+        ("🌶️", "Mix it up",     "Best prices win this week"),
     ]
 
-    st.html("<div style='font-size:0.92rem;font-weight:700;color:#1A2E1D;"
-            "margin-bottom:12px;'>Pick a cuisine vibe for this week</div>")
-
     _saved_cuisine = prefs.get("cuisine", "Mix it up")
-    _cols = st.columns(6)
-    _selected_cuisine = _saved_cuisine
+    # Radio gives a real selection — st.radio with horizontal feels like a toggle row
+    _cuisine_labels = [c[1] for c in CUISINES]
+    _cuisine_icons  = {c[1]: c[0] for c in CUISINES}
+    _cuisine_descs  = {c[1]: c[2] for c in CUISINES}
+
+    _c_cols = st.columns(6)
+    _selected_cuisine = st.session_state.get("_pref_cuisine", _saved_cuisine)
 
     for i, (icon, label, desc) in enumerate(CUISINES):
-        with _cols[i]:
-            _active = _saved_cuisine == label
-            _bg     = "#D8EDD0" if _active else "#F5FAF5"
-            _border = "#3A8C4E" if _active else "#C8DFC8"
-            _fw     = "700"     if _active else "400"
-            st.html(
-                f"<div style='background:{_bg};border:2px solid {_border};"
-                f"border-radius:10px;padding:12px 8px;text-align:center;"
-                f"cursor:pointer;margin-bottom:4px;'>"
-                f"<div style='font-size:1.6rem;'>{icon}</div>"
-                f"<div style='font-size:0.8rem;font-weight:{_fw};"
-                f"color:#1A2E1D;margin-top:4px;'>{label}</div>"
-                f"<div style='font-size:0.68rem;color:#5A7A62;'>{desc}</div>"
-                f"</div>"
-            )
+        with _c_cols[i]:
+            _active = (_selected_cuisine == label)
+            _bg     = "#D8EDD0" if _active else "#FFFFFF"
+            _border = "#2D6A4F" if _active else "#C8DFC8"
+            _fw     = "700"     if _active else "500"
+            _check  = "✓ " if _active else ""
+            st.html(f"""<div style='background:{_bg};border:2px solid {_border};
+                border-radius:10px;padding:12px 8px 10px 8px;text-align:center;
+                margin-bottom:2px;min-height:88px;'>
+              <div style='font-size:1.5rem;line-height:1;'>{icon}</div>
+              <div style='font-size:0.82rem;font-weight:{_fw};color:#1A2E1D;
+                          margin-top:6px;'>{_check}{label}</div>
+              <div style='font-size:0.68rem;color:#5A7A62;margin-top:3px;
+                          line-height:1.3;'>{desc}</div>
+            </div>""")
             if st.button(label, key=f"cuisine_{label}", use_container_width=True,
                          type="primary" if _active else "secondary"):
-                _selected_cuisine = label
+                st.session_state["_pref_cuisine"] = label
+                st.rerun()
 
-    st.html("<div style='height:16px;'></div>")
+    st.html("<div style='height:20px;'></div>")
 
-    # Dinner count + nights out
-    _col1, _col2, _col3 = st.columns([1, 1, 2])
-    with _col1:
+    # ── Section 2: Schedule ───────────────────────────────────────────────────
+    st.html("""
+    <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
+                text-transform:uppercase;margin-bottom:12px;'>
+        Step 2 of 3 &nbsp;·&nbsp; This week's schedule
+    </div>""")
+
+    _sched_cols = st.columns([1, 1, 2])
+    with _sched_cols[0]:
         _dinners = st.number_input(
-            "Dinners this week",
+            "Dinners to plan",
             min_value=2, max_value=7,
             value=prefs.get("dinners", getattr(household, "meals_per_week", 5)),
             step=1,
-            help="How many dinners should WhollyFare plan for?",
+            help="WhollyFare builds this many dinners from sale prices.",
         )
-    with _col2:
+    with _sched_cols[1]:
         _nights_out = st.number_input(
             "Nights eating out",
             min_value=0, max_value=5,
             value=prefs.get("nights_out", 0),
             step=1,
-            help="Nights you'll eat out or order in — we'll plan the rest.",
+            help="Nights you'll eat out or order in — we skip those.",
         )
-    with _col3:
+    with _sched_cols[2]:
         _occasion = st.selectbox(
             "Anything special this week?",
             options=["Nothing special", "Date night", "Family gathering",
@@ -231,10 +248,20 @@ if _show_prefs:
                        prefs.get("occasion", "Nothing special")),
         )
 
+    st.html("<div style='height:20px;'></div>")
+
+    # ── Section 3: Notes ─────────────────────────────────────────────────────
+    st.html("""
+    <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
+                text-transform:uppercase;margin-bottom:12px;'>
+        Step 3 of 3 &nbsp;·&nbsp; Anything to avoid or request?
+    </div>""")
+
     _notes = st.text_input(
-        "Anything to avoid or request? (optional)",
+        "Optional notes",
         value=prefs.get("notes", ""),
-        placeholder="e.g. 'no fish this week', 'want something quick on Thursday'",
+        placeholder="e.g. no fish this week · quick meals Thursday · Chas won't eat mushrooms",
+        label_visibility="collapsed",
     )
 
     st.html("<div style='height:8px;'></div>")
@@ -243,22 +270,30 @@ if _show_prefs:
     st.html(
         "<div style='background:#FFF8E1;border-left:3px solid #FFD54F;"
         "border-radius:0 6px 6px 0;padding:8px 14px;font-size:0.78rem;"
-        "color:#7A5C00;margin-bottom:16px;line-height:1.5;'>"
-        "🧪 <strong>Pilot note:</strong> Cuisine preference is captured now and will drive "
-        "recipe selection in Phase 2. For this pilot, the engine builds from whatever's "
-        "on sale this week — cuisine shapes the meal names where ingredients allow."
+        "color:#7A5C00;margin-bottom:20px;line-height:1.5;'>"
+        "🧪 <strong>Pilot note:</strong> Cuisine shapes meal names where sale items allow. "
+        "Phase 2 adds the full recipe library — then cuisine drives every ingredient choice. "
+        "Come back each week after loading new sale prices and hit the button below."
         "</div>"
     )
 
-    if st.button("🍽️ Generate My Plan →", type="primary", use_container_width=True):
+    # Resolve cuisine from session state (button clicks update it above)
+    _final_cuisine = st.session_state.get("_pref_cuisine", _saved_cuisine)
+
+    if st.button(
+        f"💾 Save & Build This Week's Plan  →  {_final_cuisine}",
+        type="primary",
+        use_container_width=True,
+    ):
         new_prefs = {
-            "cuisine":    _selected_cuisine,
+            "cuisine":    _final_cuisine,
             "dinners":    int(_dinners),
             "nights_out": int(_nights_out),
             "occasion":   _occasion,
             "notes":      _notes,
         }
         st.session_state["weekly_prefs"] = new_prefs
+        st.session_state.pop("_pref_cuisine", None)
         st.session_state["_show_prefs_form"] = False
         ok = _run_engine(new_prefs)
         if ok:
