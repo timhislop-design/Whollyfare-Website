@@ -50,7 +50,8 @@ logger = logging.getLogger(__name__)
 _MODEL        = "claude-3-5-haiku-20241022"   # fast + cheap for extraction
 _MAX_TOKENS   = 2048
 _MAX_PAGES    = 20          # safety cap — most circulars are 8–16 pages
-_DPI          = 150         # enough for Claude to read prices clearly; keeps PNGs small
+_DPI          = 72          # 72 DPI is enough for Claude to read sale prices
+_MAX_PX_WIDTH = 2048        # cap pixel width so images stay under Claude 5 MB limit
 
 # ---------------------------------------------------------------------------
 # The extraction prompt
@@ -177,29 +178,47 @@ def _render_pdf_to_pngs(
         return []
 
     output_dir = Path(output_dir)
-    png_paths = []
+    jpg_paths = []
 
     try:
         doc = fitz.open(str(pdf_path))
         page_count = min(len(doc), max_pages)
-        # 150 DPI = zoom factor 150/72 ≈ 2.08
-        zoom = _DPI / 72.0
-        mat = fitz.Matrix(zoom, zoom)
 
         for i in range(page_count):
             page = doc.load_page(i)
+
+            # Scale so the longest edge is at most _MAX_PX_WIDTH pixels.
+            # Food Lion / Giant PDFs can be 7000+ pts wide — rendering at 1:1
+            # produces 20+ MB PNGs that Claude rejects. JPEG at 80% quality
+            # keeps files well under the 5 MB API limit.
+            page_w = page.rect.width   # points
+            page_h = page.rect.height  # points
+            longest = max(page_w, page_h)
+            zoom = min(_DPI / 72.0, _MAX_PX_WIDTH / longest)
+            mat = fitz.Matrix(zoom, zoom)
+
             pix = page.get_pixmap(matrix=mat, alpha=False)
-            out_path = output_dir / f"page-{i+1:04d}.png"
-            pix.save(str(out_path))
-            png_paths.append(out_path)
-            logger.debug("Rendered page %d/%d", i + 1, page_count)
+            jpg_bytes = pix.tobytes("jpeg", jpg_quality=80)
+
+            # Safety net: if still over 4 MB, halve dimensions and re-encode
+            if len(jpg_bytes) > 4 * 1024 * 1024:
+                zoom2 = zoom * 0.5
+                mat2 = fitz.Matrix(zoom2, zoom2)
+                pix = page.get_pixmap(matrix=mat2, alpha=False)
+                jpg_bytes = pix.tobytes("jpeg", jpg_quality=75)
+
+            out_path = output_dir / f"page-{i+1:04d}.jpg"
+            out_path.write_bytes(jpg_bytes)
+            jpg_paths.append(out_path)
+            logger.debug("Rendered page %d/%d  %.1f KB", i + 1, page_count,
+                         len(jpg_bytes) / 1024)
 
         doc.close()
     except Exception as exc:
         result.errors.append(f"PDF render error: {exc}")
         return []
 
-    return png_paths
+    return jpg_paths
 
 
 def _extract_page(
@@ -235,7 +254,7 @@ def _extract_page(
                             "type":       "image",
                             "source": {
                                 "type":       "base64",
-                                "media_type": "image/png",
+                                "media_type": "image/jpeg",
                                 "data":       image_data,
                             },
                         },
