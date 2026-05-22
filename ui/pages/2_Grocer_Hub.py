@@ -184,7 +184,7 @@ STORE_TIERS = [
              "flyer": "https://www.kroger.com/weeklyad",
              # POC: location hardcoded for Charlottesville pilot (Barracks Rd store).
              # PROD: resolved from household zip via Kroger Locations API.
-             "location": "01200441",
+             "location": "02900359",
              "note": "Live API connected — WhollyFare pulls current prices automatically. Loyalty card unlocks stacked digital coupons."},
             {"chain": "Food Lion",      "source": "manual",     "rewards": True,  "delivery": False,
              "circular_support": "pdf_text",
@@ -1145,40 +1145,10 @@ def _pull_kroger(chain: str, location_id: str) -> int:
     # POC: fall back to Barracks Rd location if DB row has empty or non-ID location_description.
     # A valid Kroger location_id is exactly 8 alphanumeric characters.
     # PROD: every household row will carry the user-selected location_id.
-    _loc = location_id if (location_id and len(location_id) == 8 and location_id.isalnum()) else "01200441"
+    _loc = location_id if (location_id and len(location_id) == 8 and location_id.isalnum()) else "02900359"
     try:
         from integrations.kroger.client import KrogerClient
         client = KrogerClient(client_id=client_id, client_secret=client_secret, location_id=_loc)
-        # Diagnostic: test with and without locationId to isolate the issue
-        _raw_test = client._search_products("chicken breast", _loc)
-        if not _raw_test:
-            client._ensure_token()
-            import urllib.request as _ur, urllib.parse as _up, json as _json
-            _auth = {"Accept": "application/json", "Authorization": f"Bearer {client._access_token}"}
-            # Test 1: without location filter
-            _url_no_loc = "https://api.kroger.com/v1/products?" + _up.urlencode({
-                "filter.term": "chicken", "filter.limit": 3,
-            })
-            try:
-                with _ur.urlopen(_ur.Request(_url_no_loc, headers=_auth), timeout=15) as _r:
-                    _no_loc = _json.loads(_r.read())
-            except Exception as _e:
-                _no_loc = {"error": str(_e)}
-            # Test 2: find stores for zip to verify location ID
-            _url_stores = "https://api.kroger.com/v1/locations?" + _up.urlencode({
-                "filter.zipCode.near": "22901", "filter.limit": 5, "filter.chain": "KROGER",
-            })
-            try:
-                with _ur.urlopen(_ur.Request(_url_stores, headers=_auth), timeout=15) as _r:
-                    _stores = _json.loads(_r.read())
-            except Exception as _e:
-                _stores = {"error": str(_e)}
-            with st.expander("🔬 Kroger API diagnostics", expanded=True):
-                st.markdown("**Without locationId (should return products if auth is OK):**")
-                st.code(_json.dumps(_no_loc, indent=2)[:1500])
-                st.markdown("**Stores near 22901 (shows correct locationId):**")
-                st.code(_json.dumps(_stores, indent=2)[:1500])
-            return 0
         result = client.get_weekly_sales(flyer_week=st.session_state["active_week"])
         out = Path("app/data/flyers") / f"kroger_{st.session_state['active_week']}.json"
         client.save(result, out)
