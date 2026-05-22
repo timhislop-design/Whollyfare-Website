@@ -1404,12 +1404,6 @@ for g in grocers:
             with _p3:
                 _src_label = "Pulls live prices from Kroger API" if _is_api_store else "Pulls this week's sale prices from Flipp"
                 st.html(f"<span style='font-size:0.74rem;color:#5A7A62;line-height:2.2;'>{_src_label} · PDF / manual below as fallback</span>")
-            with _f3:
-                st.html(
-                    "<span style='font-size:0.74rem;color:#5A7A62;line-height:2.2;'>"
-                    "Pulls this week's sale prices directly from Flipp · "
-                    "PDF / manual below as fallback</span>"
-                )
 
         # Determine circular support for this store
         _circ_support = CHAIN_DATA.get(chain.lower(), {}).get("circular_support", "pdf_text")
