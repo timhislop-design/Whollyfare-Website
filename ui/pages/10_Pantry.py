@@ -125,35 +125,54 @@ with st.form("add_pantry_item", clear_on_submit=True):
             changed = True
             st.success(clean.title() + " added to pantry.")
 
-# ── Save changes ──────────────────────────────────────────────────────────────
+# ── Out-of-stock summary + explicit save ─────────────────────────────────────
+# Show items unchecked from defaults so the user sees what will hit their
+# shopping list before committing the change.
+out_of_stock_current = {item for item in state.PANTRY_DEFAULTS if item not in current_pantry}
+
+if out_of_stock_current:
+    st.divider()
+    _oos_count = str(len(out_of_stock_current))
+    _oos_names = " &nbsp;&middot;&nbsp; ".join(sorted(i.title() for i in out_of_stock_current))
+    st.html(
+        "<div style='font-size:0.9rem;font-weight:700;color:#BF5E00;margin-bottom:6px;'>"
+        + "🛒 Will be added to this week's shopping list (" + _oos_count + " items)</div>")
+    st.html(
+        "<div style='font-size:0.85rem;color:#5A3A00;background:#FFF8F0;"
+        "border:1px solid #FFCC80;border-radius:8px;padding:10px 14px;line-height:1.8;'>"
+        + _oos_names
+        + "<br><span style='font-size:0.78rem;color:#9AA8A0;'>"
+        "These will appear in the Also Needed section of your shopping list.</span>"
+        "</div>")
+
 if changed:
-    st.session_state["household_pantry"] = current_pantry
+    st.divider()
+    col_save, col_discard = st.columns([2, 1])
+    with col_save:
+        if st.button("✅  Save pantry changes", type="primary", use_container_width=True):
+            st.session_state["household_pantry"] = current_pantry
 
-    # Items that were in PANTRY_DEFAULTS but are now unchecked = "I ran out / don't have this."
-    # Track them in session_state so the shopping list can surface them as
-    # "also buy this week" items, keeping the cost comparison honest.
-    # Phase 2: persisted to DB with a restock_flag so the app knows to watch for
-    # a good price on this item in future circulars.
-    default_items = state.PANTRY_DEFAULTS
-    out_of_stock  = {item for item in default_items if item not in current_pantry}
-    st.session_state["pantry_out_of_stock"] = out_of_stock
+            # Track out-of-stock for shopping list
+            st.session_state["pantry_out_of_stock"] = out_of_stock_current
 
-    # Pilot: persist to Supabase households row if authenticated.
-    # Stores as a JSON array in the pantry_items column.
-    # PROD: dedicated pantry table with quantity + restock_threshold per item.
-    if state.is_authenticated():
-        hid = st.session_state.get("household_id")
-        if hid:
-            try:
-                state._sb_update(
-                    "households",
-                    {"pantry_items": sorted(current_pantry)},
-                    "id", hid,
-                )
-            except Exception:
-                pass   # Degrades gracefully -- session_state is the working store
-
-    st.rerun()
+            # Pilot: persist to Supabase if authenticated.
+            # PROD: dedicated pantry table with quantity + restock_threshold per item.
+            if state.is_authenticated():
+                hid = st.session_state.get("household_id")
+                if hid:
+                    try:
+                        state._sb_update(
+                            "households",
+                            {"pantry_items": sorted(current_pantry)},
+                            "id", hid,
+                        )
+                    except Exception:
+                        pass
+            st.success("Pantry saved. Your shopping list is updated.")
+            st.rerun()
+    with col_discard:
+        if st.button("Discard changes", use_container_width=True):
+            st.rerun()
 
 # ── Reset to defaults ─────────────────────────────────────────────────────────
 st.divider()

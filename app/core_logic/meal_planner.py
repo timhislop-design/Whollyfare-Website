@@ -278,23 +278,41 @@ class MealPlanner:
             fmt_idx = _plugin_format_idx.get(plugin_key, 0)
             _plugin_format_idx[plugin_key] = fmt_idx + 1
 
-            # ── Recipe library match ────────────────────────────────────────
-            # Try to find a library recipe whose protein matches today's anchor
-            # and hasn't been used earlier this week (no repeats).
+            # ── Recipe library match with cuisine rotation ─────────────────
+            # Priority: protein match + unused cuisine > protein match any cuisine
+            #           > any unused recipe. This prevents "Mexican every night"
+            #           when the library has many protein matches for one cuisine.
             recipe      = None
             recipe_ings: list = []
-            used_ids    = {m.recipe_id for m in plan.meals if m.recipe_id}
-            anchor_name = anchor_ing.ingredient.name.lower()
+            used_ids      = {m.recipe_id for m in plan.meals if m.recipe_id}
+            used_cuisines = {m.flavor_plugin for m in plan.meals}
+            anchor_name   = anchor_ing.ingredient.name.lower()
+
+            def _protein_match(r: dict) -> bool:
+                pp = r.get("primary_protein", "").lower()
+                return pp in anchor_name or anchor_name in pp or any(
+                    w in pp for w in anchor_name.split()
+                )
 
             if candidate_recipes:
+                # Pass 1: protein match + cuisine not yet used this week
                 for r in candidate_recipes:
                     if r["id"] in used_ids:
                         continue
-                    # Prefer recipe whose protein keyword matches the anchor
-                    if r["primary_protein"] in anchor_name or                        anchor_name in r["primary_protein"]:
+                    if _protein_match(r) and r.get("cuisine", "").lower() not in used_cuisines:
                         recipe = r
                         break
-                # Second pass: any unused recipe if no protein match found
+
+                # Pass 2: protein match, any cuisine (fallback when all cuisines used)
+                if recipe is None:
+                    for r in candidate_recipes:
+                        if r["id"] in used_ids:
+                            continue
+                        if _protein_match(r):
+                            recipe = r
+                            break
+
+                # Pass 3: any unused recipe
                 if recipe is None:
                     for r in candidate_recipes:
                         if r["id"] not in used_ids:
