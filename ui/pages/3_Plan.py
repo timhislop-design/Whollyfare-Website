@@ -1,15 +1,22 @@
-"""3_Plan.py — This Week's Plan
+"""
+3_Plan.py — This Week's Plan
+=============================
+The weekly planning ritual. Three phases on one page:
 
-Shows the five-dinner plan the engine built, with full cost breakdown, ingredient
-detail, and constraint compliance. Designed so a pilot friend can understand the
-plan without Tim present — no jargon, no assumed knowledge.
+  1. PREFERENCES  — What does your family want this week?
+                    Cuisine, dinners, nights out. 30 seconds.
+  2. GENERATE     — Engine runs: constraint filter → budget optimizer → meal plan.
+                    Triggered by the preferences form or a "Regenerate" button.
+  3. PLAN DISPLAY — Five dinner cards with costs, stores, ingredients, savings.
 
 POC vs. PRODUCTION
 -------------------
-POC:  Plan data lives in session_state["plan"] — lost on browser refresh.
-      best_store field may be "—" when the engine doesn't set it.
-PROD: Plan persisted to DB (plan_id, household_id, week_id).
-      best_store resolved from ingredient.source_store in the optimizer output.
+POC:  Cuisine preference is stored but doesn't yet filter meal names — recipes
+      aren't wired in yet. Phase 2 adds the recipe library and cuisine matching.
+      Plan lives in session_state — lost on browser refresh.
+PROD: Preferences + plan persisted to DB (weekly_prefs table, plan table).
+      Cuisine drives recipe selection from the Recipe Library.
+      Instacart/Shipt export from Shopping List page.
 """
 
 import sys
@@ -26,12 +33,257 @@ state.init()
 with st.sidebar:
     style.sidebar_nav()
 
+style.inject()
+
+household = st.session_state.get("household")
+plan      = st.session_state.get("plan")
+prefs     = st.session_state.get("weekly_prefs", {})
+
+# ── Guard: household required ─────────────────────────────────────────────────
+if not household:
+    style.page_header("This Week's Plan", "Set up your household first.")
+    st.warning("Complete your household profile before planning meals.", icon="⚠️")
+    if st.button("→ Household Setup", type="primary"):
+        st.switch_page("pages/1_Household.py")
+    st.stop()
+
+# ── Guard: store data required ────────────────────────────────────────────────
+all_candidates = [c for v in st.session_state.get("flyer_data", {}).values() for c in v]
+if not all_candidates and not plan:
+    style.page_header("This Week's Plan", "Load store prices first.")
+    st.info("Head to the Grocer Hub to pull this week's prices, then come back here.", icon="🏪")
+    if st.button("→ Grocer Hub", type="primary"):
+        st.switch_page("pages/2_Grocer_Hub.py")
+    st.stop()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ENGINE — shared helper, called from preferences form and Regenerate button
+# POC: synchronous, single-household. PROD: async Celery worker.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _run_engine(prefs: dict) -> bool:
+    """
+    Run constraint filter → budget optimizer → meal planner.
+    Saves result to session_state["plan"]. Returns True on success.
+
+    POC: Cuisine preference stored but not yet used for recipe selection —
+         Phase 2 wires cuisine to the Recipe Library.
+    PROD: preferences drive recipe filtering; plan persisted to DB.
+    """
+    candidates = [c for v in st.session_state.get("flyer_data", {}).values() for c in v]
+    if not candidates or not st.session_state.get("household"):
+        return False
+
+    hh = st.session_state["household"]
+    n_dinners = prefs.get("dinners", getattr(hh, "meals_per_week", 5))
+
+    try:
+        with st.spinner("Running constraint engine — checking dietary rules…"):
+            from app.core_logic.constraint_engine import ConstraintEngine
+            result = ConstraintEngine(hh).filter(candidates)
+            st.session_state["filter_result"] = result
+
+        with st.spinner(f"Optimising budget across {len(result.passed)} safe ingredients…"):
+            from app.core_logic.budget_optimizer import BudgetOptimizer
+            optimizer = BudgetOptimizer(
+                weekly_budget=hh.weekly_budget_usd,
+                servings_per_meal=hh.servings_per_meal,
+                meals_per_week=n_dinners,
+            )
+            scored   = optimizer.score(result.passed)
+            selected = optimizer.select_ingredients(scored)
+
+        with st.spinner("Assembling your meal plan…"):
+            from app.core_logic.meal_planner import MealPlanner
+            raw_plan = MealPlanner(hh).assemble_week(
+                hero_ingredients=selected,
+                flyer_week=st.session_state["active_week"],
+            )
+
+        plan_meals = []
+        plan_total = 0.0
+        for meal in raw_plan.meals:
+            ing_list  = []
+            meal_cost = 0.0
+            for scored_ing in meal.ingredients:
+                ing  = scored_ing.ingredient
+                cost = ing.sale_price_per_unit
+                ing_list.append({
+                    "item":  ing.name,
+                    "qty":   f"1 {ing.unit}",
+                    "store": getattr(ing, "source_store", "—"),
+                    "cost":  round(cost, 2),
+                })
+                meal_cost += cost
+            plan_meals.append({
+                "day":           meal.day,
+                "name":          meal.name,
+                "gluten_free":   False,
+                "allergen_notes": "",
+                "best_store":    "—",
+                "ingredients":   ing_list,
+                "meal_cost":     round(meal_cost, 2),
+            })
+            plan_total += meal_cost
+
+        total_servings = len(plan_meals) * hh.servings_per_meal
+        single_est     = round(plan_total * 1.18, 2)
+        hf_equiv       = round(total_servings * 9.99, 2)
+
+        st.session_state["plan"] = {
+            "week":     st.session_state["active_week"],
+            "servings": hh.servings_per_meal,
+            "meals":    plan_meals,
+            "prefs":    prefs,   # store alongside plan for display
+            "totals": {
+                "whollyfare_plan":   round(plan_total, 2),
+                "single_store_best": single_est,
+                "hellofresh_equiv":  hf_equiv,
+                "found_money":       round(single_est - plan_total, 2),
+                "vs_hellofresh":     round(hf_equiv - plan_total, 2),
+            },
+        }
+        return True
+
+    except Exception as e:
+        st.error(f"Plan generation failed: {e}", icon="❌")
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE 1 — WEEKLY PREFERENCES
+# Shown when there's no plan yet (or user clicks "Change preferences")
+# ══════════════════════════════════════════════════════════════════════════════
+
+_show_prefs = not plan or st.session_state.get("_show_prefs_form", False)
+
+if _show_prefs:
+    style.page_header(
+        "What does your family want this week?",
+        "Tell us the vibe — we'll build around what's actually on sale.",
+    )
+
+    # Cuisine cards
+    CUISINES = [
+        ("🌮", "Mexican",       "Tacos, fajitas, enchiladas"),
+        ("🍜", "Asian",         "Stir-fry, rice bowls, noodles"),
+        ("🍝", "Italian",       "Pasta, chicken, hearty sauces"),
+        ("🍗", "American",      "Comfort food, BBQ, classics"),
+        ("🥗", "Mediterranean", "Light, fresh, veggie-forward"),
+        ("🌶️", "Mix it up",     "Whatever saves the most money"),
+    ]
+
+    st.html("<div style='font-size:0.92rem;font-weight:700;color:#1A2E1D;"
+            "margin-bottom:12px;'>Pick a cuisine vibe for this week</div>")
+
+    _saved_cuisine = prefs.get("cuisine", "Mix it up")
+    _cols = st.columns(6)
+    _selected_cuisine = _saved_cuisine
+
+    for i, (icon, label, desc) in enumerate(CUISINES):
+        with _cols[i]:
+            _active = _saved_cuisine == label
+            _bg     = "#D8EDD0" if _active else "#F5FAF5"
+            _border = "#3A8C4E" if _active else "#C8DFC8"
+            _fw     = "700"     if _active else "400"
+            st.html(
+                f"<div style='background:{_bg};border:2px solid {_border};"
+                f"border-radius:10px;padding:12px 8px;text-align:center;"
+                f"cursor:pointer;margin-bottom:4px;'>"
+                f"<div style='font-size:1.6rem;'>{icon}</div>"
+                f"<div style='font-size:0.8rem;font-weight:{_fw};"
+                f"color:#1A2E1D;margin-top:4px;'>{label}</div>"
+                f"<div style='font-size:0.68rem;color:#5A7A62;'>{desc}</div>"
+                f"</div>"
+            )
+            if st.button(label, key=f"cuisine_{label}", use_container_width=True,
+                         type="primary" if _active else "secondary"):
+                _selected_cuisine = label
+
+    st.html("<div style='height:16px;'></div>")
+
+    # Dinner count + nights out
+    _col1, _col2, _col3 = st.columns([1, 1, 2])
+    with _col1:
+        _dinners = st.number_input(
+            "Dinners this week",
+            min_value=2, max_value=7,
+            value=prefs.get("dinners", getattr(household, "meals_per_week", 5)),
+            step=1,
+            help="How many dinners should WhollyFare plan for?",
+        )
+    with _col2:
+        _nights_out = st.number_input(
+            "Nights eating out",
+            min_value=0, max_value=5,
+            value=prefs.get("nights_out", 0),
+            step=1,
+            help="Nights you'll eat out or order in — we'll plan the rest.",
+        )
+    with _col3:
+        _occasion = st.selectbox(
+            "Anything special this week?",
+            options=["Nothing special", "Date night", "Family gathering",
+                     "Kids choice", "Big batch / meal prep"],
+            index=["Nothing special","Date night","Family gathering",
+                   "Kids choice","Big batch / meal prep"].index(
+                       prefs.get("occasion", "Nothing special")),
+        )
+
+    _notes = st.text_input(
+        "Anything to avoid or request? (optional)",
+        value=prefs.get("notes", ""),
+        placeholder="e.g. 'no fish this week', 'want something quick on Thursday'",
+    )
+
+    st.html("<div style='height:8px;'></div>")
+
+    # POC transparency note
+    st.html(
+        "<div style='background:#FFF8E1;border-left:3px solid #FFD54F;"
+        "border-radius:0 6px 6px 0;padding:8px 14px;font-size:0.78rem;"
+        "color:#7A5C00;margin-bottom:16px;line-height:1.5;'>"
+        "🧪 <strong>Pilot note:</strong> Cuisine preference is captured now and will drive "
+        "recipe selection in Phase 2. For this pilot, the engine builds from whatever's "
+        "on sale this week — cuisine shapes the meal names where ingredients allow."
+        "</div>"
+    )
+
+    if st.button("🍽️ Generate My Plan →", type="primary", use_container_width=True):
+        new_prefs = {
+            "cuisine":    _selected_cuisine,
+            "dinners":    int(_dinners),
+            "nights_out": int(_nights_out),
+            "occasion":   _occasion,
+            "notes":      _notes,
+        }
+        st.session_state["weekly_prefs"] = new_prefs
+        st.session_state["_show_prefs_form"] = False
+        ok = _run_engine(new_prefs)
+        if ok:
+            st.rerun()
+    st.stop()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE 2 — PLAN DISPLAY
+# ══════════════════════════════════════════════════════════════════════════════
+
+plan  = st.session_state["plan"]
+prefs = plan.get("prefs", st.session_state.get("weekly_prefs", {}))
+
+cuisine   = prefs.get("cuisine", "")
+cuisine_line = f" · {cuisine} week" if cuisine and cuisine != "Mix it up" else ""
+occasion  = prefs.get("occasion", "")
+notes     = prefs.get("notes", "")
+
 style.page_header(
-    "This Week's Plan",
-    "Five dinners built from your stores' actual sale prices, filtered for your household.",
+    f"This Week's Plan{cuisine_line}",
+    f"Five dinners built from your stores' actual sale prices, filtered for your household.",
 )
 
-# ── Progress breadcrumb ───────────────────────────────────────────────────────
+# Progress breadcrumb
 st.html("""
 <div style='display:flex;align-items:center;gap:0;margin-bottom:22px;'>
   <div style='background:#D8EDD0;color:#3A8C4E;border-radius:50%;width:28px;height:28px;
@@ -51,80 +303,75 @@ st.html("""
 </div>
 """)
 
-# ── Setup check ───────────────────────────────────────────────────────────────
-plan = st.session_state.get("plan")
-
-if not plan:
-    st.warning("No plan generated yet. Load store data and run the engine first.", icon="⚠️")
-    st.page_link("pages/2_Grocer_Hub.py", label="→ Go to Grocer Hub", icon="🏪")
-    st.stop()
+# Preference summary chip + change link
+if prefs:
+    _chip_parts = []
+    if cuisine:             _chip_parts.append(cuisine)
+    if prefs.get("dinners"): _chip_parts.append(f"{prefs['dinners']} dinners")
+    if prefs.get("nights_out"): _chip_parts.append(f"{prefs['nights_out']} nights out")
+    if occasion and occasion != "Nothing special": _chip_parts.append(occasion)
+    _chip_str = " · ".join(_chip_parts)
+    _pref_col, _btn_col = st.columns([5, 1])
+    with _pref_col:
+        st.html(f"<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:12px;'>"
+                f"📋 This week: <strong style='color:#1E5C32;'>{_chip_str}</strong>"
+                + (f" · <em>{notes}</em>" if notes else "")
+                + "</div>")
+    with _btn_col:
+        if st.button("Change preferences", key="change_prefs"):
+            st.session_state["_show_prefs_form"] = True
+            st.rerun()
 
 totals   = plan["totals"]
 meals    = plan["meals"]
 servings = plan["servings"]
 
-# ── Summary bar ───────────────────────────────────────────────────────────────
+# Summary metrics
 c1, c2, c3, c4 = st.columns(4)
 with c1:
     st.metric("Plan cost", f"${totals['whollyfare_plan']:.2f}")
 with c2:
-    st.metric(
-        "Found Money 💚",
-        f"${totals['found_money']:.2f}",
-        delta="saved vs. one store",
-        delta_color="normal",
-    )
+    st.metric("Found Money 💚", f"${totals['found_money']:.2f}",
+              delta="saved vs. one store", delta_color="normal")
 with c3:
     st.metric("vs. HelloFresh", f"${totals['vs_hellofresh']:.2f}", delta="you keep this")
 with c4:
     st.metric("Dinners planned", len(meals))
 
-# ── Cross-store summary callout ───────────────────────────────────────────────
-# POC: STORE_NAMES covers Charlottesville pilot stores + raw chain names as fallback.
-# PROD: Resolved from the household's configured store list.
+# Cross-store callout
 STORE_NAMES = {
-    "kroger_palmyra":           "Kroger",
-    "food_lion_palmyra":        "Food Lion",
-    "aldi_rio":                 "Aldi",
-    "harris_teeter_barracks":   "Harris Teeter",
-    # Normalised chain names used when store IDs aren't set
-    "Kroger":                   "Kroger",
-    "Food Lion":                "Food Lion",
-    "Aldi":                     "Aldi",
-    "Harris Teeter":            "Harris Teeter",
+    "kroger_palmyra": "Kroger", "food_lion_palmyra": "Food Lion",
+    "aldi_rio": "Aldi", "harris_teeter_barracks": "Harris Teeter",
+    "Kroger": "Kroger", "Food Lion": "Food Lion",
+    "Aldi": "Aldi", "Harris Teeter": "Harris Teeter",
 }
-
 store_counts: dict[str, int] = {}
 for meal in meals:
     for ing in meal["ingredients"]:
         sid = ing["store"]
         store_counts[sid] = store_counts.get(sid, 0) + 1
 
-num_stores = len(store_counts)
+num_stores  = len(store_counts)
 store_parts = "  ·  ".join(
     f"🏪 {STORE_NAMES.get(sid, sid)}: {count} items"
     for sid, count in store_counts.items()
 )
+callout_text = (
+    f"{store_parts}  &nbsp;·&nbsp;  "
+    f"<strong style='color:#BF5E00;'>Shopping across {num_stores} stores "
+    f"saves you ${totals['found_money']:.2f} this week</strong>"
+) if num_stores > 1 else store_parts
 
-if num_stores > 1:
-    callout_text = (
-        f"{store_parts}  &nbsp;·&nbsp;  "
-        f"<strong style='color:#BF5E00;'>Shopping across {num_stores} stores "
-        f"saves you ${totals['found_money']:.2f} this week</strong>"
-    )
-else:
-    callout_text = store_parts
-
-st.html(
-    f"""<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;
-                    padding:10px 16px;margin:12px 0 20px 0;font-size:0.9rem;color:#5A3A00;'>
+if callout_text:
+    st.html(f"""<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;
+                        padding:10px 16px;margin:12px 0 20px 0;font-size:0.9rem;color:#5A3A00;'>
       {callout_text}
     </div>""")
 
-# ── Meal cards ────────────────────────────────────────────────────────────────
+# Meal cards
 DAY_COLORS = ["#1E5C32", "#3A8C4E", "#5DAA6A", "#F28B30", "#BF5E00"]
+card_cols  = st.columns(min(len(meals), 5))
 
-card_cols = st.columns(5)
 for idx, meal in enumerate(meals):
     color       = DAY_COLORS[idx % len(DAY_COLORS)]
     cost        = meal["meal_cost"]
@@ -140,119 +387,87 @@ for idx, meal in enumerate(meals):
         f"<div style='font-size:11px;color:#5A7A62;margin-bottom:4px;'>🏪 {store_label}</div>"
         if store_label else ""
     )
-    with card_cols[idx]:
-        st.html(
-            f"""<div style='background:#FFFFFF;border-radius:10px;
-                            box-shadow:0 1px 6px rgba(0,0,0,0.08);
-                            border-top:4px solid {color};
-                            padding:14px 12px;margin-bottom:8px;'>
-              <div style='font-size:11px;font-weight:700;color:{color};
-                          letter-spacing:0.06em;text-transform:uppercase;
-                          margin-bottom:4px;'>{meal['day']}</div>
-              <div style='font-size:13px;font-weight:700;color:#1E5C32;
-                          line-height:1.3;margin-bottom:8px;'>{meal['name']}</div>
-              <div style='font-size:1.25rem;font-weight:800;color:#1E5C32;'>${cost:.2f}</div>
-              <div style='font-size:11px;color:#5A7A62;margin-bottom:6px;'>
-                ${per_serving:.2f}/serving</div>
-              {store_line}
-              <div>{gf_badge}</div>
-            </div>""")
+    with card_cols[idx % len(card_cols)]:
+        st.html(f"""<div style='background:#FFFFFF;border-radius:10px;
+                        box-shadow:0 1px 6px rgba(0,0,0,0.08);
+                        border-top:4px solid {color};padding:14px 12px;margin-bottom:8px;'>
+          <div style='font-size:11px;font-weight:700;color:{color};
+                      letter-spacing:0.06em;text-transform:uppercase;margin-bottom:4px;'>{meal['day']}</div>
+          <div style='font-size:13px;font-weight:700;color:#1E5C32;line-height:1.3;margin-bottom:8px;'>{meal['name']}</div>
+          <div style='font-size:1.25rem;font-weight:800;color:#1E5C32;'>${cost:.2f}</div>
+          <div style='font-size:11px;color:#5A7A62;margin-bottom:6px;'>${per_serving:.2f}/serving</div>
+          {store_line}<div>{gf_badge}</div>
+        </div>""")
 
 st.divider()
 
-# ── Meal detail expanders ─────────────────────────────────────────────────────
+# Meal detail expanders
 st.subheader("Meal details")
 st.caption("Tap any meal to see exactly which ingredients the engine chose and where to buy them.")
 
 for meal in meals:
     with st.expander(f"**{meal['day']}** — {meal['name']}", expanded=False):
-        # Allergen notes
         if meal.get("allergen_notes"):
             st.info(f"⚠️ **Allergen notes:** {meal['allergen_notes']}", icon="🛡️")
 
-        # Ingredients table
         ings = meal.get("ingredients", [])
         if ings:
-            header_c1, header_c2, header_c3, header_c4 = st.columns([3, 1, 2, 1])
-            with header_c1:
-                st.html("**Item**")
-            with header_c2:
-                st.markdown("**Qty**")
-            with header_c3:
-                st.markdown("**Store**")
-            with header_c4:
-                st.markdown("**Cost**")
+            h1, h2, h3, h4 = st.columns([3, 1, 2, 1])
+            with h1: st.html("**Item**")
+            with h2: st.markdown("**Qty**")
+            with h3: st.markdown("**Store**")
+            with h4: st.markdown("**Cost**")
 
             for ing in ings:
                 c1, c2, c3, c4 = st.columns([3, 1, 2, 1])
-                raw   = ing.get("store", "")
-                sname = STORE_NAMES.get(raw, raw) if raw and raw != "—" else "—"
-                with c1:
-                    st.caption(ing["item"])
-                with c2:
-                    st.caption(ing["qty"])
-                with c3:
-                    st.caption(sname)
-                with c4:
-                    st.caption(f"${ing['cost']:.2f}")
+                sname = STORE_NAMES.get(ing.get("store",""), ing.get("store","")) or "—"
+                with c1: st.caption(ing["item"])
+                with c2: st.caption(ing["qty"])
+                with c3: st.caption(sname)
+                with c4: st.caption(f"${ing['cost']:.2f}")
 
-        # Meal total
         st.markdown(
             f"<div style='text-align:right;font-size:13px;font-weight:700;"
             f"color:#1E5C32;margin-top:8px;border-top:1px solid #D8EDD0;padding-top:6px;'>"
-            f"Meal total: ${meal['meal_cost']:.2f}"
-            f"</div>")
+            f"Meal total: ${meal['meal_cost']:.2f}</div>")
 
 st.divider()
 
-# ── Constraint compliance ─────────────────────────────────────────────────────
-# Shows pilot friends exactly which rules were applied — radical transparency.
-household = st.session_state.get("household")
+# Constraint compliance
 _constraint_parts = []
 if household:
     try:
-        _allergens = set()
-        _diagnoses = set()
-        _lifestyle = set()
+        _allergens, _diagnoses, _lifestyle = set(), set(), set()
         for _m in household.members:
             _allergens.update(_m.allergies)
             _diagnoses.update(d.value for d in _m.diagnoses)
             _lifestyle.update(t.value for t in _m.lifestyle_tags)
-
-        if "celiac" in _diagnoses:
-            _constraint_parts.append("Gluten-free compliant")
+        if "celiac"      in _diagnoses: _constraint_parts.append("Gluten-free compliant")
         if _allergens:
-            _allergen_str = ", ".join(
-                a.replace("_", " ").capitalize() for a in sorted(_allergens)
-            )
-            _constraint_parts.append(f"No {_allergen_str}")
-        if "type1_diabetes" in _diagnoses or "type2_diabetes" in _diagnoses:
-            _constraint_parts.append("Diabetes-aware")
-        if "ibs_low_fodmap" in _diagnoses:
-            _constraint_parts.append("Low-FODMAP")
-        if "ckd" in _diagnoses:
-            _constraint_parts.append("CKD-safe")
-        if "hypertension" in _diagnoses:
-            _constraint_parts.append("Low-sodium")
-        for _t in sorted(_lifestyle):
-            _constraint_parts.append(_t.replace("_", "-").capitalize())
+            _constraint_parts.append(f"No {', '.join(a.replace('_',' ').capitalize() for a in sorted(_allergens))}")
+        if "type1_diabetes" in _diagnoses or "type2_diabetes" in _diagnoses: _constraint_parts.append("Diabetes-aware")
+        if "ibs_low_fodmap" in _diagnoses: _constraint_parts.append("Low-FODMAP")
+        if "ckd"            in _diagnoses: _constraint_parts.append("CKD-safe")
+        if "hypertension"   in _diagnoses: _constraint_parts.append("Low-sodium")
+        for _t in sorted(_lifestyle): _constraint_parts.append(_t.replace("_","-").capitalize())
     except AttributeError:
-        # household may be in an unexpected shape — degrade gracefully
         pass
 
 _constraint_str = " · ".join(_constraint_parts) if _constraint_parts else "Standard filtering applied"
+st.html(f"""<div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;
+               padding:14px 18px;margin-bottom:20px;'>
+  <span style='font-size:1rem;font-weight:700;color:#1E5C32;'>
+    ✅ All {len(meals)} meals are safe for your household
+  </span>
+  <span style='font-size:0.85rem;color:#3A8C4E;margin-left:12px;'>{_constraint_str}</span>
+</div>""")
 
-st.html(
-    f"""<div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;
-                   padding:14px 18px;margin-bottom:20px;'>
-      <span style='font-size:1rem;font-weight:700;color:#1E5C32;'>
-        ✅ All {len(meals)} meals are safe for your household
-      </span>
-      <span style='font-size:0.85rem;color:#3A8C4E;margin-left:12px;'>
-        {_constraint_str}
-      </span>
-    </div>""")
-
-# ── CTA ───────────────────────────────────────────────────────────────────────
-if st.button("✅ Go to Sunday Buy-Off — confirm this week →", type="primary", use_container_width=True):
-    st.switch_page("pages/4_Sunday_BuyOff.py")
+# CTAs
+_c1, _c2 = st.columns(2)
+with _c1:
+    if st.button("✅ Go to Sunday Buy-Off — confirm this week →", type="primary", use_container_width=True):
+        st.switch_page("pages/4_Sunday_BuyOff.py")
+with _c2:
+    if st.button("🔄 Regenerate with different preferences", use_container_width=True):
+        st.session_state["_show_prefs_form"] = True
+        st.rerun()

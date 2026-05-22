@@ -1327,60 +1327,23 @@ UNITS      = ["lb", "oz", "each", "pkg", "bunch", "bag", "dozen",
 ALLERGENS  = ["peanuts", "tree_nuts", "milk", "eggs", "wheat", "soy",
                "fish", "shellfish", "sesame", "mustard", "celery", "sulphites"]
 
-api_stores    = [g for g in grocers if _source(g) in ("api", "api")]
-manual_stores = [g for g in grocers if _source(g) not in ("api",)]
+# ── All stores — unified view ─────────────────────────────────────────────────
+# All stores show in one list regardless of data source. Each card shows the
+# best available pull method at the top (API / Flipp / none) with PDF + manual
+# tabs below as fallback. The weekly refresh ritual is the same for all stores.
+# POC: Kroger uses its API; Food Lion + HT use Flipp; others are PDF/manual.
+# PROD: every store gets a direct API connection as integrations are built out.
 
-# ── API stores ────────────────────────────────────────────────────────────────
-if api_stores:
-    st.html("<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;"
-            "text-transform:uppercase;color:#3A8C4E;margin-bottom:10px;'>"
-            "API-connected stores</div>")
-
-    for g in api_stores:
-        chain = _chain_name(g)
-        is_ok = chain in loaded
-        with st.container(border=True):
-            ci, cinfo, cact = st.columns([0.5, 3, 2])
-            with ci:
-                st.html("🔗" if is_ok else "⚡")
-            with cinfo:
-                st.markdown(f"**{chain}** &nbsp; {_status_badge(chain)}", unsafe_allow_html=True)
-                meta = g.get("location", "")
-                if g.get("rewards"):    meta += "  · 🎟 Rewards"
-                if g.get("is_primary"): meta += "  · ⭐ Primary"
-                st.caption(meta)
-            with cact:
-                b1, b2 = st.columns(2)
-                with b1:
-                    if st.button("Re-pull" if is_ok else "Pull from API",
-                                 key=f"pull_{chain}", use_container_width=True):
-                        with st.spinner(f"Pulling {chain}…"):
-                            n = _pull_kroger(chain, g.get("location", ""))
-                        if n:
-                            st.toast(f"✅ {n} items loaded from {chain}", icon="🛒")
-                            st.rerun()
-                with b2:
-                    if is_ok and st.button("View items", key=f"view_{chain}", use_container_width=True):
-                        st.session_state["_view_store"] = chain
-                        st.rerun()
-
-    if _pull_all_api:
-        for g in api_stores:
+if _pull_all_api:
+    for g in grocers:
+        if _source(g) == "api":
             with st.spinner(f"Pulling {_chain_name(g)}…"):
                 n = _pull_kroger(_chain_name(g), g.get("location", ""))
             if n:
                 st.toast(f"{_chain_name(g)}: {n} items ✓")
-        st.rerun()
+    st.rerun()
 
-    st.divider()
-
-# ── Manual / PDF stores ───────────────────────────────────────────────────────
-if manual_stores:
-    st.html("<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;"
-            "text-transform:uppercase;color:#3A8C4E;margin-bottom:10px;'>"
-            "Manual entry &amp; PDF upload</div>")
-
-for g in manual_stores:
+for g in grocers:
     chain  = _chain_name(g)
     is_ok  = chain in loaded or any(m["store"] == chain for m in st.session_state.get("manual_items", []))
     dl_url = CHAIN_FLYER_URLS.get(chain.lower(), "")
@@ -1405,22 +1368,40 @@ for g in manual_stores:
                         f"color:#3A8C4E;font-weight:600;text-decoration:none;'>"
                         f"↗ Weekly circular</a>")
 
-        # ── Flipp pull button (for supported chains) ───────────────────────────
-        # Shown above the PDF/manual tabs — fastest path to getting data.
-        # POC: Food Lion + Harris Teeter are the primary Flipp targets.
-        if chain in FLIPP_CHAINS:
-            _flipp_loaded = chain in loaded
-            _f1, _f2, _f3 = st.columns([2, 2, 3])
-            with _f1:
-                _flipp_label = "🔗 Re-pull Flipp" if _flipp_loaded else "🔗 Pull from Flipp"
-                if st.button(_flipp_label, key=f"flipp_{chain}", use_container_width=True,
-                             type="primary" if not _flipp_loaded else "secondary"):
-                    _zip = st.session_state.get("home_zip", "22901") or "22901"
-                    with st.spinner(f"Pulling {chain} from Flipp…"):
-                        _n = _pull_flipp(chain, _zip)
-                    if _n:
-                        st.toast(f"✅ {_n} items loaded from {chain}", icon="🛒")
+        # ── Pull button row — API, Flipp, or none depending on store type ─────
+        # Same layout for every store: one-click pull at the top, fallback below.
+        _is_api_store = _source(g) == "api"
+        if _is_api_store or chain in FLIPP_CHAINS:
+            _pull_loaded = chain in loaded
+            _p1, _p2, _p3 = st.columns([2, 2, 3])
+            with _p1:
+                if _is_api_store:
+                    _pull_label = "🔗 Re-pull API" if _pull_loaded else "🔗 Pull from API"
+                    if st.button(_pull_label, key=f"pull_{chain}", use_container_width=True,
+                                 type="secondary" if _pull_loaded else "primary"):
+                        with st.spinner(f"Pulling {chain}…"):
+                            _n = _pull_kroger(chain, g.get("location", ""))
+                        if _n:
+                            st.toast(f"✅ {_n} items loaded from {chain}", icon="🛒")
+                            st.rerun()
+                else:
+                    _flipp_label = "🔗 Re-pull Flipp" if _pull_loaded else "🔗 Pull from Flipp"
+                    if st.button(_flipp_label, key=f"flipp_{chain}", use_container_width=True,
+                                 type="secondary" if _pull_loaded else "primary"):
+                        _zip = st.session_state.get("home_zip", "22901") or "22901"
+                        with st.spinner(f"Pulling {chain} from Flipp…"):
+                            _n = _pull_flipp(chain, _zip)
+                        if _n:
+                            st.toast(f"✅ {_n} items loaded from {chain}", icon="🛒")
+                            st.rerun()
+            with _p2:
+                if _pull_loaded:
+                    if st.button("View items", key=f"view_{chain}", use_container_width=True):
+                        st.session_state["_view_store"] = chain
                         st.rerun()
+            with _p3:
+                _src_label = "Pulls live prices from Kroger API" if _is_api_store else "Pulls this week's sale prices from Flipp"
+                st.html(f"<span style='font-size:0.74rem;color:#5A7A62;line-height:2.2;'>{_src_label} · PDF / manual below as fallback</span>")
             with _f3:
                 st.html(
                     "<span style='font-size:0.74rem;color:#5A7A62;line-height:2.2;'>"
@@ -1743,101 +1724,40 @@ st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# RUN THE ENGINE
-# POC: Synchronous. Fine for single-household demo.
-# PROD: Background Celery worker; user polls for status.
+# NEXT STEP: PLAN
+# Meal planning happens on the Plan page, not here. The engine (constraint
+# filter → budget optimizer → meal planner) runs after the user sets their
+# weekly cuisine preferences on 3_Plan.py.
+# POC note: plan generation is synchronous. PROD: async worker.
 # ══════════════════════════════════════════════════════════════════════════════
 all_candidates = [c for v in st.session_state.get("flyer_data", {}).values() for c in v]
-can_run = len(all_candidates) > 0 and st.session_state.get("household") is not None
+has_household  = st.session_state.get("household") is not None
+has_items      = len(all_candidates) > 0
 
-if not can_run:
-    reasons = []
-    if not st.session_state.get("household"):
-        reasons.append("set up your household profile first")
-    if not all_candidates:
-        reasons.append("add at least one item via Manual Entry or PDF upload")
-    st.info(f"Almost ready — {' and '.join(reasons)}.", icon="💡")
-    if not st.session_state.get("household"):
-        if st.button("→ Go to Household Setup", type="primary"):
-            st.switch_page("pages/1_Household.py")
+st.divider()
 
-run_btn = st.button(
-    f"⚙️ Run the engine — {len(all_candidates)} items across {len(grocers)} stores",
-    type="primary",
-    use_container_width=True,
-    disabled=not can_run,
-)
-
-if run_btn:
-    household = st.session_state["household"]
-
-    with st.spinner("Running constraint engine…"):
-        from app.core_logic.constraint_engine import ConstraintEngine
-        engine = ConstraintEngine(household)
-        result = engine.filter(all_candidates)
-        st.session_state["filter_result"] = result
-
-    with st.spinner(f"Optimising budget across {len(result.passed)} safe ingredients…"):
-        from app.core_logic.budget_optimizer import BudgetOptimizer
-        optimizer = BudgetOptimizer(
-            weekly_budget=household.weekly_budget_usd,
-            servings_per_meal=household.servings_per_meal,
-            meals_per_week=household.meals_per_week,
-        )
-        scored   = optimizer.score(result.passed)
-        selected = optimizer.select_ingredients(scored)
-
-    with st.spinner("Assembling weekly meal plan…"):
-        from app.core_logic.meal_planner import MealPlanner
-        planner  = MealPlanner(household)
-        raw_plan = planner.assemble_week(
-            hero_ingredients=selected,
-            flyer_week=st.session_state["active_week"],
-        )
-        n_meals    = len(raw_plan.meals)
-        plan_meals = []
-        plan_total = 0.0
-        for meal in raw_plan.meals:
-            ing_list  = []
-            meal_cost = 0.0
-            for scored_ing in meal.ingredients:
-                ing  = scored_ing.ingredient
-                cost = ing.sale_price_per_unit
-                ing_list.append({"item": ing.name, "qty": f"1 {ing.unit}",
-                                  "store": getattr(ing, "source_store", "—"),
-                                  "cost": round(cost, 2)})
-                meal_cost += cost
-            plan_meals.append({
-                "day": meal.day, "name": meal.name,
-                "gluten_free": False, "allergen_notes": "",
-                "best_store": "—", "ingredients": ing_list,
-                "meal_cost": round(meal_cost, 2),
-            })
-            plan_total += meal_cost
-
-        total_servings = n_meals * household.servings_per_meal
-        single_est     = round(plan_total * 1.18, 2)
-        hf_equiv       = round(total_servings * 9.99, 2)
-        st.session_state["plan"] = {
-            "week": st.session_state["active_week"],
-            "servings": household.servings_per_meal,
-            "meals": plan_meals,
-            "totals": {
-                "whollyfare_plan":   round(plan_total, 2),
-                "single_store_best": single_est,
-                "hellofresh_equiv":  hf_equiv,
-                "found_money":       round(single_est - plan_total, 2),
-                "vs_hellofresh":     round(hf_equiv - plan_total, 2),
-            },
-        }
-
-    st.success(
-        f"✅  {n_meals} dinners planned · "
-        f"{len(result.passed)} ingredients cleared · "
-        f"{len(result.rejected)} rejected by safety rules."
+if not has_household:
+    st.info("Set up your household profile first, then come back to load your store prices.", icon="💡")
+    if st.button("→ Go to Household Setup", type="primary"):
+        st.switch_page("pages/1_Household.py")
+elif not has_items:
+    st.info(
+        "Add at least one store's items above (Manual Entry, PDF upload, or API pull), "
+        "then head to This Week's Plan to choose your cuisines and generate your dinners.",
+        icon="💡",
     )
-    c1, c2 = st.columns(2)
-    with c1:
-        st.page_link("pages/3_Plan.py",          label="→ Review this week's plan", icon="🍽️")
-    with c2:
-        st.page_link("pages/4_Sunday_BuyOff.py", label="→ Go straight to Buy-Off",  icon="✅")
+else:
+    st.html(f"""
+    <div style='background:#F0F7F2;border-left:4px solid #2D6A4F;padding:16px 20px;
+                border-radius:6px;margin:8px 0;'>
+      <div style='font-size:1.05rem;font-weight:700;color:#1A2E1D;margin-bottom:4px;'>
+        ✅ {len(all_candidates)} items loaded across your stores
+      </div>
+      <div style='font-size:0.88rem;color:#4A6741;'>
+        Head to <strong>This Week's Plan</strong> to pick your cuisines, set dinners and nights out,
+        and let WhollyFare build your week from today's best prices.
+      </div>
+    </div>
+    """)
+    if st.button("→ Choose Cuisines &amp; Generate My Plan", type="primary", use_container_width=True):
+        st.switch_page("pages/3_Plan.py")
