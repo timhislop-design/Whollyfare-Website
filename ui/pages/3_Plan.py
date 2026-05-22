@@ -34,6 +34,7 @@ with st.sidebar:
     style.sidebar_nav()
 
 style.inject()
+style.maybe_scroll_to_top()
 
 household = st.session_state.get("household")
 plan      = st.session_state.get("plan")
@@ -556,6 +557,7 @@ if _show_prefs:
         st.session_state["_show_prefs_form"] = False
         ok = _run_engine(new_prefs)
         if ok:
+            style.scroll_to_top()
             st.rerun()
     st.stop()
 

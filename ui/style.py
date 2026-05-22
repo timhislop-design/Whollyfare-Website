@@ -224,6 +224,40 @@ def inject():
     st.html(CSS)
 
 
+def scroll_to_top():
+    """
+    Flag that the next page render should scroll to the top of the viewport.
+    Call this before st.rerun() on any save/generate action.
+    """
+    import streamlit as _st
+    _st.session_state["_scroll_to_top"] = True
+
+
+def maybe_scroll_to_top():
+    """
+    Call near the top of each page render (after state.init()).
+    If scroll_to_top() was called before the last rerun, scrolls viewport to 0.
+    Uses window.parent to reach the Streamlit host frame from the component iframe.
+    """
+    import streamlit as _st
+    if not _st.session_state.pop("_scroll_to_top", False):
+        return
+    import streamlit.components.v1 as _comps
+    _js = (
+        "<script>"
+        "(function(){"
+        "var s=['[data-testid=\'stMain\']','section.main','.main'];"
+        "for(var i=0;i<s.length;i++){"
+        "var e=window.parent.document.querySelector(s[i]);"
+        "if(e){e.scrollTop=0;break;}"
+        "}"
+        "window.parent.scrollTo(0,0);"
+        "})();"
+        "</script>"
+    )
+    _comps.html(_js, height=0)
+
+
 def page_header(title: str, subtitle: str = ""):
     inject()
     st.html(
@@ -308,7 +342,7 @@ def sidebar_nav():
     _section("WEEKLY PLAN")
     st.page_link("pages/3_Plan.py",           label="🍽️ This Week's Plan")
     st.page_link("pages/4_Sunday_BuyOff.py",  label="✅ Sunday Buy-Off")
-    st.page_link("pages/5_Shopping_List.py",  label="🛒 Shopping List")
+    st.page_link("pages/5_Shopping_List.py",  label="🛍️ Shopping List")
     st.page_link("pages/10_Pantry.py",         label="🧂 My Pantry")
 
     # ── SAVINGS INTELLIGENCE ──────────────────────────────────────────────────

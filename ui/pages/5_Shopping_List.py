@@ -45,7 +45,7 @@ import streamlit as st
 import ui.state as state
 import ui.style as style
 
-st.set_page_config(page_title="Shopping List - WhollyFare", page_icon="\U0001f6d2", layout="centered")
+st.set_page_config(page_title="Shopping List - WhollyFare", page_icon="\U0001f6cd", layout="centered")
 state.init()
 
 with st.sidebar:
@@ -680,6 +680,13 @@ st.divider()
 # Reset + rebuild controls
 btn1, btn2 = st.columns(2)
 with btn1:
+    if st.button("Check all items", use_container_width=True):
+        for store, items in cart.items():
+            for item in items:
+                st.session_state["chk_" + store + "_" + item["name"]] = True
+        for reg in weekly_regs:
+            st.session_state["chk_wr_" + reg["name"]] = True
+        st.rerun()
     if st.button("Clear all checkmarks", use_container_width=True):
         for store, items in cart.items():
             for item in items:

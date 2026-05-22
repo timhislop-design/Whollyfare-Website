@@ -26,6 +26,7 @@ state.init()
 with st.sidebar:
     style.sidebar_nav()
 
+style.maybe_scroll_to_top()
 style.page_header(
     "Sunday Buy-Off",
     "The moment of the week. Here's what you saved — confirm the plan and shop with confidence.",
@@ -263,6 +264,7 @@ else:
         # approve_week_db() stamps session_state AND writes to DB (if authenticated).
         # POC: silently degrades to session-only if DB unavailable.
         state.approve_week_db()
+        style.scroll_to_top()
         st.rerun()
 
     st.caption(
