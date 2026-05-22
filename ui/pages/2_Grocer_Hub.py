@@ -140,7 +140,7 @@ STORE_TIERS = [
              "flyer": "https://www.aldi.us/en/weekly-specials/",
              "note": "No loyalty card. Weekly Specialbuys are image-based — upload the PDF and review results carefully, or enter key items manually."},
             {"chain": "Lidl",           "source": "manual",  "rewards": False, "delivery": False,
-             "circular_support": "pdf_image",
+             "circular_support": "flipp",
              "flyer": "https://www.lidl.com/en/weekly-specials",
              "note": "Image-based circular similar to ALDI. PDF upload works via OCR — results vary. Manual entry for key items is more reliable."},
             {"chain": "Walmart",        "source": "manual",  "rewards": False, "delivery": True,
@@ -187,23 +187,23 @@ STORE_TIERS = [
              "location": "02900359",
              "note": "Live API connected — WhollyFare pulls current prices automatically. Loyalty card unlocks stacked digital coupons."},
             {"chain": "Food Lion",      "source": "manual",     "rewards": True,  "delivery": False,
-             "circular_support": "pdf_text",
+             "circular_support": "flipp",
              "flyer": "https://stores.foodlion.com",
              "note": "MVP Card deals often beat Kroger on produce. Dedicated parser — PDF circular imports cleanly."},
             {"chain": "Harris Teeter",  "source": "manual",     "rewards": True,  "delivery": True,
-             "circular_support": "pdf_text",
+             "circular_support": "flipp",
              "flyer": "https://www.harristeeter.com/weeklyad",
              "note": "VIC card + e-VIC digital coupons. Text-based circular parses reliably. Super Double coupon events quarterly."},
             {"chain": "Giant Food",     "source": "manual",     "rewards": True,  "delivery": True,
-             "circular_support": "pdf_text",
+             "circular_support": "flipp",
              "flyer": "https://stores.giantfood.com",
              "note": "Giant Card + Gas Rewards. Mid-Atlantic staple. Text circular parses well."},
             {"chain": "Wegmans",        "source": "manual",     "rewards": True,  "delivery": True,
-             "circular_support": "pdf_text",
+             "circular_support": "flipp",
              "flyer": "https://www.wegmans.com/weeklyad",
              "note": "Club card + app coupons. Known for quality and store-brand price. Text circular parses reliably."},
             {"chain": "Publix",         "source": "manual",     "rewards": True,  "delivery": True,
-             "circular_support": "pdf_text",
+             "circular_support": "flipp",
              "flyer": "https://www.publix.com/savings/weekly-ad",
              "note": "BOGO deals are a Publix signature. Well-structured text circular — one of the best-parsing PDFs."},
             {"chain": "Safeway",        "source": "manual",     "rewards": True,  "delivery": True,
@@ -626,6 +626,7 @@ if _show_wizard:
                     _csupp = CHAIN_DATA.get(chain.lower(), {}).get("circular_support", "pdf_text")
                     _supp_badge_map = {
                         "api":         ("🔗", "#1E5C32", "Live API"),
+                        "flipp":       ("🟢", "#1E5C32", "Flipp circular"),
                         "pdf_text":    ("📄", "#1565C0", "PDF supported"),
                         "pdf_image":   ("🖼️", "#BF5E00", "Image PDF — limited"),
                         "manual_only": ("✏️", "#5D4037", "Manual entry only"),
@@ -1289,8 +1290,8 @@ def _pull_flipp(chain: str, postal_code: str = "22901") -> int:
 # POC: covers the Charlottesville pilot stores (Food Lion + Harris Teeter).
 # PROD: auto-detect from FlippClient.list_supported_chains() per household zip.
 FLIPP_CHAINS = {
-    "Food Lion", "Harris Teeter", "Giant", "Wegmans",
-    "Publix", "Lidl", "Walmart",
+    "Food Lion", "Harris Teeter", "Giant Food", "Wegmans",
+    "Publix", "Lidl",
 }
 
 CATEGORIES = ["produce", "protein", "dairy", "grain", "legume", "pantry",
@@ -1427,6 +1428,16 @@ for g in manual_stores:
                 "color:#5D4037;margin-bottom:8px;line-height:1.5;'>"
                 "✏️ <strong>Manual entry only.</strong> This store doesn't publish a "
                 "machine-readable circular. Add items from their printed flyer, app, or website."
+                "</div>"
+            )
+        elif _circ_support == "flipp":
+            st.html(
+                "<div style='background:#E8F5E9;border-left:3px solid #5DAA6A;"
+                "border-radius:0 6px 6px 0;padding:8px 12px;font-size:0.79rem;"
+                "color:#1E5C32;margin-bottom:8px;line-height:1.5;'>"
+                "🟢 <strong>Flipp circular available.</strong> Use the button above to pull "
+                "this week's prices automatically. PDF upload and manual entry below as fallback "
+                "for anything the pull misses."
                 "</div>"
             )
         elif _circ_support == "pdf_image":
