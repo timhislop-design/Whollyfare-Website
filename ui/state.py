@@ -522,6 +522,8 @@ def sign_in(email: str, password: str) -> tuple[bool, str]:
         # Restore grocer selections so the Grocer Hub wizard is pre-filled
         # without the user having to re-enter their stores on every sign-in.
         _load_grocers_from_db()
+        # Restore this week's circular data so user doesn't have to re-pull.
+        _load_flyer_items_from_db()
         # Persist refresh token to browser localStorage so the session survives
         # page navigation, browser refresh, and Streamlit Cloud worker restarts.
         _save_tokens_to_browser()
@@ -666,6 +668,7 @@ def try_restore_from_browser() -> bool:
         if ok:
             _load_household_from_db()
             _load_grocers_from_db()
+            _load_flyer_items_from_db()
             _save_tokens_to_browser()   # write back rotated tokens
             _log.info("try_restore_from_browser: session restored successfully")
             return True
@@ -1538,4 +1541,228 @@ def _load_grocers_from_db():
         # POC: degrade gracefully — session_state keeps whatever was there.
         # Log the actual error so it shows up in Streamlit Cloud's Manage App logs.
         _log.warning("_load_grocers_from_db: failed for hid=%s: %s", hid, _e)
+
+
+# ── Flyer / circular DB layer ─────────────────────────────────────────────────
+# POC:  flyer_weeks + flyer_items tables store circular data keyed by
+#       (household_id, grocer_id, week_start_date). Survives browser refresh
+#       and cross-device login — user never has to re-pull the same week twice.
+# PROD: Automated background workers re-pull circulars; push notifications
+#       when new week's data is available ("New deals just loaded for Kroger").
+
+_VALID_UNITS = {"lb","oz","each","pkg","bunch","bag","dozen","gal","qt","can","jar","box"}
+_UNIT_MAP = {
+    "lbs":"lb","pound":"lb","pounds":"lb",
+    "ounce":"oz","ounces":"oz",
+    "gallon":"gal","gallons":"gal","quart":"qt",
+    "ea":"each","count":"each","ct":"each","pc":"each","pcs":"each",
+    "doz":"dozen",
+}
+_VALID_CATS = {"produce","protein","dairy","grain","legume","pantry","bakery","frozen","beverage","other"}
+
+
+def _coerce_unit(unit: str) -> str:
+    u = (unit or "each").lower().strip()
+    return _UNIT_MAP.get(u, u) if _UNIT_MAP.get(u, u) in _VALID_UNITS else "each"
+
+
+def _coerce_cat(cat: str) -> str:
+    c = (cat or "other").lower().strip()
+    return c if c in _VALID_CATS else "other"
+
+
+def save_flyer_items(chain: str, candidates: list, method: str = "api") -> tuple[bool, str]:
+    """
+    Persist flyer items for one store to flyer_weeks + flyer_items.
+
+    Called after a successful Kroger API pull, PDF parse, or manual save.
+    Replaces any existing items for the same (household, grocer, week).
+
+    POC:  One week at a time; items inserted individually (simple, ~100–300 rows).
+    PROD: Bulk upsert via background worker; incremental diff to avoid re-inserting
+          unchanged items; push notification when new week data lands.
+    """
+    if not _DB_AVAILABLE or not is_authenticated():
+        return False, "Not authenticated — items saved to session only."
+
+    hid = st.session_state.get("household_id")
+    if not hid:
+        return False, "No household_id."
+
+    week = st.session_state.get("active_week", "")
+    if not week:
+        return False, "No active_week set."
+
+    try:
+        # 1. Look up grocer_id from household_grocers
+        g_rows = _sb_select(
+            "household_grocers",
+            select="id",
+            filters={"household_id": hid, "chain_name": chain},
+        )
+        if not g_rows:
+            return False, f"No saved grocer row found for {chain}. Save your stores first."
+        grocer_id = g_rows[0]["id"]
+
+        # 2. Get or create flyer_weeks row
+        fw_rows = _sb_select(
+            "flyer_weeks",
+            select="id",
+            filters={"household_id": hid, "grocer_id": grocer_id, "week_start_date": week},
+        )
+        if fw_rows:
+            flyer_week_id = fw_rows[0]["id"]
+            # Delete stale items so we do a clean replace
+            _sb_delete("flyer_items", "flyer_week_id", flyer_week_id)
+        else:
+            fw_row = _sb_insert("flyer_weeks", {
+                "household_id":    hid,
+                "grocer_id":       grocer_id,
+                "week_start_date": week,
+                "load_method":     method if method in ("manual","pdf","api") else "manual",
+                "item_count":      0,
+            })
+            flyer_week_id = fw_row.get("id") if fw_row else None
+            if not flyer_week_id:
+                return False, "Could not create flyer_weeks row."
+
+        # 3. Insert items
+        count = 0
+        for c in candidates:
+            # Support both IngredientCandidate dataclass and plain dicts
+            if hasattr(c, "name"):
+                name  = c.name
+                cat   = _coerce_cat(c.category)
+                unit  = _coerce_unit(c.unit)
+                price = float(c.sale_price_per_unit)
+                reg   = None
+                tags  = list(c.tags) if c.tags else []
+                alrg  = list(c.allergens) if c.allergens else []
+                fdc   = c.usda_fdc_id
+                manual = False
+            else:
+                name  = c.get("name", "")
+                cat   = _coerce_cat(c.get("category", "other"))
+                unit  = _coerce_unit(c.get("unit", "each"))
+                price = float(c.get("sale_price", c.get("sale_price_per_unit", 0)))
+                reg   = c.get("reg_price") or c.get("regular_price")
+                tags  = list(c.get("tags", []))
+                alrg  = list(c.get("allergens", []))
+                fdc   = c.get("usda_fdc_id")
+                manual = bool(c.get("_manual", False))
+
+            if not name or price <= 0:
+                continue
+
+            _sb_insert("flyer_items", {
+                "flyer_week_id": flyer_week_id,
+                "grocer_id":     grocer_id,
+                "name":          name[:200],
+                "category":      cat,
+                "unit":          unit,
+                "sale_price":    round(price, 2),
+                "regular_price": round(float(reg), 2) if reg else None,
+                "allergens":     alrg,
+                "tags":          tags,
+                "usda_fdc_id":   fdc,
+                "is_manual":     manual,
+            })
+            count += 1
+
+        # 4. Update item_count on flyer_weeks row
+        _sb_update("flyer_weeks", {"item_count": count}, "id", flyer_week_id)
+
+        _log.info("save_flyer_items: saved %d items for %s week=%s", count, chain, week)
+        return True, f"Saved {count} items for {chain}."
+
+    except Exception as e:
+        _log.error("save_flyer_items: failed for %s: %s", chain, e)
+        return False, f"DB save failed: {e}"
+
+
+def _load_flyer_items_from_db():
+    """
+    Load all flyer items for the current active_week from DB into session_state["flyer_data"].
+
+    Called on login/session restore so the user picks up where they left off
+    without having to re-pull or re-upload circulars.
+
+    POC:  Loads current week only. Items restored as IngredientCandidate objects.
+    PROD: Load previous week as fallback if current week is not yet loaded;
+          cache in Redis to avoid DB round-trip on every page navigation.
+    """
+    if not _DB_AVAILABLE or not is_authenticated():
+        return
+
+    hid = st.session_state.get("household_id")
+    week = st.session_state.get("active_week", "")
+    if not hid or not week:
+        return
+
+    try:
+        from app.core_logic.constraint_engine import IngredientCandidate
+
+        # 1. Find all flyer_weeks for this household + current week
+        fw_rows = _sb_select(
+            "flyer_weeks",
+            select="id,grocer_id,load_method",
+            filters={"household_id": hid, "week_start_date": week},
+        )
+        if not fw_rows:
+            return
+
+        # 2. Build grocer_id → chain_name lookup from saved grocers
+        g_rows = _sb_select(
+            "household_grocers",
+            select="id,chain_name",
+            filters={"household_id": hid},
+        )
+        grocer_map = {r["id"]: r["chain_name"] for r in g_rows}
+
+        flyer_data = st.session_state.get("flyer_data", {})
+        total = 0
+
+        for fw in fw_rows:
+            fw_id = fw["id"]
+            chain = grocer_map.get(fw["grocer_id"], "Unknown")
+
+            items = _sb_select("flyer_items", select="*", filters={"flyer_week_id": fw_id})
+            if not items:
+                continue
+
+            candidates = []
+            for row in items:
+                try:
+                    cand = IngredientCandidate(
+                        name=row["name"],
+                        usda_fdc_id=row.get("usda_fdc_id"),
+                        allergens=row.get("allergens") or [],
+                        nutrition={},
+                        sale_price_per_unit=float(row["sale_price"]),
+                        unit=row.get("unit","each"),
+                        standard_unit_weight_g=100.0,
+                        category=row.get("category","other"),
+                        tags=row.get("tags") or [],
+                    )
+                    if row.get("is_manual"):
+                        cand._manual = True
+                    candidates.append(cand)
+                except Exception:
+                    pass
+
+            if candidates:
+                # Merge with any already-in-session items rather than overwriting
+                existing = flyer_data.get(chain, [])
+                existing_names = {getattr(c,"name",c.get("name","")) for c in existing}
+                new_items = [c for c in candidates if c.name not in existing_names]
+                flyer_data[chain] = existing + new_items
+                total += len(new_items)
+
+        if total:
+            st.session_state["flyer_data"] = flyer_data
+            _log.info("_load_flyer_items_from_db: restored %d items for week=%s", total, week)
+
+    except Exception as e:
+        _log.warning("_load_flyer_items_from_db: failed for hid=%s: %s", hid, e)
+
 

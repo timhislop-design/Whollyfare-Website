@@ -1168,6 +1168,11 @@ def _pull_kroger(chain: str, location_id: str) -> int:
                 f"search terms right now, or promo pricing is unavailable.",
                 icon="ℹ️",
             )
+        elif candidates:
+            # Persist to DB so next login doesn't require a re-pull
+            ok, msg = state.save_flyer_items(chain, candidates, method="api")
+            if not ok:
+                _log.warning("Kroger flyer DB save: %s", msg)
         return len(candidates)
     except Exception as e:
         st.error(f"Kroger pull failed: {e}")

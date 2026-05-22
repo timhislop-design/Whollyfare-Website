@@ -195,15 +195,20 @@ if not state.is_setup_complete():
             if st.button("📈 Investor brief", use_container_width=True):
                 st.switch_page("pages/7_Investor.py")
     else:
-        h1, h2, h3, h4 = st.columns([2, 2, 2, 1])
+        h1, h2, h3, h4 = st.columns([1, 1, 1, 1])
         with h1:
             if st.button("🌿 Get started free", type="primary", use_container_width=True):
+                st.query_params["auth"] = "create"
                 st.switch_page("pages/9_Account.py")
         with h2:
             if st.button("🔐 Sign in", use_container_width=True):
                 st.query_params["auth"] = "signin"
                 st.switch_page("pages/9_Account.py")
         with h3:
+            if st.button("✨ Create account", use_container_width=True):
+                st.query_params["auth"] = "create"
+                st.switch_page("pages/9_Account.py")
+        with h4:
             if st.button("📈 Investor brief", use_container_width=True):
                 st.switch_page("pages/7_Investor.py")
 
