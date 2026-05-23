@@ -449,12 +449,10 @@ with card_col:
                 else:
                     if "already registered" in msg.lower() or "already exists" in msg.lower():
                         st.error("That email is already registered. Use the Sign In tab.")
-                    elif "not available" in msg.lower() or "not installed" in msg.lower() or "secrets" in msg.lower():
-                        # DB/config problem — show diagnostic
-                        _show_db_diagnosis()
+                    elif "not available" in msg.lower() or "not installed" in msg.lower() or "service" in msg.lower():
+                        st.warning("Authentication service unavailable. Try again in a moment.")
                     else:
-                        st.error(f"Couldn't create account: {msg}")
-
+                        st.error(f"Sign-in error: {msg}")
         st.html(
             """<div class="wf-promise">
               🔐 <strong>Your data promise:</strong> WhollyFare never sells your data, shares
@@ -500,14 +498,7 @@ with card_col:
                 else:
                     if "invalid" in msg.lower() or "credentials" in msg.lower():
                         st.error("Email or password not recognised. Check your details and try again.")
-                    elif "not available" in msg.lower() or "not installed" in msg.lower() or "secrets" in msg.lower():
-                        _show_db_diagnosis()
+                    elif "not available" in msg.lower() or "not installed" in msg.lower() or "service" in msg.lower():
+                        st.warning("Authentication service unavailable. Try again in a moment.")
                     else:
-                        st.error(f"Sign in failed: {msg}")
-
-        st.html(
-            "<div style='font-size:0.8rem;color:#5A7A62;margin-top:16px;text-align:center;'>"
-            "Forgot your password? Email "
-            "<a href='mailto:tim.hislop@gmail.com' style='color:#3A8C4E;'>tim.hislop@gmail.com</a> "
-            "during the pilot — self-serve reset coming in Phase 2."
-            "</div>")
+                        st.error(f"Sign-in error: {msg}")

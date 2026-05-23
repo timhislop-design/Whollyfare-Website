@@ -658,19 +658,15 @@ st.html("""
               letter-spacing:-0.01em;'>
     WhollyFare is the future done right.
   </div>
-  <div style='font-size:0.9rem;color:rgba(255,255,255,0.65);max-width:520px;
-              margin:0 auto 20px;line-height:1.6;'>
-    The POC is live. The pilot data is accumulating. The moat is structural.
-    If you're an investor who believes American families deserve a meal planner
-    that works for them — let's talk.
+  <div style='font-size:0.9rem;color:rgba(255,255,255,0.65);max-width:520px;margin:0 auto 28px;'>
+    Built with honesty, constraint, and conviction.<br>
+    Ready when you are.
   </div>
-  <a href='mailto:tim.hislop@gmail.com'
+  <a href='mailto:tim.hislop@gmail.com?subject=WhollyFare conversation'
      style='display:inline-block;background:#3A8C4E;color:white;font-weight:700;
-            font-size:0.92rem;padding:13px 32px;border-radius:8px;text-decoration:none;'>
-    📧 tim.hislop@gmail.com
+            font-size:0.95rem;padding:14px 32px;border-radius:8px;text-decoration:none;
+            letter-spacing:0.01em;'>
+    Start a conversation
   </a>
-  <div style='font-size:0.76rem;color:rgba(255,255,255,0.35);margin-top:16px;'>
-    Sentir Solutions® LLC · Charlottesville, VA
-  </div>
 </div>
 """)

@@ -1304,35 +1304,11 @@ st.html("""
     The question is whether you want to be positioned when it lands.</strong>
   </div>
   <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;">
-    <a href="mailto:tim.hislop@gmail.com?subject=WhollyFare — Angel Partner Interest"
-       style="display:inline-block;background:#3A8C4E;color:white;font-weight:700;
+    <a href="mailto:tim.hislop@gmail.com?subject=WhollyFare — Strategic Partner Inquiry"
+       style="display:inline-block;background:#1E5C32;color:white;font-weight:700;
               font-size:.92rem;padding:14px 28px;border-radius:8px;text-decoration:none;">
-      📧 Angel Partner conversation
+      🤝 Strategic partner conversation
     </a>
-    <a href="mailto:tim.hislop@gmail.com?subject=WhollyFare — Strategic Partnership"
-       style="display:inline-block;background:transparent;color:#7EB3E8;font-weight:700;
-              font-size:.92rem;padding:14px 28px;border-radius:8px;text-decoration:none;
-              border:2px solid #3A6EA8;">
-      📧 Strategic Partnership
-    </a>
-    <a href="mailto:tim.hislop@gmail.com?subject=WhollyFare — Acquisition Interest"
-       style="display:inline-block;background:transparent;color:#E8C060;font-weight:700;
-              font-size:.92rem;padding:14px 28px;border-radius:8px;text-decoration:none;
-              border:2px solid #B8860B;">
-      📧 Acquisition conversation
-    </a>
-  </div>
-  <div style="font-size:.85rem;opacity:.55;letter-spacing:.03em;">
-    Sentir Solutions&#174; LLC &nbsp;·&nbsp; Charlottesville, VA &nbsp;·&nbsp; tim.hislop@gmail.com
   </div>
 </div>
 """)
-
-st.html("<br>")
-st.caption(
-    "This page is a working Proof of Concept built in Streamlit. Financial projections are "
-    "illustrative estimates, not guarantees. IRR and return calculations assume specific exit "
-    "scenarios that may not occur. Ownership percentages are approximate and depend on final "
-    "instrument terms. This is not a securities offering. WhollyFare® is a product of "
-    "Sentir Solutions® LLC. All rights reserved."
-)

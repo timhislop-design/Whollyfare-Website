@@ -192,6 +192,10 @@ PANTRY_DEFAULTS: frozenset[str] = frozenset({
     "dijon mustard", "tomato paste",
     # Citrus (treat as pantry — usually on hand)
     "lemon", "lime",
+    # Fridge condiments (commonly on hand — track so shopping list stays accurate)
+    "ketchup", "mayonnaise", "yellow mustard", "ranch dressing",
+    "bbq sauce", "salsa", "cream cheese", "sour cream",
+    "jam", "pickles", "maple syrup", "peanut butter",
 })
 
 
@@ -1839,43 +1843,21 @@ def _load_flyer_items_from_db():
                         usda_fdc_id=row.get("usda_fdc_id"),
                         allergens=row.get("allergens") or [],
                         nutrition={},
-                        sale_price_per_unit=float(row["sale_price"]),
-                        unit=row.get("unit","each"),
-                        standard_unit_weight_g=100.0,
-                        category=row.get("category","other"),
+                        sale_price_per_unit=float(row.get("sale_price_per_unit") or 0.0),
+                        unit=row.get("unit") or "each",
+                        standard_unit_weight_g=float(row.get("standard_unit_weight_g") or 100.0),
+                        category=row.get("category") or "other",
                         tags=row.get("tags") or [],
                     )
-                    if row.get("is_manual"):
-                        cand._manual = True
                     candidates.append(cand)
                 except Exception:
                     pass
-
             if candidates:
-                # Merge with any already-in-session items rather than overwriting
-                existing = flyer_data.get(chain, [])
-                existing_names = {getattr(c,"name",c.get("name","")) for c in existing}
-                new_items = [c for c in candidates if c.name not in existing_names]
-                flyer_data[chain] = existing + new_items
-                total += len(new_items)
-
-        if total:
-            st.session_state["flyer_data"] = flyer_data
-            # Populate flyer_meta so store cards show freshness status
-            meta = st.session_state.setdefault("flyer_meta", {})
-            for fw in fw_rows:
-                chain_name = grocer_map.get(fw["grocer_id"], "")
-                chain_items = flyer_data.get(chain_name, [])
-                if chain_items and chain_name:
-                    meta[chain_name] = {
-                        "count":  len(chain_items),
-                        "week":   week,
-                        "method": fw.get("load_method", "manual"),
-                        "fresh":  False,   # restored from DB, not pulled this session
-                    }
-            _log.info("_load_flyer_items_from_db: restored %d items for week=%s", total, week)
-
-    except Exception as e:
-        _log.warning("_load_flyer_items_from_db: failed for hid=%s: %s", hid, e)
-
-
+                key = chain.lower().replace(" ", "_")
+                if key not in flyer_data:
+                    flyer_data[key] = candidates
+                else:
+                    flyer_data[key].extend(candidates)
+        st.session_state["flyer_data"] = flyer_data
+    except Exception:
+        pass  # DB unavailable — session state unchanged

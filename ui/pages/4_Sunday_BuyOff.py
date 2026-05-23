@@ -262,12 +262,6 @@ else:
         use_container_width=True,
     ):
         # approve_week_db() stamps session_state AND writes to DB (if authenticated).
-        # POC: silently degrades to session-only if DB unavailable.
+        # POC: silently degrades to session-only if Supabase is unavailable.
         state.approve_week_db()
-        style.scroll_to_top()
         st.rerun()
-
-    st.caption(
-             "Once you're happy with the five dinners above, tap to lock in the week. "
-        "Your shopping list will be ready immediately."
-    )

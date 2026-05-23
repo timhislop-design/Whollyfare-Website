@@ -208,6 +208,9 @@ def _build_cart(plan, pantry, out_of_stock):
 # -- Build or retrieve canonical cart ------------------------------------------
 # Rebuild when week changes; otherwise use whatever is in session_state so
 # user overrides (add/move/remove) persist across page interactions.
+if "household_staples" not in st.session_state:
+    st.session_state["household_staples"] = []
+
 cart_week = st.session_state.get("_cart_week")
 if cart_week != week or "shopping_cart" not in st.session_state:
     st.session_state["shopping_cart"] = _build_cart(plan, pantry, out_of_stock)
@@ -677,6 +680,58 @@ st.html(
 
 st.divider()
 
+# ─────────────────────────────────────────────────────────────────────────────
+# HOUSEHOLD STAPLES
+# Food items always needed that aren't from the meal plan or weekly regulars.
+# Water, coffee, snacks, kids' lunch items, specialty ingredients, etc.
+# Non-food items (detergent, paper goods) belong in WhollyWare.
+# ─────────────────────────────────────────────────────────────────────────────
+st.html("<div style='font-size:1rem;font-weight:700;color:#1E5C32;margin-bottom:4px;'>"
+        "🧺 Household Staples</div>"
+        "<div style='font-size:0.82rem;color:#5A7A62;margin-bottom:12px;'>"
+        "Food items you always grab — not from the meal plan. "
+        "Water, coffee, snacks, lunch items, anything else.</div>")
+
+hs_items = st.session_state["household_staples"]
+
+if hs_items:
+    hs_to_keep = []
+    for hs in hs_items:
+        hs_key = "chk_hs_" + hs["name"].replace(" ", "_")
+        c1, c2 = st.columns([8, 1])
+        with c1:
+            label = hs["name"] + (f" — {hs['qty']}" if hs.get("qty") else "")
+            st.checkbox(label, value=st.session_state.get(hs_key, False), key=hs_key)
+        with c2:
+            if not st.button("×", key="hs_rm_" + hs["name"].replace(" ", "_"),
+                              help="Remove"):
+                hs_to_keep.append(hs)
+    if len(hs_to_keep) != len(hs_items):
+        st.session_state["household_staples"] = hs_to_keep
+        st.rerun()
+else:
+    st.html("<div style='font-size:0.85rem;color:#9AA8A0;font-style:italic;"
+            "padding:4px 0 12px 0;'>No staples added yet — add water, coffee, snacks, anything.</div>")
+
+with st.form("add_hs_form", clear_on_submit=True):
+    hs_c1, hs_c2, hs_c3 = st.columns([4, 2, 1])
+    with hs_c1:
+        hs_name = st.text_input("Item", placeholder="e.g. Spring water, Coffee, Apples",
+                                label_visibility="collapsed")
+    with hs_c2:
+        hs_qty = st.text_input("Qty (optional)", placeholder="e.g. 2 cases",
+                               label_visibility="collapsed")
+    with hs_c3:
+        hs_add = st.form_submit_button("+ Add", use_container_width=True)
+    if hs_add and hs_name.strip():
+        existing = {i["name"].lower() for i in hs_items}
+        if hs_name.strip().lower() not in existing:
+            hs_items.append({"name": hs_name.strip(), "qty": hs_qty.strip()})
+            st.session_state["household_staples"] = hs_items
+            st.rerun()
+
+st.divider()
+
 # Reset + rebuild controls
 btn1, btn2 = st.columns(2)
 with btn1:
@@ -687,19 +742,13 @@ with btn1:
         for reg in weekly_regs:
             st.session_state["chk_wr_" + reg["name"]] = True
         st.rerun()
-    if st.button("Clear all checkmarks", use_container_width=True):
-        for store, items in cart.items():
-            for item in items:
-                st.session_state.pop("chk_" + store + "_" + item["name"], None)
-        for reg in weekly_regs:
-            st.session_state.pop("chk_wr_" + reg["name"], None)
+    if st.button("Clear all items", use_container_width=True):
+        for k in list(st.session_state.keys()):
+            if k.startswith("chk_"):
+                st.session_state[k] = False
         st.rerun()
 with btn2:
-    if st.button("Rebuild list from plan", use_container_width=True,
-                 help="Discards any manual adds/moves and rebuilds from the current plan."):
+    if st.button("🔄 Rebuild from this week's plan", use_container_width=True):
+        # Re-derive cart by clearing shopping_cart — plan page will repopulate on next visit
         st.session_state.pop("shopping_cart", None)
-        st.session_state.pop("_cart_week", None)
         st.rerun()
-
-st.html("<br>")
-st.page_link("pages/6_Ledger.py", label="-> View Found Money History")

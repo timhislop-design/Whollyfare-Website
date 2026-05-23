@@ -404,12 +404,21 @@ def merge_into_flyer_data(
     flyer_data: dict,
 ) -> dict:
     """
-    Merge an ExtractionResult into the flyer_data dict used throughout the app.
-
-    flyer_data structure: {store_key: [IngredientCandidate, ...]}
-
-    Existing items for store_key are replaced (each upload is a fresh circular).
-    Returns the updated flyer_data dict.
+    Merge extraction result candidates into the session flyer_data dict.
+    Returns the updated flyer_data.
+    POC: Simple merge by store key. PROD: deduplicate by UPC/name.
     """
-    flyer_data[store_key] = result.candidates
+    if not result.candidates:
+        return flyer_data
+    existing = flyer_data.get(store_key, [])
+    existing_names = {
+        (c.name if hasattr(c, 'name') else c.get('name', '')).lower()
+        for c in existing
+    }
+    for cand in result.candidates:
+        name = cand.name if hasattr(cand, 'name') else cand.get('name', '')
+        if name.lower() not in existing_names:
+            existing.append(cand)
+            existing_names.add(name.lower())
+    flyer_data[store_key] = existing
     return flyer_data

@@ -341,6 +341,7 @@ def sidebar_nav():
     st.page_link("pages/4_Sunday_BuyOff.py",  label="✅ Sunday Buy-Off")
     st.page_link("pages/5_Shopping_List.py",  label="🛍️ Shopping List")
     st.page_link("pages/10_Pantry.py",         label="🧂 My Pantry")
+    st.page_link("pages/12_Recipes.py",        label="📖 Recipe Library")
 
     # ── SAVINGS INTELLIGENCE ──────────────────────────────────────────────────
     _section("SAVINGS INTELLIGENCE")

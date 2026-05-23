@@ -29,7 +29,7 @@ state.init()
 with st.sidebar:
     style.sidebar_nav()
 
-style.page_header("My Pantry", "Items WhollyFare assumes you have on hand. Keep this accurate to keep your cost estimates real.")
+style.page_header("My Pantry", "Dry pantry + fridge staples you have on hand. Uncheck anything you're out of — it goes on your shopping list.")
 
 # -- Load current pantry -------------------------------------------------------
 # If household_pantry is None, we're using PANTRY_DEFAULTS.
@@ -48,7 +48,7 @@ st.html(
     "<div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;"
     "padding:12px 18px;margin-bottom:20px;font-size:0.9rem;color:#1E5C32;'>"
     "<strong>" + str(len(current_pantry)) + " items</strong> in your pantry &nbsp;·&nbsp; "
-    "These are excluded from your shopping list and cost $0 in meal estimates."
+    "Dry pantry and fridge staples excluded from your shopping list — cost $0 in meal estimates."
     + (" &nbsp;<span style='color:#5A7A62;font-size:0.82rem;'>(using defaults)</span>" if using_defaults else "")
     + "</div>")
 
@@ -65,6 +65,9 @@ CATEGORIES = {
     "Baking & Staples":   ["flour", "cornstarch", "sugar", "brown sugar", "honey",
                            "chicken broth", "beef broth", "vegetable broth"],
     "Condiments & Other": ["dijon mustard", "tomato paste", "lemon", "lime"],
+    "Fridge & Condiments": ["ketchup", "mayonnaise", "yellow mustard", "ranch dressing",
+                             "bbq sauce", "salsa", "cream cheese", "sour cream",
+                             "jam", "pickles", "maple syrup", "peanut butter"],
 }
 
 # Collect any custom items (in pantry but not in any category)
@@ -348,9 +351,5 @@ with st.expander("How does the pantry work?", expanded=False):
         "- Shown as a separate section on your shopping list<br>"
         "- Cost is tracked separately (not mixed into WhollyFare Found Money)<br>"
         "- When a regular matches a store's sale this week, a hint appears above<br><br>"
-        "<strong>Keep it accurate:</strong><br>"
-        "If you run out of something (e.g. olive oil), uncheck it so WhollyFare "
-        "adds it to your shopping list this week. Check it again once you restock.<br><br>"
-        "<strong>Coming in Phase 2:</strong><br>"
-        "Restock alerts, 'I used this up' quick-tap, bulk import from a grocery receipt."
-        "</div>")
+        "<strong>Keep it accurate</strong> — the more honest your pantry is, the more precise your shopping list becomes.</div>"
+    )

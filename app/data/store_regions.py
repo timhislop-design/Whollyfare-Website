@@ -159,7 +159,5 @@ def region_label(zip_code: str) -> str:
 # These are confirmed locations within ~15 miles of downtown Charlottesville.
 CHARLOTTESVILLE_CHAINS: list[str] = [
     "Kroger", "Food Lion", "ALDI", "Harris Teeter", "Walmart",
-    "Whole Foods", "Trader Joe's", "Dollar General", "Costco",
-    "The Fresh Market", "EW Thomas Grocery", "Foods of All Nations",
-    "Integral Yoga Natural", "Reid's Country Store",
+    "Whole Foods", "Trader Joe's", "Giant Food", "Lidl", "Target",
 ]
