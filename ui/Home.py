@@ -76,19 +76,16 @@ if not state.is_setup_complete():
         from { opacity: 0; transform: translateY(-8px); }
         to   { opacity: 1; transform: translateY(0); }
       }
-      /* Hide hero brand icon on mobile so it doesn't overlap text */
-      @media (max-width: 768px) {
-        .wf-hero-icon { display: none !important; }
-      }
+      /* Hero decorative icon: visibility controlled inline within its st.html block */
     </style>
     """)
 
     # ── Brand header ──────────────────────────────────────────────────────────
     st.html("""
     <div style='display:flex;align-items:center;gap:10px;margin-top:10px;margin-bottom:16px;
-                padding:10px 18px;background:rgba(255,255,255,0.55);
-                backdrop-filter:blur(6px);border-radius:10px;
-                border:1px solid rgba(93,170,106,0.22);'>
+                padding:10px 18px;background:#FFFFFF;
+                border-radius:10px;
+                border:1px solid rgba(93,170,106,0.28);'>
       <svg width="26" height="26" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
         <line x1="14" y1="46" x2="14" y2="10" stroke="#3A8C4E" stroke-width="2.8" stroke-linecap="round"/>
         <line x1="9"  y1="10" x2="9"  y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
@@ -110,8 +107,11 @@ if not state.is_setup_complete():
                 background:linear-gradient(140deg,#142B1C 0%,#1E5C32 55%,#2D7A45 100%);
                 border-radius:18px;padding:54px 52px 50px;margin-bottom:10px;'>
 
-      <!-- Decorative fork+leaf — right side, vertically centred in text block, background only -->
-      <svg class='wf-hero-icon' style='position:absolute;right:60px;top:50%;transform:translateY(-55%);
+      <style>
+        @media (max-width: 640px) { .wf-hero-deco { display:none !important; } }
+      </style>
+      <!-- Decorative fork+leaf — right side, background only; hidden on small screens via inline style -->
+      <svg class='wf-hero-deco' style='position:absolute;right:60px;top:50%;transform:translateY(-55%);
                   opacity:0.80;pointer-events:none;'
            width="200" height="200" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
            aria-hidden="true">
@@ -517,9 +517,9 @@ style.inject()
 # bare-SVG iframe to collapse to 0 height in Streamlit 1.31+.
 st.html("""
 <div style='display:flex;align-items:center;gap:14px;margin-top:10px;margin-bottom:12px;
-            padding:12px 20px;background:rgba(255,255,255,0.60);
-            backdrop-filter:blur(6px);border-radius:12px;
-            border:1px solid rgba(93,170,106,0.22);'>
+            padding:12px 20px;background:#FFFFFF;
+            border-radius:12px;
+            border:1px solid rgba(93,170,106,0.28);'>
   <svg width="48" height="48" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
        aria-label="WhollyFare logo" role="img" style="flex-shrink:0;">
     <line x1="14" y1="46" x2="14" y2="10" stroke="#3A8C4E" stroke-width="2.8" stroke-linecap="round"/>
@@ -531,9 +531,13 @@ st.html("""
     <line x1="28" y1="32" x2="40" y2="21" stroke="#9FD9A8" stroke-width="0.7" stroke-linecap="round" opacity="0.7"/>
   </svg>
   <div>
-    <div style='font-size:1.2rem;font-weight:800;color:#1E5C32;line-height:1.15;'>WhollyFare</div>
+    <div style='font-size:1.2rem;font-weight:800;color:#1E5C32;line-height:1.15;'>WhollyFare&#174;</div>
     <div style='font-size:0.8rem;color:#3A8C4E;font-style:italic;margin-top:1px;'>
       The meal plan that pays you back.
+    </div>
+    <div style='font-size:0.72rem;color:#7A9A80;margin-top:3px;'>
+      a <a href="https://sentir-solutions.com" target="_blank"
+           style="color:#3A8C4E;font-weight:600;text-decoration:none;">Sentir Solutions</a>&#174; Company
     </div>
   </div>
 </div>
