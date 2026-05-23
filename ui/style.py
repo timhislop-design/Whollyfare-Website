@@ -19,22 +19,17 @@ COLORS = {
     "danger":        "#B91C1C",
 }
 
-LOGO_SVG = """
-<svg width="148" height="36" viewBox="0 0 148 36" xmlns="http://www.w3.org/2000/svg"
-     aria-label="WhollyFare logo" role="img">
-  <g transform="translate(3, 2)">
-    <line x1="8"  y1="31" x2="8"  y2="6"  stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
-    <line x1="5"  y1="6"  x2="5"  y2="17" stroke="#3A8C4E" stroke-width="1.5" stroke-linecap="round"/>
-    <line x1="8"  y1="6"  x2="8"  y2="17" stroke="#3A8C4E" stroke-width="1.5" stroke-linecap="round"/>
-    <line x1="11" y1="6"  x2="11" y2="17" stroke="#3A8C4E" stroke-width="1.5" stroke-linecap="round"/>
-    <ellipse cx="19" cy="16" rx="9" ry="6" fill="#5DAA6A" transform="rotate(-28 19 16)"/>
-    <line x1="12" y1="21" x2="25" y2="12" stroke="#1E5C32" stroke-width="0.9" stroke-linecap="round"/>
-    <circle cx="18" cy="15" r="1.2" fill="#1E5C32"/>
-  </g>
-  <text x="36" y="23" font-family="Arial, sans-serif" font-size="17" font-weight="600"
-        fill="#1E5C32">WhollyFare</text>
-</svg>
-"""
+# Logo data URIs — base64-encoded SVGs used as <img> src.
+# Using data URIs instead of inline SVG avoids st.html() iframe height-collapse
+# issues on Streamlit Cloud, where the ResizeObserver sometimes fails to detect
+# the natural height of flex containers containing inline SVG elements.
+LOGO_ICON_DARK  = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDQiIGhlaWdodD0iNDQiIHZpZXdCb3g9IjAgMCA1MiA1MiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48bGluZSB4MT0iMTQiIHkxPSI0NiIgeDI9IjE0IiB5Mj0iMTAiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSI5IiB5MT0iMTAiIHgyPSI5IiB5Mj0iMjQiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMTQiIHkxPSIxMCIgeDI9IjE0IiB5Mj0iMjQiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMTkiIHkxPSIxMCIgeDI9IjE5IiB5Mj0iMjQiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48ZWxsaXBzZSBjeD0iMzYiIGN5PSIyNiIgcng9IjEzIiByeT0iOC41IiBmaWxsPSIjNURBQTZBIiB0cmFuc2Zvcm09InJvdGF0ZSgtMjggMzYgMjYpIi8+PGxpbmUgeDE9IjI0IiB5MT0iMzUiIHgyPSI0NiIgeTI9IjE4IiBzdHJva2U9IiM5RkQ5QTgiIHN0cm9rZS13aWR0aD0iMS4zIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMjgiIHkxPSIzMiIgeDI9IjQwIiB5Mj0iMjEiIHN0cm9rZT0iIzlGRDlBOCIgc3Ryb2tlLXdpZHRoPSIwLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgb3BhY2l0eT0iMC43Ii8+PC9zdmc+"   # green icon — for white/light backgrounds
+LOGO_ICON_LIGHT = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDQiIGhlaWdodD0iNDQiIHZpZXdCb3g9IjAgMCA1MiA1MiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48bGluZSB4MT0iMTQiIHkxPSI0NiIgeDI9IjE0IiB5Mj0iMTAiIHN0cm9rZT0iIzlGRDlBOCIgc3Ryb2tlLXdpZHRoPSIyLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSI5IiB5MT0iMTAiIHgyPSI5IiB5Mj0iMjQiIHN0cm9rZT0iIzlGRDlBOCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMTQiIHkxPSIxMCIgeDI9IjE0IiB5Mj0iMjQiIHN0cm9rZT0iIzlGRDlBOCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMTkiIHkxPSIxMCIgeDI9IjE5IiB5Mj0iMjQiIHN0cm9rZT0iIzlGRDlBOCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48ZWxsaXBzZSBjeD0iMzYiIGN5PSIyNiIgcng9IjEzIiByeT0iOC41IiBmaWxsPSIjNURBQTZBIiB0cmFuc2Zvcm09InJvdGF0ZSgtMjggMzYgMjYpIi8+PGxpbmUgeDE9IjI0IiB5MT0iMzUiIHgyPSI0NiIgeTI9IjE4IiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS4zIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMjgiIHkxPSIzMiIgeDI9IjQwIiB5Mj0iMjEiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIwLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgb3BhY2l0eT0iMC43Ii8+PC9zdmc+"  # light icon — for dark backgrounds (sidebar)
+LOGO_ICON_HERO  = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDUyIDUyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxsaW5lIHgxPSIxNCIgeTE9IjQ2IiB4Mj0iMTQiIHkyPSIxMCIgc3Ryb2tlPSIjOUZEOUE4IiBzdHJva2Utd2lkdGg9IjIuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGxpbmUgeDE9IjkiIHkxPSIxMCIgeDI9IjkiIHkyPSIyNCIgc3Ryb2tlPSIjOUZEOUE4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSIxNCIgeTE9IjEwIiB4Mj0iMTQiIHkyPSIyNCIgc3Ryb2tlPSIjOUZEOUE4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSIxOSIgeTE9IjEwIiB4Mj0iMTkiIHkyPSIyNCIgc3Ryb2tlPSIjOUZEOUE4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxlbGxpcHNlIGN4PSIzNiIgY3k9IjI2IiByeD0iMTMiIHJ5PSI4LjUiIGZpbGw9IiM1REFBNkEiIHRyYW5zZm9ybT0icm90YXRlKC0yOCAzNiAyNikiLz48bGluZSB4MT0iMjQiIHkxPSIzNSIgeDI9IjQ2IiB5Mj0iMTgiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIxLjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSIyOCIgeTE9IjMyIiB4Mj0iNDAiIHkyPSIyMSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjAuNyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBvcGFjaXR5PSIwLjUiLz48bGluZSB4MT0iMzIiIHkxPSIyOSIgeDI9IjQzIiB5Mj0iMjQiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIwLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgb3BhY2l0eT0iMC40Ii8+PC9zdmc+"   # large light icon — for hero section overlay
+
+# Legacy: keep LOGO_SVG as a fallback for any code that references it directly
+LOGO_SVG = f'''<img src="{LOGO_ICON_DARK}" width="40" height="40"
+     alt="WhollyFare fork and leaf logo" style="vertical-align:middle;">'''
 
 CSS = """
 <style>
@@ -261,24 +256,26 @@ def maybe_scroll_to_top():
 def page_header(title: str, subtitle: str = ""):
     """Render the standard page header with fork+leaf logo and page title.
 
-    All styles are inline — no inject() dependency. Each st.html() is an isolated
-    iframe in Streamlit 1.31+; CSS from inject() cannot cross into this iframe.
+    Uses a base64 data URI <img> tag — this avoids the Streamlit Cloud iframe
+    height-collapse bug where st.html() with inline SVG sometimes renders to 0px.
+    All styles are inline so there is no dependency on inject() CSS being applied
+    in a separate iframe.
     """
     inject()  # still called for sidebar + button styles on the main page
     st.html(
-        f"""<div style="display:flex;align-items:center;gap:12px;
-                        margin-bottom:0.2rem;min-height:56px;
-                        padding:4px 0;">
-          {LOGO_SVG}
+        f'''<div style="display:flex;align-items:center;gap:12px;
+                        margin-bottom:0.2rem;min-height:56px;padding:4px 0;">
+          <img src="{LOGO_ICON_DARK}" width="44" height="44"
+               alt="WhollyFare logo" style="flex-shrink:0;">
           <div style="font-size:1.5rem;font-weight:700;color:#1E5C32;
-                      margin:0;font-family:Arial,sans-serif;">{title}</div>
-        </div>"""
+                      margin:0;font-family:Arial,sans-serif;">''' + title + '''</div>
+        </div>'''
     )
     if subtitle:
         st.html(
-            f'<div style="font-size:0.85rem;color:#5A7A62;'
-            f'margin-bottom:1.2rem;margin-left:2px;'
-            f'font-family:Arial,sans-serif;">{subtitle}</div>'
+            '<div style="font-size:0.85rem;color:#5A7A62;'
+            'margin-bottom:1.2rem;margin-left:2px;'
+            f'font-family:Arial,sans-serif;">' + subtitle + '</div>'
         )
 
 
@@ -298,31 +295,20 @@ def sidebar_nav():
     # Splitting across two st.html() calls causes the bare SVG iframe to collapse
     # to 0 height in Streamlit 1.31+ because it has no wrapper div to anchor it.
     st.html(
-        """<div style="display:flex; align-items:center; gap:10px;
-                       padding:4px 0; margin-bottom:2px; min-height:60px;">
-          <svg width="44" height="44" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"
-               aria-label="WhollyFare leaf and fork icon" role="img"
-               style="flex-shrink:0;">
-            <g transform="translate(3, 2)">
-              <line x1="8"  y1="31" x2="8"  y2="6"  stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-              <line x1="5"  y1="6"  x2="5"  y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
-              <line x1="8"  y1="6"  x2="8"  y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
-              <line x1="11" y1="6"  x2="11" y2="17" stroke="#9FD9A8" stroke-width="1.5" stroke-linecap="round"/>
-              <ellipse cx="19" cy="16" rx="9" ry="6" fill="#5DAA6A" transform="rotate(-28 19 16)"/>
-              <line x1="12" y1="21" x2="25" y2="12" stroke="#ffffff" stroke-width="0.9" stroke-linecap="round"/>
-              <circle cx="18" cy="15" r="1.2" fill="#ffffff"/>
-            </g>
-          </svg>
+        f'''<div style="display:flex;align-items:center;gap:10px;
+                       padding:6px 0;margin-bottom:2px;min-height:60px;">
+          <img src="{LOGO_ICON_LIGHT}" width="44" height="44"
+               alt="WhollyFare logo" style="flex-shrink:0;">
           <div>
-            <div style="font-size:1.2rem; font-weight:700; color:#ffffff;
-                        font-family:Arial,sans-serif; letter-spacing:0.02em;
+            <div style="font-size:1.2rem;font-weight:700;color:#ffffff;
+                        font-family:Arial,sans-serif;letter-spacing:0.02em;
                         line-height:1.2;">WhollyFare</div>
-            <div style="font-size:0.72rem; color:#9FD9A8;
-                        font-family:Arial,sans-serif; font-style:italic;">
+            <div style="font-size:0.72rem;color:#9FD9A8;
+                        font-family:Arial,sans-serif;font-style:italic;">
               The meal plan that pays you back.
             </div>
           </div>
-        </div>"""
+        </div>'''
     )
 
     st.html("<hr style='border-color:#3A8C4E; margin:10px 0;'>")

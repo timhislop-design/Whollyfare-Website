@@ -86,14 +86,7 @@ if not state.is_setup_complete():
                 padding:10px 18px;background:#FFFFFF;
                 border-radius:10px;min-height:56px;
                 border:1px solid rgba(93,170,106,0.28);'>
-      <svg width="26" height="26" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
-        <line x1="14" y1="46" x2="14" y2="10" stroke="#3A8C4E" stroke-width="2.8" stroke-linecap="round"/>
-        <line x1="9"  y1="10" x2="9"  y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
-        <line x1="14" y1="10" x2="14" y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
-        <line x1="19" y1="10" x2="19" y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
-        <ellipse cx="36" cy="26" rx="13" ry="8.5" fill="#5DAA6A" transform="rotate(-28 36 26)"/>
-        <line x1="24" y1="35" x2="46" y2="18" stroke="#9FD9A8" stroke-width="1.3" stroke-linecap="round"/>
-      </svg>
+      <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDQiIGhlaWdodD0iNDQiIHZpZXdCb3g9IjAgMCA1MiA1MiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48bGluZSB4MT0iMTQiIHkxPSI0NiIgeDI9IjE0IiB5Mj0iMTAiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSI5IiB5MT0iMTAiIHgyPSI5IiB5Mj0iMjQiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMTQiIHkxPSIxMCIgeDI9IjE0IiB5Mj0iMjQiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMTkiIHkxPSIxMCIgeDI9IjE5IiB5Mj0iMjQiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48ZWxsaXBzZSBjeD0iMzYiIGN5PSIyNiIgcng9IjEzIiByeT0iOC41IiBmaWxsPSIjNURBQTZBIiB0cmFuc2Zvcm09InJvdGF0ZSgtMjggMzYgMjYpIi8+PGxpbmUgeDE9IjI0IiB5MT0iMzUiIHgyPSI0NiIgeTI9IjE4IiBzdHJva2U9IiM5RkQ5QTgiIHN0cm9rZS13aWR0aD0iMS4zIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMjgiIHkxPSIzMiIgeDI9IjQwIiB5Mj0iMjEiIHN0cm9rZT0iIzlGRDlBOCIgc3Ryb2tlLXdpZHRoPSIwLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgb3BhY2l0eT0iMC43Ii8+PC9zdmc+" width="32" height="32" alt="WhollyFare logo" style="flex-shrink:0;">
       <span style='font-size:1.05rem;font-weight:700;color:#1E5C32;'>WhollyFare</span>
       <span style='color:#C8DFC8;margin:0 4px;'>·</span>
       <span style='font-size:0.82rem;color:#666;'>a <a href="https://sentir-solutions.com" target="_blank"
@@ -110,25 +103,12 @@ if not state.is_setup_complete():
       <style>
         @media (max-width: 640px) { .wf-hero-deco { display:none !important; } }
       </style>
-      <!-- Decorative fork+leaf — right side, background only; hidden on small screens via inline style -->
-      <svg class='wf-hero-deco' style='position:absolute;right:60px;top:50%;transform:translateY(-55%);
-                  opacity:0.80;pointer-events:none;'
-           width="200" height="200" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
-           aria-hidden="true">
-        <!-- Fork handle -->
-        <line x1="14" y1="46" x2="14" y2="10" stroke="#9FD9A8" stroke-width="2.8" stroke-linecap="round"/>
-        <!-- Fork tines -->
-        <line x1="9"  y1="10" x2="9"  y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-        <line x1="14" y1="10" x2="14" y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-        <line x1="19" y1="10" x2="19" y2="24" stroke="#9FD9A8" stroke-width="2"   stroke-linecap="round"/>
-        <!-- Leaf body -->
-        <ellipse cx="36" cy="26" rx="13" ry="8.5" fill="#5DAA6A" transform="rotate(-28 36 26)"/>
-        <!-- Leaf midrib -->
-        <line x1="24" y1="35" x2="46" y2="18" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
-        <!-- Leaf veins -->
-        <line x1="30" y1="32" x2="40" y2="20" stroke="white" stroke-width="0.7" stroke-linecap="round" opacity="0.6"/>
-        <line x1="35" y1="28" x2="44" y2="23" stroke="white" stroke-width="0.7" stroke-linecap="round" opacity="0.6"/>
-      </svg>
+      <!-- Decorative fork+leaf — right side, background only -->
+      <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDUyIDUyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxsaW5lIHgxPSIxNCIgeTE9IjQ2IiB4Mj0iMTQiIHkyPSIxMCIgc3Ryb2tlPSIjOUZEOUE4IiBzdHJva2Utd2lkdGg9IjIuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGxpbmUgeDE9IjkiIHkxPSIxMCIgeDI9IjkiIHkyPSIyNCIgc3Ryb2tlPSIjOUZEOUE4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSIxNCIgeTE9IjEwIiB4Mj0iMTQiIHkyPSIyNCIgc3Ryb2tlPSIjOUZEOUE4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSIxOSIgeTE9IjEwIiB4Mj0iMTkiIHkyPSIyNCIgc3Ryb2tlPSIjOUZEOUE4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxlbGxpcHNlIGN4PSIzNiIgY3k9IjI2IiByeD0iMTMiIHJ5PSI4LjUiIGZpbGw9IiM1REFBNkEiIHRyYW5zZm9ybT0icm90YXRlKC0yOCAzNiAyNikiLz48bGluZSB4MT0iMjQiIHkxPSIzNSIgeDI9IjQ2IiB5Mj0iMTgiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIxLjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSIyOCIgeTE9IjMyIiB4Mj0iNDAiIHkyPSIyMSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjAuNyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBvcGFjaXR5PSIwLjUiLz48bGluZSB4MT0iMzIiIHkxPSIyOSIgeDI9IjQzIiB5Mj0iMjQiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIwLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgb3BhY2l0eT0iMC40Ii8+PC9zdmc+"
+           class="wf-hero-deco"
+           style="position:absolute;right:60px;top:50%;transform:translateY(-55%);
+                  opacity:0.80;pointer-events:none;width:200px;height:200px;"
+           alt="" aria-hidden="true">
 
       <!-- Small top badge -->
       <div style='display:inline-flex;align-items:center;gap:7px;
@@ -520,16 +500,7 @@ st.html("""
             padding:12px 20px;background:#FFFFFF;
             border-radius:12px;min-height:84px;
             border:1px solid rgba(93,170,106,0.28);'>
-  <svg width="48" height="48" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
-       aria-label="WhollyFare logo" role="img" style="flex-shrink:0;">
-    <line x1="14" y1="46" x2="14" y2="10" stroke="#3A8C4E" stroke-width="2.8" stroke-linecap="round"/>
-    <line x1="9"  y1="10" x2="9"  y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
-    <line x1="14" y1="10" x2="14" y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
-    <line x1="19" y1="10" x2="19" y2="24" stroke="#3A8C4E" stroke-width="2"   stroke-linecap="round"/>
-    <ellipse cx="36" cy="26" rx="13" ry="8.5" fill="#5DAA6A" transform="rotate(-28 36 26)"/>
-    <line x1="24" y1="35" x2="46" y2="18" stroke="#9FD9A8" stroke-width="1.3" stroke-linecap="round"/>
-    <line x1="28" y1="32" x2="40" y2="21" stroke="#9FD9A8" stroke-width="0.7" stroke-linecap="round" opacity="0.7"/>
-  </svg>
+  <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDQiIGhlaWdodD0iNDQiIHZpZXdCb3g9IjAgMCA1MiA1MiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48bGluZSB4MT0iMTQiIHkxPSI0NiIgeDI9IjE0IiB5Mj0iMTAiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxsaW5lIHgxPSI5IiB5MT0iMTAiIHgyPSI5IiB5Mj0iMjQiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMTQiIHkxPSIxMCIgeDI9IjE0IiB5Mj0iMjQiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMTkiIHkxPSIxMCIgeDI9IjE5IiB5Mj0iMjQiIHN0cm9rZT0iIzNBOEM0RSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48ZWxsaXBzZSBjeD0iMzYiIGN5PSIyNiIgcng9IjEzIiByeT0iOC41IiBmaWxsPSIjNURBQTZBIiB0cmFuc2Zvcm09InJvdGF0ZSgtMjggMzYgMjYpIi8+PGxpbmUgeDE9IjI0IiB5MT0iMzUiIHgyPSI0NiIgeTI9IjE4IiBzdHJva2U9IiM5RkQ5QTgiIHN0cm9rZS13aWR0aD0iMS4zIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48bGluZSB4MT0iMjgiIHkxPSIzMiIgeDI9IjQwIiB5Mj0iMjEiIHN0cm9rZT0iIzlGRDlBOCIgc3Ryb2tlLXdpZHRoPSIwLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgb3BhY2l0eT0iMC43Ii8+PC9zdmc+" width="56" height="56" alt="WhollyFare logo" style="flex-shrink:0;">
   <div>
     <div style='font-size:1.2rem;font-weight:800;color:#1E5C32;line-height:1.15;'>WhollyFare&#174;</div>
     <div style='font-size:0.8rem;color:#3A8C4E;font-style:italic;margin-top:1px;'>
