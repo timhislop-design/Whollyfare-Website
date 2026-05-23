@@ -254,6 +254,7 @@ def stores_near_zip(
             dist = haversine_miles(centroid[0], centroid[1], loc["lat"], loc["lon"])
             if dist > radius_miles + 0.4:  # 0.4 mi buffer accounts for GPS rounding
                 continue
+            cost = round(dist * 2 * 0.22, 2)  # round-trip at $0.22/mile
         results.append({**loc, "distance_miles": dist, "trip_cost": cost})
     results.sort(key=lambda x: (x["distance_miles"] or 999))
     return results
