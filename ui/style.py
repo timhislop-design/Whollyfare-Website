@@ -259,15 +259,27 @@ def maybe_scroll_to_top():
 
 
 def page_header(title: str, subtitle: str = ""):
-    inject()
+    """Render the standard page header with fork+leaf logo and page title.
+
+    All styles are inline — no inject() dependency. Each st.html() is an isolated
+    iframe in Streamlit 1.31+; CSS from inject() cannot cross into this iframe.
+    """
+    inject()  # still called for sidebar + button styles on the main page
     st.html(
-        f"""<div class="wf-header">
+        f"""<div style="display:flex;align-items:center;gap:12px;
+                        margin-bottom:0.2rem;min-height:56px;
+                        padding:4px 0;">
           {LOGO_SVG}
-          <div class="wf-page-title">{title}</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#1E5C32;
+                      margin:0;font-family:Arial,sans-serif;">{title}</div>
         </div>"""
     )
     if subtitle:
-        st.html(f'<div class="wf-page-sub">{subtitle}</div>')
+        st.html(
+            f'<div style="font-size:0.85rem;color:#5A7A62;'
+            f'margin-bottom:1.2rem;margin-left:2px;'
+            f'font-family:Arial,sans-serif;">{subtitle}</div>'
+        )
 
 
 def sidebar_nav():
@@ -287,7 +299,7 @@ def sidebar_nav():
     # to 0 height in Streamlit 1.31+ because it has no wrapper div to anchor it.
     st.html(
         """<div style="display:flex; align-items:center; gap:10px;
-                       padding:4px 0; margin-bottom:2px;">
+                       padding:4px 0; margin-bottom:2px; min-height:60px;">
           <svg width="44" height="44" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"
                aria-label="WhollyFare leaf and fork icon" role="img"
                style="flex-shrink:0;">
@@ -366,11 +378,4 @@ def sidebar_nav():
     st.page_link("pages/9_Account.py", label="⚙️ Account")
     st.page_link("pages/11_Admin.py",  label="🗂️  Admin: Circulars")
 
-    # ── Auth widget ───────────────────────────────────────────────────────────
-    # POC: sign-in / sign-up / sign-out panel at the bottom of the sidebar.
-    # Import here (not at module level) to avoid circular import with state.py.
-    try:
-        from ui.components.auth import auth_sidebar
-        auth_sidebar()
-    except Exception:
-        pass  # Silently skip if auth component is unavailable
+    # ── Auth widget ─────────────────────────────────────────────

@@ -106,6 +106,139 @@ if not api_key:
         "Add it to `.streamlit/secrets.toml` as ANTHROPIC_API_KEY = \"sk-ant-...\""
     )
 
+# ── Preview + save function ────────────────────────────────────────────────────
+def _render_extraction_preview(chain: str, result, week_iso: str) -> None:
+    """Show extracted items and a Save button for a staged extraction result."""
+
+    page_summary = "  ·  ".join(
+        f"p.{p['page']}: {p['item_count']} items"
+        + (" ⚠" if p.get("error") else "")
+        for p in result.page_log
+    )
+    st.html(
+        "<div style='font-size:0.82rem;color:#5A7A62;margin-bottom:8px;'>"
+        "<strong>Extraction log:</strong> " + page_summary + "</div>"
+    )
+
+    if result.errors:
+        for err in result.errors:
+            st.warning("Parser note: " + err)
+
+    # Preview table
+    if result.raw_items:
+        # Limit display to 100 rows -- full list goes to DB
+        display_items = result.raw_items[:100]
+        more = max(0, len(result.raw_items) - 100)
+
+        # Build HTML table
+        rows_html = ""
+        for item in display_items:
+            name     = str(item.get("name",     ""))[:60]
+            price    = item.get("price", 0.0) or 0.0
+            unit     = str(item.get("unit",     "each"))
+            cat      = str(item.get("category", "other"))
+            raw_text = str(item.get("raw_text", ""))
+
+            _cat_colors = {
+                "produce": "#E8F5E9", "protein": "#FFF3E0", "dairy": "#E3F2FD",
+                "grain": "#FFF9C4", "frozen": "#E8EAF6", "snack": "#FCE4EC",
+                "beverage": "#E0F7FA", "deli": "#FFF3E0",
+                "household": "#F5F5F5", "personal_care": "#F3E5F5", "other": "#FAFAFA",
+            }
+            cat_bg = _cat_colors.get(cat, "#FAFAFA")
+
+            rows_html += (
+                "<tr>"
+                "<td style='padding:5px 8px;border-bottom:1px solid #EEE;font-size:0.85rem;'>" + name + "</td>"
+                "<td style='padding:5px 8px;border-bottom:1px solid #EEE;font-size:0.85rem;"
+                "text-align:right;font-weight:600;color:#1E5C32;'>$" + f"{price:.2f}" + "</td>"
+                "<td style='padding:5px 8px;border-bottom:1px solid #EEE;font-size:0.82rem;"
+                "color:#5A7A62;'>" + unit + "</td>"
+                "<td style='padding:5px 8px;border-bottom:1px solid #EEE;'>"
+                "<span style='background:" + cat_bg + ";font-size:0.75rem;"
+                "padding:1px 6px;border-radius:8px;'>" + cat + "</span></td>"
+                "<td style='padding:5px 8px;border-bottom:1px solid #EEE;font-size:0.78rem;"
+                "color:#9AA8A0;'>" + raw_text + "</td>"
+                "</tr>"
+            )
+
+        st.html(
+            "<div style='overflow-x:auto;max-height:380px;overflow-y:auto;"
+            "border:1px solid #E0E0E0;border-radius:8px;'>"
+            "<table style='width:100%;border-collapse:collapse;'>"
+            "<thead><tr style='background:#F0F7F1;'>"
+            "<th style='padding:6px 8px;text-align:left;font-size:0.78rem;color:#5A7A62;border-bottom:2px solid #C8E6C9;'>Item</th>"
+            "<th style='padding:6px 8px;text-align:right;font-size:0.78rem;color:#5A7A62;border-bottom:2px solid #C8E6C9;'>Price/unit</th>"
+            "<th style='padding:6px 8px;font-size:0.78rem;color:#5A7A62;border-bottom:2px solid #C8E6C9;'>Unit</th>"
+            "<th style='padding:6px 8px;font-size:0.78rem;color:#5A7A62;border-bottom:2px solid #C8E6C9;'>Category</th>"
+            "<th style='padding:6px 8px;font-size:0.78rem;color:#5A7A62;border-bottom:2px solid #C8E6C9;'>Raw text</th>"
+            "</tr></thead>"
+            "<tbody>" + rows_html + "</tbody>"
+            "</table>"
+            + (
+                "<div style='padding:8px 12px;font-size:0.78rem;color:#9AA8A0;'>"
+                "+ " + str(more) + " more items (all saved to database)</div>"
+                if more > 0 else ""
+            )
+            + "</div>"
+        )
+
+    # Save row
+    col_save, col_discard = st.columns([2, 1])
+    with col_save:
+        store_key = chain.lower().replace(" ", "_")
+        if st.button(
+            "Save " + str(result.item_count) + " items to app + database",
+            key="save_" + chain.replace(" ", "_"),
+            type="primary",
+            use_container_width=True,
+        ):
+            # 1. Merge into session_state flyer_data (immediate effect)
+            fd = st.session_state.get("flyer_data", {})
+            fd = merge_into_flyer_data(result, chain, fd)
+            st.session_state["flyer_data"] = fd
+
+            # 2. Invalidate the shopping cart so it rebuilds with new prices
+            st.session_state.pop("shopping_cart", None)
+            st.session_state.pop("_cart_week", None)
+
+            # 3. Persist to Supabase if authenticated
+            db_msg = ""
+            if state.is_authenticated():
+                ok, msg = state.save_flyer_items(
+                    chain=chain,
+                    candidates=result.candidates,
+                    week=week_iso,
+                    method="pdf",
+                )
+                db_msg = " · " + msg
+            else:
+                db_msg = " · Not saved to DB (not signed in)"
+
+            # 4. Clear staged result
+            staged_now = st.session_state.get("admin_staged", {})
+            staged_now.pop(chain, None)
+            st.session_state["admin_staged"] = staged_now
+
+            st.success(
+                chain + ": " + str(result.item_count) +
+                " items loaded into the app." + db_msg
+            )
+            st.rerun()
+
+    with col_discard:
+        if st.button(
+            "Discard",
+            key="discard_" + chain.replace(" ", "_"),
+            use_container_width=True,
+        ):
+            staged_now = st.session_state.get("admin_staged", {})
+            staged_now.pop(chain, None)
+            st.session_state["admin_staged"] = staged_now
+            st.rerun()
+
+
+
 # ── Store grid ─────────────────────────────────────────────────────────────────
 
 TIER_LABELS = {
@@ -281,138 +414,6 @@ for tier_key in _tier_order:
                 _render_extraction_preview(chain, result, week_start.isoformat())
 
 
-# ── Preview + save function ────────────────────────────────────────────────────
-def _render_extraction_preview(chain: str, result, week_iso: str) -> None:
-    """Show extracted items and a Save button for a staged extraction result."""
-
-    page_summary = "  ·  ".join(
-        f"p.{p['page']}: {p['item_count']} items"
-        + (" ⚠" if p.get("error") else "")
-        for p in result.page_log
-    )
-    st.html(
-        "<div style='font-size:0.82rem;color:#5A7A62;margin-bottom:8px;'>"
-        "<strong>Extraction log:</strong> " + page_summary + "</div>"
-    )
-
-    if result.errors:
-        for err in result.errors:
-            st.warning("Parser note: " + err)
-
-    # Preview table
-    if result.raw_items:
-        # Limit display to 100 rows -- full list goes to DB
-        display_items = result.raw_items[:100]
-        more = max(0, len(result.raw_items) - 100)
-
-        # Build HTML table
-        rows_html = ""
-        for item in display_items:
-            name     = str(item.get("name",     ""))[:60]
-            price    = item.get("price", 0.0) or 0.0
-            unit     = str(item.get("unit",     "each"))
-            cat      = str(item.get("category", "other"))
-            raw_text = str(item.get("raw_text", ""))
-
-            _cat_colors = {
-                "produce": "#E8F5E9", "protein": "#FFF3E0", "dairy": "#E3F2FD",
-                "grain": "#FFF9C4", "frozen": "#E8EAF6", "snack": "#FCE4EC",
-                "beverage": "#E0F7FA", "deli": "#FFF3E0",
-                "household": "#F5F5F5", "personal_care": "#F3E5F5", "other": "#FAFAFA",
-            }
-            cat_bg = _cat_colors.get(cat, "#FAFAFA")
-
-            rows_html += (
-                "<tr>"
-                "<td style='padding:5px 8px;border-bottom:1px solid #EEE;font-size:0.85rem;'>" + name + "</td>"
-                "<td style='padding:5px 8px;border-bottom:1px solid #EEE;font-size:0.85rem;"
-                "text-align:right;font-weight:600;color:#1E5C32;'>$" + f"{price:.2f}" + "</td>"
-                "<td style='padding:5px 8px;border-bottom:1px solid #EEE;font-size:0.82rem;"
-                "color:#5A7A62;'>" + unit + "</td>"
-                "<td style='padding:5px 8px;border-bottom:1px solid #EEE;'>"
-                "<span style='background:" + cat_bg + ";font-size:0.75rem;"
-                "padding:1px 6px;border-radius:8px;'>" + cat + "</span></td>"
-                "<td style='padding:5px 8px;border-bottom:1px solid #EEE;font-size:0.78rem;"
-                "color:#9AA8A0;'>" + raw_text + "</td>"
-                "</tr>"
-            )
-
-        st.html(
-            "<div style='overflow-x:auto;max-height:380px;overflow-y:auto;"
-            "border:1px solid #E0E0E0;border-radius:8px;'>"
-            "<table style='width:100%;border-collapse:collapse;'>"
-            "<thead><tr style='background:#F0F7F1;'>"
-            "<th style='padding:6px 8px;text-align:left;font-size:0.78rem;color:#5A7A62;border-bottom:2px solid #C8E6C9;'>Item</th>"
-            "<th style='padding:6px 8px;text-align:right;font-size:0.78rem;color:#5A7A62;border-bottom:2px solid #C8E6C9;'>Price/unit</th>"
-            "<th style='padding:6px 8px;font-size:0.78rem;color:#5A7A62;border-bottom:2px solid #C8E6C9;'>Unit</th>"
-            "<th style='padding:6px 8px;font-size:0.78rem;color:#5A7A62;border-bottom:2px solid #C8E6C9;'>Category</th>"
-            "<th style='padding:6px 8px;font-size:0.78rem;color:#5A7A62;border-bottom:2px solid #C8E6C9;'>Raw text</th>"
-            "</tr></thead>"
-            "<tbody>" + rows_html + "</tbody>"
-            "</table>"
-            + (
-                "<div style='padding:8px 12px;font-size:0.78rem;color:#9AA8A0;'>"
-                "+ " + str(more) + " more items (all saved to database)</div>"
-                if more > 0 else ""
-            )
-            + "</div>"
-        )
-
-    # Save row
-    col_save, col_discard = st.columns([2, 1])
-    with col_save:
-        store_key = chain.lower().replace(" ", "_")
-        if st.button(
-            "Save " + str(result.item_count) + " items to app + database",
-            key="save_" + chain.replace(" ", "_"),
-            type="primary",
-            use_container_width=True,
-        ):
-            # 1. Merge into session_state flyer_data (immediate effect)
-            fd = st.session_state.get("flyer_data", {})
-            fd = merge_into_flyer_data(result, chain, fd)
-            st.session_state["flyer_data"] = fd
-
-            # 2. Invalidate the shopping cart so it rebuilds with new prices
-            st.session_state.pop("shopping_cart", None)
-            st.session_state.pop("_cart_week", None)
-
-            # 3. Persist to Supabase if authenticated
-            db_msg = ""
-            if state.is_authenticated():
-                ok, msg = state.save_flyer_items(
-                    chain=chain,
-                    candidates=result.candidates,
-                    week=week_iso,
-                    method="pdf",
-                )
-                db_msg = " · " + msg
-            else:
-                db_msg = " · Not saved to DB (not signed in)"
-
-            # 4. Clear staged result
-            staged_now = st.session_state.get("admin_staged", {})
-            staged_now.pop(chain, None)
-            st.session_state["admin_staged"] = staged_now
-
-            st.success(
-                chain + ": " + str(result.item_count) +
-                " items loaded into the app." + db_msg
-            )
-            st.rerun()
-
-    with col_discard:
-        if st.button(
-            "Discard",
-            key="discard_" + chain.replace(" ", "_"),
-            use_container_width=True,
-        ):
-            staged_now = st.session_state.get("admin_staged", {})
-            staged_now.pop(chain, None)
-            st.session_state["admin_staged"] = staged_now
-            st.rerun()
-
-
 # ── Summary: what's loaded this week ──────────────────────────────────────────
 st.divider()
 st.html(
@@ -477,16 +478,17 @@ with st.expander("How the circular pipeline works", expanded=False):
         "4. Click Save. Items go into the app immediately and are stored in Supabase.<br>"
         "5. Run This Week's Plan — the meal planner now sees all store prices.<br><br>"
         "<strong>Data flow:</strong><br>"
-        "PDF upload → pdftoppm renders pages → Claude Vision API extracts items → "
+        "PDF upload → PyMuPDF renders pages (pure Python) → Claude Vision API extracts items → "
         "IngredientCandidates → flyer_data (session) + flyer_items (Supabase)<br><br>"
         "<strong>What Claude extracts:</strong><br>"
         "Item name, sale price per unit, unit (lb/oz/each), category, and the raw price "
-        "text as printed (e.g. '2/$5'). Multi-buy prices are converted to per-unit.<br><br>"
-        "<strong>What it does NOT extract:</strong><br>"
-        "Regular prices, coupon codes, loyalty card pricing, or items with no visible price. "
-        "These are Phase 2 features.<br><br>"
-        "<strong>Phase 2:</strong> Automated Wednesday morning downloads + email digest. "
-        "Confidence scores flag uncertain extractions for review. "
-        "Coupon codes captured and stored in the Coupon Vault."
+        "Item name, sale price per unit, unit (lb/oz/each), category, and the raw price "
+        "text exactly as printed (e.g. '2/$5'). Multi-buy deals are normalized to "
+        "per-unit price. BOGO is set to half price when the regular price is shown."
+        "<br><br>"
+        "<strong>Pilot vs. Production:</strong><br>"
+        "Pilot: Tim uploads PDFs manually. One API call per page via claude-3-haiku. "
+        "Production: Scheduled job downloads PDFs, diffs against prior week, "
+        "confidence-scores each item, and queues low-confidence items for review."
         "</div>"
     )

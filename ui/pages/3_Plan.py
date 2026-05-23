@@ -9,14 +9,13 @@ The weekly planning ritual. Three phases on one page:
                     Triggered by the preferences form or a "Regenerate" button.
   3. PLAN DISPLAY — Five dinner cards with costs, stores, ingredients, savings.
 
-POC vs. PRODUCTION
--------------------
-POC:  Cuisine preference is stored but doesn't yet filter meal names — recipes
-      aren't wired in yet. Phase 2 adds the recipe library and cuisine matching.
-      Plan lives in session_state — lost on browser refresh.
-PROD: Preferences + plan persisted to DB (weekly_prefs table, plan table).
-      Cuisine drives recipe selection from the Recipe Library.
-      Instacart/Shipt export from Shopping List page.
+Pilot vs. PRODUCTION
+---------------------
+Pilot: Cuisine + protein preferences drive recipe selection from the 150-recipe
+       library (app/data/recipe_library.py). Ingredient pooling allocates shared
+       costs correctly across meals. Plan lives in session_state — lost on refresh.
+PROD:  Preferences + plan persisted to DB (weekly_prefs table, plan table).
+       Instacart/Shipt export from Shopping List page.
 """
 
 import sys
@@ -71,6 +70,38 @@ if not all_candidates and not plan:
 # ENGINE — shared helper, called from preferences form and Regenerate button
 # POC: synchronous, single-household. PROD: async Celery worker.
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ── Store label helper ────────────────────────────────────────────────────────
+# IngredientCandidate has no source_store field — the chain is embedded in tags
+# (e.g. ["food_lion"] for Food Lion items). This maps tags back to display names.
+_TAG_TO_STORE: dict[str, str] = {
+    "kroger":                   "Kroger",
+    "kroger_palmyra":           "Kroger",
+    "food_lion":                "Food Lion",
+    "food_lion_pantops":        "Food Lion",
+    "aldi":                     "Aldi",
+    "aldi_rio":                 "Aldi",
+    "harris_teeter":            "Harris Teeter",
+    "harris_teeter_barracks":   "Harris Teeter",
+    "walmart":                  "Walmart",
+    "lidl":                     "Lidl",
+    "whole_foods":              "Whole Foods",
+    "trader_joe_s":             "Trader Joe's",
+    "giant":                    "Giant",
+    "wegmans":                  "Wegmans",
+}
+
+def _store_from_ing(ing) -> str:
+    """Return a display-friendly store name from an IngredientCandidate's tags."""
+    for tag in getattr(ing, "tags", []):
+        if tag in _TAG_TO_STORE:
+            return _TAG_TO_STORE[tag]
+        # Graceful fallback: snake_case → Title Case
+        label = tag.replace("_", " ").title()
+        if label:
+            return label
+    return "—"
+
 
 def _run_engine(prefs: dict) -> bool:
     """
@@ -226,7 +257,7 @@ def _run_engine(prefs: dict) -> bool:
                 ing_list.append({
                     "item":     ing.name,
                     "qty":      qty,
-                    "store":    getattr(ing, "source_store", "—"),
+                    "store":    _store_from_ing(ing),
                     "cost":     round(alloc_cost, 2),
                     # Transparency flags for the UI
                     "shared":   n_uses > 1,
@@ -270,7 +301,7 @@ def _run_engine(prefs: dict) -> bool:
                 "total_cost":  round(ing.sale_price_per_unit, 2),
                 "meals":       n_uses,
                 "qty_total":   qty_str,
-                "store":       getattr(ing, "source_store", "—"),
+                "store":       _store_from_ing(ing),
                 "_sort_key":   CATEGORY_PRIORITY.get(cat, 6),
             })
 
@@ -347,7 +378,7 @@ if _show_prefs:
     st.html("""
     <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
                 text-transform:uppercase;margin:4px 0 12px 0;'>
-        Step 1 of 3 &nbsp;·&nbsp; This week's schedule
+        Step 1 of 4 &nbsp;·&nbsp; This week's schedule
     </div>""")
 
     _sched_cols = st.columns([1, 1, 2])
@@ -386,7 +417,7 @@ if _show_prefs:
     st.html(f"""
     <div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
                 text-transform:uppercase;margin-bottom:6px;'>
-        Step 2 of 3 &nbsp;·&nbsp; Cuisine mix
+        Step 2 of 4 &nbsp;·&nbsp; Cuisine mix
     </div>
     <div style='font-size:0.85rem;color:#3A8C4E;margin-bottom:14px;'>
         For {int(_dinners)} dinners we recommend picking
@@ -871,22 +902,3 @@ if household:
         for _t in sorted(_lifestyle): _constraint_parts.append(_t.replace("_","-").capitalize())
     except AttributeError:
         pass
-
-_constraint_str = " · ".join(_constraint_parts) if _constraint_parts else "Standard filtering applied"
-st.html(f"""<div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;
-               padding:14px 18px;margin-bottom:20px;'>
-  <span style='font-size:1rem;font-weight:700;color:#1E5C32;'>
-    ✅ All {len(meals)} meals are safe for your household
-  </span>
-  <span style='font-size:0.85rem;color:#3A8C4E;margin-left:12px;'>{_constraint_str}</span>
-</div>""")
-
-# CTAs
-_c1, _c2 = st.columns(2)
-with _c1:
-    if st.button("✅ Go to Sunday Buy-Off — confirm this week →", type="primary", use_container_width=True):
-        st.switch_page("pages/4_Sunday_BuyOff.py")
-with _c2:
-    if st.button("🔄 Regenerate with different preferences", use_container_width=True):
-        st.session_state["_show_prefs_form"] = True
-        st.rerun()

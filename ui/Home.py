@@ -84,7 +84,7 @@ if not state.is_setup_complete():
     st.html("""
     <div style='display:flex;align-items:center;gap:10px;margin-top:10px;margin-bottom:16px;
                 padding:10px 18px;background:#FFFFFF;
-                border-radius:10px;
+                border-radius:10px;min-height:56px;
                 border:1px solid rgba(93,170,106,0.28);'>
       <svg width="26" height="26" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
         <line x1="14" y1="46" x2="14" y2="10" stroke="#3A8C4E" stroke-width="2.8" stroke-linecap="round"/>
@@ -518,7 +518,7 @@ style.inject()
 st.html("""
 <div style='display:flex;align-items:center;gap:14px;margin-top:10px;margin-bottom:12px;
             padding:12px 20px;background:#FFFFFF;
-            border-radius:12px;
+            border-radius:12px;min-height:84px;
             border:1px solid rgba(93,170,106,0.28);'>
   <svg width="48" height="48" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"
        aria-label="WhollyFare logo" role="img" style="flex-shrink:0;">
@@ -609,16 +609,15 @@ with col3:
 
 if history:
     st.divider()
-    st.html("<div style='font-size:1rem;font-weight:600;color:#1E5C32;margin-bottom:10px;'>Recent weeks</div>")
-    for entry in reversed(history[-5:]):
-        c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
-        with c1:
-            st.caption(f"**Week of {entry.get('week','—')}**  ·  {entry.get('meals_planned', 0)} dinners")
-        with c2:
-            st.caption(f"${entry.get('whollyfare_cost', 0):.2f} spent")
-        with c3:
-            st.caption(f"💚 ${entry.get('found_money', 0):.2f} found")
-        with c4:
-            stores_n = entry.get('stores_used', 1)
-            grocer_txt = "Kroger + Food Lion" if stores_n >= 2 else "Kroger"
-            st.caption(f"📍 {grocer_txt}")
+    st.html("<div style='font-size:1rem;font-weight:600;color:#1E5C32;margin-bottom:10px;'>"              "Found Money — recent weeks</div>")
+    for entry in history[-4:]:
+        week_label = entry.get("week", "")
+        fm = entry.get("found_money", 0)
+        gross = entry.get("gross_savings", fm)
+        gas   = entry.get("gas_cost", 0)
+        st.html(
+            f"<div style='display:flex;justify-content:space-between;"
+            f"padding:7px 12px;border-bottom:1px solid #E8F5E9;font-size:0.88rem;'>"            f"<span style='color:#5A7A62;'>{week_label}</span>"            f"<span style='color:#1E5C32;font-weight:700;'> in your pocket</span>"            f"</div>"
+        )
+    if st.button("View full Found Money Ledger →", use_container_width=True):
+        st.switch_page("pages/6_Ledger.py")
