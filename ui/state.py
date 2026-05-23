@@ -474,6 +474,16 @@ def approve_week():
         stores_used = len([g for g in grocers
                            if g.get("chain") in st.session_state.get("flyer_data", {})])
 
+        # Pull supplemental spend tracking — kept separate from Found Money math.
+        # regulars_cost: user-estimated weekly regulars (milk, eggs, bread, etc.)
+        # staples_cost:  sum of household_staples items that have a cost entered
+        # total_spend_est: the honest full grocery bill for the week
+        # Sincere Strategy: shown on dashboard + ledger, never in savings vs. HelloFresh.
+        regulars_cost = float(st.session_state.get("_regulars_cost_override") or 0.0)
+        staples = st.session_state.get("household_staples", [])
+        staples_cost  = round(sum(float(s.get("cost") or 0) for s in staples), 2)
+        total_spend   = round(weekly_cost + regulars_cost + staples_cost, 2)
+
         history.append({
             "week":              w,
             "whollyfare_cost":   round(weekly_cost, 2),
@@ -484,6 +494,10 @@ def approve_week():
             "vs_hellofresh":     round(savings_vs_hellofresh, 2),
             "meals_planned":     len(plan.get("meals", [])),
             "stores_used":       stores_used or 2,
+            # Supplemental spend — honest total, NOT part of Found Money
+            "regulars_cost_est": round(regulars_cost, 2),
+            "staples_cost_est":  round(staples_cost, 2),
+            "total_spend_est":   total_spend,
         })
         st.session_state["ledger_history"] = history
 

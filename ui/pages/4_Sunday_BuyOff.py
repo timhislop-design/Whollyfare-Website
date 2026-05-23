@@ -238,6 +238,68 @@ with st.expander("🛒 Shopping split by store", expanded=False):
 
 st.divider()
 
+# ── Full Grocery Spend ───────────────────────────────────────────────────────────
+# Sincere Strategy: show the honest total grocery bill for the week.
+# Regulars + staples are tracked here but NEVER folded into Found Money math —
+# that comparison stays purely about meal plan savings vs. single-store / HelloFresh.
+with st.expander("🧾 Full grocery spend this week", expanded=False):
+    st.html("<div style='font-size:0.82rem;color:#5A7A62;margin-bottom:12px;'>"  
+            "The Sincere Strategy tracks your total grocery spend honestly. "
+            "Regulars and staples are shown here but don't affect your Found Money — "
+            "that metric is purely the meal plan savings.</div>")
+
+    # Meal plan cost — calculated, not editable
+    st.html(f"<div style='display:flex;justify-content:space-between;padding:6px 0;"
+            f"border-bottom:1px solid #E8F5E9;font-size:0.9rem;'>"
+            f"<span>🍽️ WhollyFare meal plan</span>"
+            f"<strong style='color:#1E5C32;'>${wf_cost:.2f}</strong></div>")
+
+    # Weekly regulars — user estimates their typical spend
+    reg_default = float(st.session_state.get("_regulars_cost_override") or 0.0)
+    reg_val = st.number_input(
+        "🛒 Weekly regulars estimate (milk, eggs, bread, etc.)",
+        min_value=0.0, max_value=500.0,
+        value=reg_default, step=1.0, format="%.2f",
+        help="What you typically spend on regulars regardless of the meal plan. "
+             "Edit to match your household. Saved when you lock the week.",
+        key="regulars_cost_input",
+    )
+    st.session_state["_regulars_cost_override"] = reg_val
+
+    # Household staples — pull from session, sum costs where entered
+    staples = st.session_state.get("household_staples", [])
+    staples_cost = sum(float(s.get("cost") or 0) for s in staples)
+    staples_count = len(staples)
+    if staples_count:
+        cost_str = f"${staples_cost:.2f}" if staples_cost > 0 else f"{staples_count} items (no cost entered)"
+        st.html(f"<div style='display:flex;justify-content:space-between;padding:6px 0;"
+                f"border-bottom:1px solid #E8F5E9;font-size:0.9rem;'>"
+                f"<span>🧺 Household staples</span>"
+                f"<strong style='color:#1E5C32;'>{cost_str}</strong></div>")
+
+    # Trip/gas cost
+    trip_info   = state.net_found_money()
+    trip_total  = trip_info.get("total_trip_cost", 0.0)
+    if trip_total > 0:
+        st.html(f"<div style='display:flex;justify-content:space-between;padding:6px 0;"
+                f"border-bottom:1px solid #E8F5E9;font-size:0.9rem;color:#9AA8A0;'>"
+                f"<span>⛽ Gas (estimated)</span>"
+                f"<span>−${trip_total:.2f}</span></div>")
+
+    # Total
+    total_spend = wf_cost + reg_val + staples_cost
+    st.html(f"<div style='display:flex;justify-content:space-between;padding:10px 0 4px 0;"
+            f"font-size:1rem;font-weight:700;'>"
+            f"<span>Total grocery spend this week</span>"
+            f"<span style='color:#1E5C32;'>${total_spend:.2f}</span></div>")
+
+    st.html("<div style='font-size:0.75rem;color:#9AA8A0;padding-top:4px;'>"  
+            "Found Money ($" + f"{totals['found_money']:.2f}" + " vs. single store · "
+            "$" + f"{totals['vs_hellofresh']:.2f}" + " vs. HelloFresh) is calculated from "
+            "the meal plan only — not affected by regulars or staples.</div>")
+
+st.divider()
+
 # ── The big button ────────────────────────────────────────────────────────────
 if approved:
     # Fire balloons only once per week per session — not on every rerun.

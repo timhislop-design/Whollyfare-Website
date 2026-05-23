@@ -179,6 +179,9 @@ total_meals      = sum(e.get("meals_planned", 0) for e in ledger)
 weeks_planned    = len(ledger)
 weeks_receipts   = len(real_entries)
 has_trip_data    = total_trip_costs > 0
+# Honest total grocery spend (meal plan + regulars + staples — never affects Found Money)
+total_spend_all  = sum(e.get("total_spend_est", e.get("whollyfare_cost", 0)) for e in ledger)
+has_full_spend   = any(e.get("total_spend_est", 0) > e.get("whollyfare_cost", 0) for e in ledger)
 
 # Accuracy: average gap between estimate and receipt
 if real_entries:
@@ -234,6 +237,26 @@ c4.metric(
     f"{accuracy_pct}%" if accuracy_pct is not None else "—",
     help="How close WhollyFare's estimates were to your actual receipts",
 )
+
+# Honest total grocery spend — shown only once regulars/staples are tracked
+# Sincere Strategy: visible to the household but never touches Found Money math.
+if has_full_spend:
+    avg_weekly_spend = total_spend_all / max(weeks_planned, 1)
+    st.html(
+        f"<div style='background:#F0F7F1;border:1px solid #C8E6C9;border-radius:8px;"
+        f"padding:12px 18px;margin-top:8px;display:flex;align-items:baseline;gap:16px;'>"
+        f"<div><span style='font-size:0.75rem;color:#5A7A62;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:0.06em;'>"
+        f"Total grocery spend ({weeks_planned} wks)</span><br>"
+        f"<span style='font-size:1.5rem;font-weight:800;color:#1E5C32;'>"
+        f"${total_spend_all:,.2f}</span></div>"
+        f"<div style='font-size:0.82rem;color:#5A7A62;'>"
+        f"~${avg_weekly_spend:.2f}/week avg · includes meal plan, "
+        f"weekly regulars, and household staples<br>"
+        f"<span style='font-size:0.73rem;color:#9AA8A0;'>"
+        f"Found Money is calculated from meal plan only — not affected by this figure</span>"
+        f"</div></div>"
+    )
 
 if use_real:
     st.html(
@@ -309,19 +332,23 @@ st.html(
     "color:#3A8C4E;margin-bottom:12px;'>Week-by-week breakdown</div>")
 
 for entry in sorted(ledger, key=lambda e: e.get("week", ""), reverse=True):
-    week       = entry.get("week", "—")
-    plan_cost  = entry.get("whollyfare_cost", 0)
-    actual     = entry.get("actual_receipt")
-    found_est  = entry.get("found_money", 0)
-    found_real = entry.get("actual_found_money")
-    trip_cost  = entry.get("trip_cost", 0)
-    net_fm     = entry.get("net_found_money")
-    vs_hf      = entry.get("vs_hellofresh", 0)
-    meals_n    = entry.get("meals_planned", 0)
-    notes      = entry.get("notes", "")
-    stores     = entry.get("stores_list") or [_store_label()]
-    receipt_ok = actual is not None
-    accuracy_d = entry.get("accuracy_delta")
+    week              = entry.get("week", "—")
+    plan_cost         = entry.get("whollyfare_cost", 0)
+    actual            = entry.get("actual_receipt")
+    found_est         = entry.get("found_money", 0)
+    found_real        = entry.get("actual_found_money")
+    trip_cost         = entry.get("trip_cost", 0)
+    net_fm            = entry.get("net_found_money")
+    vs_hf             = entry.get("vs_hellofresh", 0)
+    meals_n           = entry.get("meals_planned", 0)
+    notes             = entry.get("notes", "")
+    stores            = entry.get("stores_list") or [_store_label()]
+    receipt_ok        = actual is not None
+    accuracy_d        = entry.get("accuracy_delta")
+    # Supplemental spend tracking (Sincere Strategy — honest total)
+    regulars_cost     = entry.get("regulars_cost_est", 0)
+    staples_cost      = entry.get("staples_cost_est", 0)
+    total_spend_est   = entry.get("total_spend_est", 0)
 
     with st.container(border=True):
         col_a, col_b, col_c, col_d = st.columns([2.5, 2, 2, 2.5])
@@ -375,6 +402,19 @@ for entry in sorted(ledger, key=lambda e: e.get("week", ""), reverse=True):
                 f"vs. HelloFresh: **${(vs_hf + plan_cost):.2f}** would have cost  \n"
                 f"WhollyFare saved you **${vs_hf:.2f}**"
             )
+            # Honest total spend (meal plan + regulars + staples)
+            if total_spend_est > 0:
+                spend_parts = [f"Meal plan ${plan_cost:.2f}"]
+                if regulars_cost > 0: spend_parts.append(f"regulars ${regulars_cost:.2f}")
+                if staples_cost > 0:  spend_parts.append(f"staples ${staples_cost:.2f}")
+                st.html(
+                    "<div style='font-size:0.72rem;color:#5A7A62;margin-top:6px;"
+                    "line-height:1.7;'>"
+                    "<strong style='color:#1E5C32;'>Full grocery spend: "
+                    f"${total_spend_est:.2f}</strong><br>"
+                    + " + ".join(spend_parts)
+                    + "</div>"
+                )
 
     # Quick receipt entry for older unentered weeks (collapsed)
     if not receipt_ok:

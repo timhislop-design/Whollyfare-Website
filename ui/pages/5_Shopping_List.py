@@ -700,7 +700,8 @@ if hs_items:
         hs_key = "chk_hs_" + hs["name"].replace(" ", "_")
         c1, c2 = st.columns([8, 1])
         with c1:
-            label = hs["name"] + (f" — {hs['qty']}" if hs.get("qty") else "")
+            cost_disp = f" · ${hs['cost']:.2f}" if hs.get("cost") else ""
+            label = hs["name"] + (f" — {hs['qty']}" if hs.get("qty") else "") + cost_disp
             st.checkbox(label, value=st.session_state.get(hs_key, False), key=hs_key)
         with c2:
             if not st.button("×", key="hs_rm_" + hs["name"].replace(" ", "_"),
@@ -709,24 +710,38 @@ if hs_items:
     if len(hs_to_keep) != len(hs_items):
         st.session_state["household_staples"] = hs_to_keep
         st.rerun()
+    # Show subtotal for items with cost entered
+    hs_total = sum(float(h.get("cost") or 0) for h in hs_items)
+    if hs_total > 0:
+        st.html(f"<div style='text-align:right;font-size:0.88rem;font-weight:600;"
+                f"color:#1E5C32;padding:4px 0;'>"
+                f"Staples estimated total: ${hs_total:.2f}</div>")
 else:
     st.html("<div style='font-size:0.85rem;color:#9AA8A0;font-style:italic;"
             "padding:4px 0 12px 0;'>No staples added yet — add water, coffee, snacks, anything.</div>")
 
 with st.form("add_hs_form", clear_on_submit=True):
-    hs_c1, hs_c2, hs_c3 = st.columns([4, 2, 1])
+    hs_c1, hs_c2, hs_c3, hs_c4 = st.columns([3, 2, 1.5, 1])
     with hs_c1:
-        hs_name = st.text_input("Item", placeholder="e.g. Spring water, Coffee, Apples",
+        hs_name = st.text_input("Item", placeholder="e.g. Spring water, Coffee",
                                 label_visibility="collapsed")
     with hs_c2:
-        hs_qty = st.text_input("Qty (optional)", placeholder="e.g. 2 cases",
+        hs_qty = st.text_input("Qty", placeholder="e.g. 2 cases",
                                label_visibility="collapsed")
     with hs_c3:
+        hs_cost = st.text_input("Cost $", placeholder="e.g. 4.99",
+                                label_visibility="collapsed")
+    with hs_c4:
         hs_add = st.form_submit_button("+ Add", use_container_width=True)
     if hs_add and hs_name.strip():
         existing = {i["name"].lower() for i in hs_items}
         if hs_name.strip().lower() not in existing:
-            hs_items.append({"name": hs_name.strip(), "qty": hs_qty.strip()})
+            try:
+                cost_val = float(hs_cost.strip()) if hs_cost.strip() else 0.0
+            except ValueError:
+                cost_val = 0.0
+            hs_items.append({"name": hs_name.strip(), "qty": hs_qty.strip(),
+                              "cost": cost_val})
             st.session_state["household_staples"] = hs_items
             st.rerun()
 
