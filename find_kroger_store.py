@@ -49,3 +49,4 @@ for s in stores:
 
 print("\nCopy the locationId for Barracks Road into your .env:")
 print("  KROGER_LOCATION_ID=<paste it here>")
+KROGER_LOCATION_ID env var or Streamlit secret.")

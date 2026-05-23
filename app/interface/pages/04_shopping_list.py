@@ -56,5 +56,5 @@ st.download_button(
     csv_text,
     file_name=f"whollyfare_shopping_{plan.flyer_week or 'week'}.csv",
     mime="text/csv",
-    type="primary",
+    mime="text/csv",
 )

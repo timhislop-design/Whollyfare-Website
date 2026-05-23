@@ -300,11 +300,5 @@ if st.button("💾 Save Profile & Connect Grocer →", type="primary", use_conta
         "servings": servings,
         "meals_per_week": meals_per_week,
         "grocers": st.session_state.grocers,
-        "members": st.session_state.members,
+        "members": st.session_state.get("members", []),
     }
-    st.success(
-        f"✅ Profile saved for **{household_name or 'your household'}** — "
-        f"{len(st.session_state.members)} member(s), "
-        f"{len(st.session_state.grocers)} grocer(s)."
-    )
-    st.switch_page("pages/02_grocer_connect.py")

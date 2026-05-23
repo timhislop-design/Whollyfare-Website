@@ -171,6 +171,4 @@ st.success(
 )
 c_sl, c_so = st.columns(2)
 with c_sl:
-    st.page_link("pages/04_shopping_list.py", label="🛒 View Shopping List", icon="4️⃣")
-with c_so:
-    st.page_link("pages/05_sunday_buyoff.py", label="✅ Sunday Buy-Off", icon="5️⃣")
+    st.page_link("pages/04_shopping_list.py", label="🛒 View Shopping List")

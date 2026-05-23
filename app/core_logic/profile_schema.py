@@ -106,7 +106,7 @@ EXAMPLE_HOUSEHOLD = HouseholdProfile(
     ],
     grocer=GrocerPreference(
         chain_name="Kroger",
+        store_id="01200441",
         rewards_program_enrolled=True,
-        delivery_preferred=False,
     ),
 )

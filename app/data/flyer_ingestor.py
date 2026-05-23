@@ -390,14 +390,19 @@ class FlyerIngestor:
 
         candidates: list[IngredientCandidate] = []
         try:
-            images = convert_from_path(str(path), first_page=1,
-                                       last_page=max(page_indices) + 1)
-            for i in page_indices:
-                if i >= len(images):
-                    continue
-                text = pytesseract.image_to_string(images[i])
-                candidates.extend(self._parse_text_block(text, chain=chain))
+            images = convert_from_path(str(path), first_page=1, last_page=8, dpi=150)
         except Exception as e:
-            logger.warning(f"OCR failed for {path}: {e}")
-
+            logger.warning("convert_from_path failed: %s", e)
+            return []
+        for img in images:
+            text = pytesseract.image_to_string(img)
+            for line in text.splitlines():
+                line = line.strip()
+                if len(line) > 4:
+                    candidates.append(IngredientCandidate(
+                        name=line[:80],
+                        sale_price_per_unit=0.0,
+                        unit="each",
+                        category="other",
+                    ))
         return candidates

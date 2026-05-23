@@ -120,5 +120,3 @@ def auth_sidebar() -> None:
                             st.success(msg)
                         else:
                             st.error(msg)
-                    else:
-                        st.warning("Enter your email and a password.")

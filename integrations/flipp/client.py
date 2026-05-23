@@ -386,11 +386,8 @@ if __name__ == "__main__":
     print(f"\nPulling {args.chain} flyer for zip {args.zip}...")
     try:
         candidates, meta = client.get_weekly_sales(chain=args.chain, postal_code=args.zip)
-        print(f"\nMetadata: {json.dumps(meta, indent=2, default=str)}")
-        print(f"\nFirst 10 items:")
-        for c in candidates[:10]:
-            print(f"  [{c.category:8s}] {c.name:<40s} ${c.sale_price_per_unit:.2f}/{c.unit}")
-        print(f"\nTotal: {len(candidates)} candidates from {meta['raw_total']} raw items")
-    except RuntimeError as e:
-        print(f"\nError: {e}")
+        print(f"\nMeta: {meta}")
+        print(f"Found {len(candidates)} items.")
+    except Exception as e:
+        print(f"Error: {e}")
         sys.exit(1)

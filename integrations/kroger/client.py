@@ -482,17 +482,14 @@ class KrogerClient:
 
 _DEFAULT_SEARCH_TERMS = [
     # Proteins
-    "chicken breast", "chicken thigh", "ground turkey", "ground beef",
-    "pork chop", "pork loin", "salmon", "tilapia", "shrimp", "eggs",
+    "chicken breast", "chicken thigh", "ground beef", "ground turkey",
+    "pork chops", "salmon", "tilapia", "shrimp",
     # Produce
-    "broccoli", "spinach", "sweet potato", "tomato", "bell pepper",
-    "zucchini", "cauliflower", "carrot", "apple", "banana",
-    # Grains
-    "brown rice", "quinoa", "oats", "pasta",
-    # Legumes
-    "black beans", "lentils", "chickpeas",
-    # Dairy
-    "milk", "greek yogurt", "eggs", "butter",
-    # Pantry staples
-    "olive oil", "chicken broth", "canned tomatoes",
+    "broccoli", "spinach", "bell pepper", "onion", "garlic", "tomato",
+    "potato", "sweet potato", "carrot", "zucchini", "avocado",
+    # Dairy & eggs
+    "eggs", "milk", "cheddar cheese", "greek yogurt", "butter",
+    # Pantry
+    "olive oil", "chicken broth", "pasta", "rice", "canned tomatoes",
+    "black beans", "kidney beans",
 ]

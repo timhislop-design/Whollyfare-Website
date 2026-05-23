@@ -98,6 +98,6 @@ def coming_soon_page(
           <div class="wf-cs-icon">{icon}</div>
           <div class="wf-cs-badge">COMING SOON</div>
           <div class="wf-cs-title">{title}</div>
-          <div class="wf-cs-desc">{description}</div>
           {eta_html}
-        </div>""")
+        </div>"""
+    )

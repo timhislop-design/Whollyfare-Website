@@ -67,8 +67,4 @@ def main():
     print(f"  Items parsed:    {meta.get('items_after_enrichment', len(result.items))}")
     print(f"  Items skipped:   {meta.get('items_skipped', 0)}")
     print(f"  USDA enriched:   {meta.get('usda_enriched_count', 0)}")
-    print(f"  Saved to:        {saved}\n")
-
-
-if __name__ == "__main__":
-    main()
+    print(f"  Saved to: {out_path}")

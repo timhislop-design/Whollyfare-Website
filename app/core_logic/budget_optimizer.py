@@ -130,6 +130,5 @@ class BudgetOptimizer:
         # Backfill if we couldn't hit min_count with balanced selection
         if len(selected) < min_count:
             remaining = [s for s in scored if s not in selected]
-            selected.extend(remaining[: min_count - len(selected)])
-
+            selected.extend(remaining[:min_count - len(selected)])
         return selected

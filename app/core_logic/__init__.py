@@ -32,6 +32,5 @@ __all__ = [
     "BudgetOptimizer",
     "ScoredIngredient",
     "MealPlanner",
-    "Meal",
     "WeeklyPlan",
 ]

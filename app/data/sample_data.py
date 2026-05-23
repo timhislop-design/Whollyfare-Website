@@ -322,9 +322,7 @@ def load_all_demo_data():
     """Return a single dict containing all demo data, keyed for easy access."""
     return {
         "household":     load_demo_household(),
-        "grocers":       load_demo_grocers(),
-        "flyer_data":    load_demo_flyer_data(),
-        "plan":          load_demo_plan(),
-        "ledger_history": load_demo_ledger(),
-        "active_week":   "2026-05-11",
+        "grocers": [],
+        "flyer_data": {},
+        "plan": None,
     }

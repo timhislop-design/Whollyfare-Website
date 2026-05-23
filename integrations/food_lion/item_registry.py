@@ -387,13 +387,9 @@ _SORTED_KEYS: list[str] = sorted(ITEM_REGISTRY.keys(), key=len, reverse=True)
 
 
 def lookup(name: str) -> dict | None:
-    """
-    Return enrichment data for the closest matching registry entry, or None.
-    Matching is case-insensitive substring: the longest key that appears in
-    `name` wins (avoids "chicken" matching before "chicken breast").
-    """
-    name_lower = name.lower()
+    """Return registry entry for name (longest-match), or None."""
+    lower = name.lower()
     for key in _SORTED_KEYS:
-        if key in name_lower:
-            return dict(ITEM_REGISTRY[key])
+        if key in lower:
+            return ITEM_REGISTRY[key]
     return None

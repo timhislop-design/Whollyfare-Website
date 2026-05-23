@@ -606,20 +606,10 @@ st.html("""
     <div style='font-size:0.95rem;font-weight:700;color:#1E5C32;'>
       Want to be part of the pilot?
     </div>
-    <div style='font-size:0.82rem;color:#3A8C4E;margin-top:2px;'>
-      The roadmap moves faster with more households. Each new family makes the product better for all of them.
+      The roadmap moves faster with real households. Reach out to join the pilot.
     </div>
   </div>
-  <div style='font-size:0.82rem;color:#1E5C32;font-weight:600;'>
-    <a href='mailto:tim.hislop@gmail.com?subject=WhollyFare Pilot — I want in'
-       style='color:#1E5C32;text-decoration:none;background:#D8EDD0;
-              padding:8px 16px;border-radius:8px;'>
-      → Get in touch
-    </a>
-  </div>
-</div>
-""")
-
-st.html("<br>")
-st.page_link("pages/7_Investor.py", label="← Investor Brief")
-st.page_link("pages/8_Roadmap.py",  label="→ Product Vision Roadmap")
+  <a href='mailto:tim.hislop@gmail.com' style='background:#5DAA6A;color:white;
+padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;'>
+Join the pilot →</a>
+</div>""")

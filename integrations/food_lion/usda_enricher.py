@@ -200,7 +200,9 @@ class USDAEnricher:
         return result
 
     def _save_cache(self):
-        if self.cache_path:
-            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.cache_path, "w") as f:
-                json.dump(self._cache, f, indent=2)
+        """Persist the in-memory cache to disk."""
+        try:
+            with open(self._cache_path, 'w') as f:
+                import json as _j; _j.dump(self._cache, f)
+        except Exception:
+            pass

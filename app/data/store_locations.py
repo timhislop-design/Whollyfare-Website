@@ -252,11 +252,8 @@ def stores_near_zip(
             cost = None
         else:
             dist = haversine_miles(centroid[0], centroid[1], loc["lat"], loc["lon"])
-            if dist > radius_miles + 0.4:  # x.4 and under counts as within radius
+            if dist > radius_miles + 0.4:  # 0.4 mi buffer accounts for GPS rounding
                 continue
-            cost = trip_cost_estimate(dist)
         results.append({**loc, "distance_miles": dist, "trip_cost": cost})
-
-    if centroid is not None:
-        results.sort(key=lambda x: x["distance_miles"])
+    results.sort(key=lambda x: (x["distance_miles"] or 999))
     return results

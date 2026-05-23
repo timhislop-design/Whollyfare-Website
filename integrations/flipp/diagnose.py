@@ -70,4 +70,3 @@ for url in CANDIDATES:
     else:
         print(f"  ❌ STATUS {status} | {ct} | {blen} bytes | not JSON")
         print(f"  Body: {repr(preview[:200])}")
-print("\nDone. Share the output with Claude.")

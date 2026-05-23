@@ -133,6 +133,5 @@ else:
 
     st.caption(
         "Approving sends the shopping list to your primary grocer's delivery "
-        "or pickup queue. You can still adjust quantities in the Shopping List "
-        "before checkout. Nothing is sent to anyone else, ever."
+        "or pickup queue. You can still adjust quantities before checkout."
     )
