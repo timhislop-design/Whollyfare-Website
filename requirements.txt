@@ -43,5 +43,6 @@ python-dotenv>=1.0.0
 # Claude API (PDF circular extraction)
 anthropic>=0.25.0
 
-# PDF rendering — pure Python, no system poppler needed (replaces pdftoppm)
+# PDF rendering — pure Python, no system poppler required
+# (PyMuPDF renders flyer PDFs to JPEG for the Claude Vision extractor)
 pymupdf>=1.23.0
