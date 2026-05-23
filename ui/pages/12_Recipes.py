@@ -52,6 +52,8 @@ if "roulette_result"    not in st.session_state: st.session_state["roulette_resu
 if "recipe_view"        not in st.session_state: st.session_state["recipe_view"]         = "browse"
 if "_add_recipe_open"   not in st.session_state: st.session_state["_add_recipe_open"]    = False
 if "_family_recipes"    not in st.session_state: st.session_state["_family_recipes"]     = []
+if "find_recipe_results"  not in st.session_state: st.session_state["find_recipe_results"]  = []
+if "find_recipe_searched" not in st.session_state: st.session_state["find_recipe_searched"] = False
 
 # ── Supabase helpers ───────────────────────────────────────────────────────────
 def _hh_id():
@@ -407,11 +409,142 @@ def _render_add_recipe_form() -> None:
     st.html("</div>")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# FIND A RECIPE — web-assisted search helper
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _search_web_recipes(cuisine: str, protein: str, extra: str = "") -> list:
+    """Search AllRecipes for recipe ideas. Falls back to library matches.
+
+    Returns list of dicts:
+        name, description, ingredients_hint (list[str]), source (str),
+        url (str, may be empty), _library_recipe (dict | None)
+    """
+    import requests
+    import re as _re
+    from urllib.parse import quote_plus
+
+    parts = [p for p in [
+        cuisine if cuisine.lower() != "any" else "",
+        protein if protein.lower() != "any" else "",
+        extra.strip(),
+    ] if p]
+    query = " ".join(parts) or "easy weeknight dinner"
+
+    results: list = []
+
+    # ── Attempt: AllRecipes search HTML ───────────────────────────────────────
+    try:
+        encoded = quote_plus(query)
+        search_url = f"https://www.allrecipes.com/search?q={encoded}"
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        resp = requests.get(search_url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            html = resp.text
+            # Extract JSON-LD blocks — individual recipe cards may be inlined
+            ld_blocks = _re.findall(
+                r'<script[^>]+type=[\x22\x27]application/ld\+json[\x22\x27][^>]*>(.*?)</script>',
+                html, _re.DOTALL | _re.IGNORECASE
+            )
+            for raw in ld_blocks:
+                try:
+                    data = json.loads(raw.strip())
+                except Exception:
+                    continue
+                items = data if isinstance(data, list) else [data]
+                for item in items:
+                    if item.get("@type") == "Recipe" and item.get("name"):
+                        ings_hint = [
+                            i.split(",")[0][:40]
+                            for i in item.get("recipeIngredient", [])[:6]
+                        ]
+                        desc = (item.get("description") or "")[:200]
+                        results.append({
+                            "name":             item["name"],
+                            "url":              item.get("url", search_url),
+                            "description":      desc,
+                            "ingredients_hint": ings_hint,
+                            "source":           "AllRecipes",
+                            "_library_recipe":  None,
+                        })
+                        if len(results) >= 4:
+                            break
+                if len(results) >= 4:
+                    break
+            # Fallback within the HTML: extract card titles + hrefs
+            if not results:
+                title_links = _re.findall(
+                    r'href="(https://www\.allrecipes\.com/recipe/\d+/[^"]+)"'
+                    r'[^>]*>\s*<[^>]+>\s*([A-Z][^<]{5,80})',
+                    html
+                )
+                seen: set = set()
+                for href, title in title_links:
+                    t = title.strip()
+                    if t not in seen:
+                        seen.add(t)
+                        results.append({
+                            "name":             t,
+                            "url":              href,
+                            "description":      "",
+                            "ingredients_hint": [],
+                            "source":           "AllRecipes",
+                            "_library_recipe":  None,
+                        })
+                        if len(results) >= 4:
+                            break
+    except Exception:
+        pass
+
+    # ── Fallback: WhollyFare library matches ──────────────────────────────────
+    if len(results) < 2:
+        pool = ALL_RECIPES[:]
+        q_words = [w for w in query.lower().split() if len(w) > 2]
+        scored = []
+        for r in pool:
+            haystack = (
+                r["name"] + " " + r.get("primary_protein", "") +
+                " ".join(i["name"] for i in r.get("ingredients", [])[:8])
+            ).lower()
+            score = sum(1 for w in q_words if w in haystack)
+            if score:
+                scored.append((score, r))
+        scored.sort(key=lambda x: -x[0])
+        cuis_matches = [
+            r for _, r in scored
+            if cuisine.lower() == "any" or r.get("cuisine", "") == cuisine.lower()
+        ]
+        top = cuis_matches[:max(0, 4 - len(results))]
+        if not top and scored:
+            top = [r for _, r in scored[:max(0, 4 - len(results))]]
+        for r in top:
+            ing_names = [i["name"] for i in r.get("ingredients", [])[:6]]
+            desc = f"{r.get('serves', 4)} servings · {r.get('active_minutes', 30)} min"
+            results.append({
+                "name":             r["name"],
+                "url":              "",
+                "description":      desc,
+                "ingredients_hint": ing_names,
+                "source":           "WhollyFare Library",
+                "_library_recipe":  r,
+            })
+
+    return results[:4]
+
+
 # ── Page header ────────────────────────────────────────────────────────────────
 style.page_header("Recipe Library", "150 recipes across 5 cuisines · favorites · family recipes · substitutions")
 
 # ── Top toolbar: view toggle ───────────────────────────────────────────────────
-tb_col1, tb_col2, tb_col3, tb_col4 = st.columns([2, 2, 2, 2])
+tb_col1, tb_col2, tb_col3, tb_col4, tb_col5 = st.columns([2, 2, 2, 2, 2])
 with tb_col1:
     if st.button("📖 Browse All", use_container_width=True,
                  type="primary" if st.session_state["recipe_view"] == "browse" else "secondary"):
@@ -434,6 +567,12 @@ with tb_col4:
     if st.button("🎰 Recipe Roulette", use_container_width=True,
                  type="primary" if st.session_state["recipe_view"] == "roulette" else "secondary"):
         st.session_state["recipe_view"] = "roulette"
+        st.rerun()
+with tb_col5:
+    if st.button("🔍 Find a Recipe", use_container_width=True,
+                 type="primary" if st.session_state["recipe_view"] == "find" else "secondary"):
+        st.session_state["recipe_view"] = "find"
+        st.session_state["roulette_result"] = None
         st.rerun()
 
 st.html("<div style='height:12px;'></div>")
@@ -550,6 +689,160 @@ elif st.session_state["recipe_view"] == "family":
     elif not st.session_state["_add_recipe_open"]:
         st.html("<div style='font-size:0.88rem;color:#9AA8A0;font-style:italic;"
                 "padding:16px 0;'>No family recipes added yet.</div>")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FIND A RECIPE — web-assisted discovery
+# ══════════════════════════════════════════════════════════════════════════════
+elif st.session_state["recipe_view"] == "find":
+    st.html("<div style='font-size:1.1rem;font-weight:700;color:#1E5C32;"
+            "margin-bottom:4px;'>🔍 Find a Recipe</div>")
+    st.html("<div style='font-size:0.85rem;color:#5A7A62;margin-bottom:16px;'>"
+            "Pick a cuisine and protein — WhollyFare will suggest 3–4 recipes. "
+            "Tap <strong>Save to my recipes</strong> to add one to your family rotation.</div>")
+
+    f_col1, f_col2, f_col3 = st.columns([2, 2, 3])
+    with f_col1:
+        find_cuisine = st.selectbox(
+            "Cuisine",
+            ["Any", "Mexican", "Italian", "Asian", "American", "Mediterranean"],
+            key="find_cuisine"
+        )
+    with f_col2:
+        find_protein = st.selectbox(
+            "Protein",
+            ["Any", "Chicken", "Beef", "Pork", "Turkey", "Seafood", "Vegetarian"],
+            key="find_protein"
+        )
+    with f_col3:
+        find_extra = st.text_input(
+            "Keywords (optional)",
+            placeholder="e.g. enchiladas, stir fry, one pan...",
+            key="find_extra"
+        )
+
+    do_search = st.button("🔍 Find recipes", type="primary")
+
+    if do_search:
+        with st.spinner("Searching for recipes…"):
+            hits = _search_web_recipes(find_cuisine, find_protein, find_extra)
+        st.session_state["find_recipe_results"]  = hits
+        st.session_state["find_recipe_searched"] = True
+        st.rerun()
+
+    results = st.session_state.get("find_recipe_results", [])
+
+    if st.session_state.get("find_recipe_searched") and not results:
+        st.warning("No recipes found for that combination — try different filters or keywords.")
+
+    elif results:
+        st.html("<div style='height:8px;'></div>")
+        for idx, hit in enumerate(results):
+            r_name    = hit["name"]
+            r_desc    = hit.get("description", "")
+            r_ings    = hit.get("ingredients_hint", [])
+            r_source  = hit.get("source", "")
+            r_url     = hit.get("url", "")
+            lib_rec   = hit.get("_library_recipe")
+
+            badge_bg  = "#E8F5E9" if r_source == "WhollyFare Library" else "#FFF3E0"
+            badge_col = "#1E5C32" if r_source == "WhollyFare Library" else "#BF5E00"
+
+            with st.expander(r_name, expanded=(idx == 0)):
+                top_c1, top_c2 = st.columns([5, 2])
+                with top_c1:
+                    badge_html = (
+                        f"<span style='background:{badge_bg};color:{badge_col};"
+                        f"font-size:0.72rem;padding:2px 8px;border-radius:8px;"
+                        f"font-weight:600;'>{r_source}</span>"
+                    )
+                    if r_desc:
+                        st.html(
+                            f"<div style='margin-bottom:6px;'>{badge_html}</div>"
+                            f"<div style='font-size:0.88rem;color:#4A4A4A;"
+                            f"margin-bottom:10px;'>{r_desc}</div>"
+                        )
+                    else:
+                        st.html(f"<div style='margin-bottom:8px;'>{badge_html}</div>")
+                    if r_ings:
+                        ings_text = " · ".join(r_ings)
+                        st.html(
+                            f"<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:8px;'>"
+                            f"<strong>Key ingredients:</strong> {ings_text}</div>"
+                        )
+                with top_c2:
+                    if r_url:
+                        st.markdown(f"[📄 View full recipe]({r_url})")
+
+                btn_c1, btn_c2 = st.columns(2)
+                with btn_c1:
+                    if st.button(
+                        "💾 Save to my recipes",
+                        key=f"find_save_{idx}",
+                        use_container_width=True,
+                        type="primary",
+                    ):
+                        if lib_rec:
+                            subs_applied = _apply_subs(lib_rec.get("ingredients", []), active_subs)
+                            lib_rec_copy = dict(lib_rec)
+                            lib_rec_copy["ingredients"] = subs_applied
+                            lib_rec_copy["tags"] = lib_rec.get("tags", []) + ["saved from Find"]
+                            fam = st.session_state.get("_family_recipes", [])
+                            if lib_rec_copy["id"] not in [r["id"] for r in fam]:
+                                fam.append(lib_rec_copy)
+                                st.session_state["_family_recipes"] = fam
+                            st.session_state["recipe_favorites"].add(lib_rec_copy["id"])
+                            _save_family_recipe(lib_rec_copy)
+                            st.success(f"✅ {r_name} saved to your family recipes!")
+                        else:
+                            stub_ings = [
+                                {"name": i, "qty": 1.0, "unit": "each",
+                                 "category": "other", "pantry_stable": False}
+                                for i in r_ings
+                            ]
+                            stub_ings_subs = _apply_subs(stub_ings, active_subs)
+                            stub = {
+                                "id":              f"FIND-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{idx}",
+                                "name":            r_name,
+                                "cuisine":         find_cuisine.lower() if find_cuisine != "Any" else "other",
+                                "primary_protein": find_protein if find_protein != "Any" else "",
+                                "ingredients":     stub_ings_subs,
+                                "serves":          4,
+                                "active_minutes":  30,
+                                "complexity":      "weeknight",
+                                "dietary_flags":   {},
+                                "tags":            ["found online", r_source],
+                                "source":          "web",
+                                "source_url":      r_url,
+                            }
+                            fam = st.session_state.get("_family_recipes", [])
+                            fam.append(stub)
+                            st.session_state["_family_recipes"] = fam
+                            st.session_state["recipe_favorites"].add(stub["id"])
+                            _save_family_recipe(stub)
+                            note = (
+                                f"✅ **{r_name}** saved. Visit Family Recipes to fill in "
+                                f"full quantities, or [view the original]({r_url})."
+                                if r_url else f"✅ **{r_name}** saved to Family Recipes."
+                            )
+                            st.info(note)
+                with btn_c2:
+                    if lib_rec:
+                        if st.button(
+                            "📋 Add to this week's plan",
+                            key=f"find_plan_{idx}",
+                            use_container_width=True,
+                        ):
+                            _pin_recipe_to_plan(lib_rec)
+                            st.success(f"{r_name} pinned to this week's plan.")
+    else:
+        st.html(
+            "<div style='background:#F0F7F1;border:1px solid #C8E6C9;border-radius:10px;"
+            "padding:24px;text-align:center;color:#5A7A62;font-size:0.9rem;margin-top:12px;'>"
+            "Pick a cuisine and protein above, then tap "
+            "<strong>Find recipes</strong> to get suggestions from "
+            "AllRecipes or your WhollyFare library.</div>"
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

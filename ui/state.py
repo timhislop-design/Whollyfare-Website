@@ -1362,15 +1362,27 @@ def save_ledger_entry(entry: dict) -> tuple[bool, str]:
         if not plan_id:
             return False, "Could not resolve plan_id — ledger entry not saved to DB."
 
+        # stores_used is text[] in schema — wrap scalar counts in a list
+        stores_val = entry.get("stores_used", [])
+        if isinstance(stores_val, int):
+            stores_val = []  # count-only — no names available, leave empty
+        elif not isinstance(stores_val, list):
+            stores_val = [str(stores_val)]
+
         payload = {
             "household_id":       hid,
             "plan_id":            plan_id,
             "week_start_date":    week_start,
             "meals_planned":      entry.get("meals_planned", 0),
-            "stores_used":        entry.get("stores_used", 0),   # smallint in schema
+            "stores_used":        stores_val,
             "whollyfare_cost_est": entry.get("whollyfare_cost", 0),
             "found_money_est":    entry.get("found_money", 0),
             "hellofresh_equiv":   entry.get("vs_hellofresh", 0),
+            # Honest total spend — separate from Found Money, never affects savings math
+            "regulars_cost_est":  entry.get("regulars_cost_est", 0),
+            "staples_cost_est":   entry.get("staples_cost_est", 0),
+            "total_spend_est":    entry.get("total_spend_est", 0),
+            "trip_cost_est":      entry.get("trip_cost", 0),
         }
 
         # Receipt actuals — only set when present
@@ -1425,7 +1437,12 @@ def load_ledger() -> list[dict]:
                 "found_money":       float(r.get("found_money_est") or 0),
                 "vs_hellofresh":     float(r.get("hellofresh_equiv") or 0),
                 "meals_planned":     r.get("meals_planned") or 0,
-                "stores_used":       r.get("stores_used") or 0,
+                "stores_used":       r.get("stores_used") or [],
+                "trip_cost":         float(r.get("trip_cost_est") or 0),
+                # Honest total spend fields
+                "regulars_cost_est": float(r.get("regulars_cost_est") or 0),
+                "staples_cost_est":  float(r.get("staples_cost_est") or 0),
+                "total_spend_est":   float(r.get("total_spend_est") or 0),
             }
             # Include actuals if present
             if r.get("actual_receipt") is not None:
