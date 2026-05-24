@@ -926,9 +926,16 @@ if grocers:
                    "specialty": "#1565C0", "local": "#5D4037", "": "#5A7A62"}
 
     st.html("<hr style='border-color:#D8EDD0;margin:20px 0 14px 0;'>")
-    st.html("<div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;"
-            "text-transform:uppercase;color:#3A8C4E;margin-bottom:10px;'>"
-            "YOUR SAVED STORES</div>")
+    st.html("""
+    <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'>
+      <div style='font-size:0.68rem;font-weight:700;letter-spacing:0.1em;
+                  text-transform:uppercase;color:#3A8C4E;'>YOUR SAVED STORES</div>
+      <div style='font-size:0.75rem;color:#5A7A62;background:#F0F9F2;
+                  border:1px solid #C8E6C9;border-radius:6px;padding:3px 10px;'>
+        🗓️ Prices loaded by WhollyFare admin each Wednesday
+      </div>
+    </div>
+    """)
 
     to_remove = None
     for idx, g in enumerate(grocers):
@@ -945,13 +952,24 @@ if grocers:
 
         ra, rb, rc, rd = st.columns([4, 1.5, 1.2, 0.7])
         with ra:
+            # Flyer item count from platform data (normalized key)
+            _ckey  = g["chain"].lower().replace(" ", "_")
+            _fd    = st.session_state.get("flyer_data", {})
+            _count = len(_fd.get(_ckey, _fd.get(g["chain"], [])))
+            _items_html = (
+                f" &nbsp;<span style='font-size:0.72rem;background:#E8F5E9;color:#1E5C32;"
+                f"border-radius:8px;padding:1px 7px;font-weight:600;'>{_count} items this week</span>"
+                if _count > 0 else
+                " &nbsp;<span style='font-size:0.72rem;color:#BDC9C2;'>no prices yet</span>"
+            )
             st.html(
                 f"<div style='padding:5px 0;'>"
                 f"<span style='font-size:0.88rem;font-weight:700;color:#1E5C32;'>"
                 f"{src_ic} {g['chain']}{star}</span>"
                 f"<span style='font-size:0.75rem;color:{tcolor};font-weight:600;"
                 f" margin-left:8px;padding:1px 7px;border-radius:10px;'>{tlabel}</span>"
-                f"<span style='font-size:0.75rem;color:#9AA8A0;'>{trip_str}{loc}</span>"
+                f"{_items_html}"
+                f"<br><span style='font-size:0.73rem;color:#9AA8A0;'>{trip_str}{loc}</span>"
                 f"</div>"
             )
         with rb:
@@ -1105,17 +1123,22 @@ def _flyer_status_strip(chain: str) -> str:
 
 
 def _status_badge(chain: str) -> str:
+    # Normalize key: flyer_data uses chain.lower().replace(" ", "_")
+    chain_key = chain.lower().replace(" ", "_")
     manual = sum(1 for m in st.session_state.get("manual_items", []) if m["store"] == chain)
-    if chain in loaded:
-        count = len(st.session_state["flyer_data"].get(chain, []))
+    _fd = st.session_state.get("flyer_data", {})
+    # Check both normalized key and raw chain name for backwards compatibility
+    in_loaded = chain_key in loaded or chain in loaded
+    if in_loaded:
+        count = len(_fd.get(chain_key, _fd.get(chain, [])))
         parts = []
-        if count:  parts.append(f"{count} from circular")
+        if count:  parts.append(f"{count} items loaded")
         if manual: parts.append(f"{manual} manual")
-        label = " · ".join(parts) if parts else f"{count} items"
+        label = " · ".join(parts) if parts else "loaded"
         return f'<span class="pill pill-ok">✓ {label}</span>'
     if manual:
         return f'<span class="pill pill-warn">⚠ {manual} manual only</span>'
-    return '<span class="pill pill-miss">⚠ No data</span>'
+    return '<span class="pill pill-miss">· No prices yet</span>'
 
 
 def _manual_items_as_candidates(store: str) -> list[IngredientCandidate]:
@@ -1704,36 +1727,4 @@ st.divider()
 # Meal planning happens on the Plan page, not here. The engine (constraint
 # filter → budget optimizer → meal planner) runs after the user sets their
 # weekly cuisine preferences on 3_Plan.py.
-# POC note: plan generation is synchronous. PROD: async worker.
-# ══════════════════════════════════════════════════════════════════════════════
-all_candidates = [c for v in st.session_state.get("flyer_data", {}).values() for c in v]
-has_household  = st.session_state.get("household") is not None
-has_items      = len(all_candidates) > 0
-
-st.divider()
-
-if not has_household:
-    st.info("Set up your household profile first, then come back to load your store prices.", icon="💡")
-    if st.button("→ Go to Household Setup", type="primary"):
-        st.switch_page("pages/1_Household.py")
-elif not has_items:
-    st.info(
-        "Add at least one store's items above (Manual Entry, PDF upload, or API pull), "
-        "then head to This Week's Plan to choose your cuisines and generate your dinners.",
-        icon="💡",
-    )
-else:
-    st.html(f"""
-    <div style='background:#F0F7F2;border-left:4px solid #2D6A4F;padding:16px 20px;
-                border-radius:6px;margin:8px 0;'>
-      <div style='font-size:1.05rem;font-weight:700;color:#1A2E1D;margin-bottom:4px;'>
-        ✅ {len(all_candidates)} items loaded across your stores
-      </div>
-      <div style='font-size:0.88rem;color:#4A6741;'>
-        Head to <strong>This Week's Plan</strong> to pick your cuisines, set dinners and nights out,
-        and let WhollyFare build your week from today's best prices.
-      </div>
-    </div>
-    """)
-    if st.button("→ Choose Cuisines &amp; Generate My Plan", type="primary", use_container_width=True):
-        st.switch_page("pages/3_Plan.py")
+# POC note

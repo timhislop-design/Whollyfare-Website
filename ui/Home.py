@@ -167,10 +167,24 @@ if not state.is_setup_complete():
     # CTA buttons — Get Started, Sign In, Create Account, Investor Brief
     # Show auth state-aware labels: if already signed in, skip the auth buttons
     if state.is_authenticated():
+        # Context-aware CTA: users with household + stores set up go straight to the plan
+        _auth_hh      = bool(st.session_state.get("household_id"))
+        _auth_grocers = len(st.session_state.get("grocers", [])) > 0
+        _auth_plan    = bool(st.session_state.get("plan"))
+
         h1, h2, _ = st.columns([2, 2, 3])
         with h1:
-            if st.button("🌿 Go to my household", type="primary", use_container_width=True):
-                st.switch_page("pages/1_Household.py")
+            if _auth_hh and _auth_grocers:
+                _btn_label = "🍽️ This week's plan" if _auth_plan else "🏪 Go to Grocer Hub"
+                _btn_dest  = "pages/3_Plan.py" if _auth_plan else "pages/2_Grocer_Hub.py"
+            elif _auth_hh:
+                _btn_label = "🏪 Set up your stores"
+                _btn_dest  = "pages/2_Grocer_Hub.py"
+            else:
+                _btn_label = "🌿 Set up my household"
+                _btn_dest  = "pages/1_Household.py"
+            if st.button(_btn_label, type="primary", use_container_width=True):
+                st.switch_page(_btn_dest)
         with h2:
             if st.button("📈 Investor brief", use_container_width=True):
                 st.switch_page("pages/7_Investor.py")

@@ -369,8 +369,15 @@ if state.is_authenticated():
 # SIGNED-OUT VIEW — sign in or create account
 # ════════════════════════════════════════════════════════════════════════════
 
-# Determine which tab to open by default — ?auth=signin routes to Sign In
-_default_tab = st.session_state.pop("_auth_tab", "create")
+# Determine which tab to open by default — ?auth=signin routes to Sign In.
+# IMPORTANT: persist _active_auth_tab across reruns so the spinner during sign-in
+# doesn't flip the UI to the Create Account tab (user confusion bug).
+if "_auth_tab" in st.session_state:
+    _default_tab = st.session_state["_auth_tab"]
+    del st.session_state["_auth_tab"]
+    st.session_state["_active_auth_tab"] = _default_tab
+else:
+    _default_tab = st.session_state.get("_active_auth_tab", "create")
 
 # Centred card layout
 _, card_col, _ = st.columns([1, 2, 1])
@@ -486,15 +493,22 @@ with card_col:
             )
 
         if si_btn:
+            st.session_state["_active_auth_tab"] = "signin"  # keep tab active during rerun
             if not si_email or not si_pw:
                 st.error("Enter your email and password.")
             else:
                 with st.spinner("Signing in…"):
                     ok, msg = state.sign_in(si_email.strip(), si_pw)
                 if ok:
-                    st.success("✅ Signed in! Loading your household…")
+                    st.success("✅ Signed in! Restoring your household…")
                     import time; time.sleep(0.8)
-                    st.switch_page("pages/1_Household.py")
+                    # Smart redirect: returning users with stores set up go straight to the plan
+                    _has_hh      = bool(st.session_state.get("household_id"))
+                    _has_grocers = len(st.session_state.get("grocers", [])) > 0
+                    if _has_hh and _has_grocers:
+                        st.switch_page("pages/3_Plan.py")
+                    else:
+                        st.switch_page("pages/1_Household.py")
                 else:
                     if "invalid" in msg.lower() or "credentials" in msg.lower():
                         st.error("Email or password not recognised. Check your details and try again.")
