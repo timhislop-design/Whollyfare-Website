@@ -98,7 +98,7 @@ Amazon Fresh. Bulk-unit math, membership economics, hybrid trip planning.
 - **DB:** Supabase (PostgreSQL). Schema in `migrations/schema_phase1.sql`.
   Connection via Streamlit secrets: `SUPABASE_URL`, `SUPABASE_KEY` (service_role).
 - **Claude API:** `ANTHROPIC_API_KEY` in Streamlit secrets. Used by Admin page
-  for PDF circular extraction. Model: `claude-3-haiku-20240307`.
+  for PDF circular extraction. Model: `claude-haiku-4-5-20251001`.
 - **Docs:** `PLAYBOOK.md` — full strategic spec. `CLAUDE.md` — this file.
 
 **Session state is the primary working store in the POC.** Supabase is the durable
@@ -157,7 +157,7 @@ Critical functions:
 - `extract_uploaded_pdf(file_bytes, store_chain, api_key, max_pages)` — main entry
 - `merge_into_flyer_data(result, store_key, flyer_data)` — merges into session dict
 - Renders pages with PyMuPDF (fitz) at dynamic zoom capped to 2048px, JPEG 80%
-- Sends to `claude-3-haiku-20240307` — universally available on all API tiers
+- Sends to `claude-haiku-4-5-20251001` — current Haiku model (3-haiku-20240307 deprecated May 2026)
 - Claude API limit: 5MB per image. PyMuPDF + JPEG keeps pages ~300-600KB.
 
 ### app/data/store_directory.py
@@ -291,8 +291,8 @@ The extractor uses dynamic zoom: `min(72/72, 2048/longest_edge)` + JPEG 80%.
 This produces ~300-600KB images. Never revert to PNG or static DPI.
 
 ### 9. Claude model ID for extraction
-Use `claude-3-haiku-20240307` — universally available on all API key tiers.
-`claude-3-5-haiku-20241022` returns 404 on the current API key.
+Use `claude-haiku-4-5-20251001` — current Haiku model as of May 2026.
+`claude-3-haiku-20240307` was deprecated and now returns 404.
 
 ### 10. Git workflow — Tim commits from cmd prompt only
 The bash sandbox cannot reach GitHub (403). Tim runs git commands from
@@ -378,13 +378,4 @@ Do not build new features before the existing flow works end-to-end. Fix before 
 - Do not use the Edit tool on any file over ~300 lines.
 - Do not split an HTML element across multiple `st.html()` calls.
 - Do not show gross Found Money without also showing net when trip data exists.
-- Do not describe POC limitations as bugs. They are intentional design decisions.
-- Do not remove supabase, python-dateutil, anthropic, pymupdf, or
-  streamlit-javascript from requirements.txt.
-- Do not revert to PNG output or static 150 DPI in claude_extractor.py.
-- Do not change the Claude model to claude-3-5-haiku-20241022 (returns 404).
-
----
-
-*WhollyFare® · Sentir Solutions® LLC · Charlottesville, VA*
-*Contact: tim.hislop@gmail.com*
+- Do not describe POC limitations as bugs. They are intentional d
