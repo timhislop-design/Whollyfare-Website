@@ -450,9 +450,9 @@ st.html("""
   </div>
   <div style='margin-top:18px;padding-top:16px;border-top:1px solid rgba(93,170,106,.15);
               font-size:.78rem;color:rgba(255,255,255,.45);line-height:1.55;'>
-    <strong style='color:#5DAA6A;'>Phase 1 (now):</strong> Steps 2–3 are manual — Tim enters flyers, household sets preferences.
-    &nbsp;·&nbsp; <strong style='color:#5DAA6A;'>Phase 2:</strong> Login + household setup automated, multi-household accounts.
-    &nbsp;·&nbsp; <strong style='color:#5DAA6A;'>Phase 3:</strong> Grocer APIs replace manual entry. Instacart/Shipt replace the clipboard.
+    <strong style='color:#5DAA6A;'>Phase 1 (now):</strong> Tim loads store circulars via Claude Vision PDF extraction every Wednesday — every pilot household sees current prices instantly. Households build their plan, approve or swap each dinner, and generate a store-organized shopping list automatically.
+    &nbsp;·&nbsp; <strong style='color:#5DAA6A;'>Phase 2:</strong> Multi-household accounts, mobile-native UI, automated coupon matching.
+    &nbsp;·&nbsp; <strong style='color:#5DAA6A;'>Phase 3:</strong> Grocer APIs replace manual uploads. Instacart/Shipt replace the clipboard.
   </div>
 </div>
 """)
@@ -473,10 +473,11 @@ with col_s2:
 </div>""")
 with col_s3:
     st.html("""<div class="step-card step-card-3">
-  <div class="step-icon">🍽️</div><div class="step-title">3. Plan</div>
-  <div class="step-body">Score remaining ingredients by sale savings × nutrition density.
-  Build 5–7 hero ingredients into a full week of dinners across flavor profiles.
-  One tap to approve. One list to shop.</div>
+  <div class="step-icon">🍽️</div><div class="step-title">3. Plan → Approve → Shop</div>
+  <div class="step-body">Sale items matched to a 150-recipe library — cheap chicken thighs
+  become Tacos or Stir-Fry based on cuisine rotation and what you haven't had.
+  Sunday Buy-Off: approve each dinner, swap to an alternate, or skip it.
+  Skipped meals drop off the shopping list automatically. Lock in → list by store.</div>
 </div>""")
 st.divider()
 
@@ -600,6 +601,84 @@ for tier_name, tier_price, tier_desc, tier_features in [
 </div>""")
 st.divider()
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 8b. THE WHOLLY PORTFOLIO — SENTIR SOLUTIONS PLATFORM VISION
+# ══════════════════════════════════════════════════════════════════════════════
+st.html('<div class="inv-section-label">The Wholly Portfolio</div>')
+st.html("### WhollyFare is the flagship. This is the plan.")
+st.markdown("""
+WhollyFare proves the model — sale-price ingestion, hard constraint filtering, transparent savings math —
+on the category families spend the most on and care the most about. But the engine is not food-specific.
+
+**Sentir Solutions&#174; LLC** is building a suite of *Wholly*-branded consumer tools that apply the same
+philosophy to every major household spending category. Each product is a standalone business.
+Each shares the core infrastructure. WhollyFare earns the trust; the portfolio multiplies the return.
+""")
+
+col_wp1, col_wp2, col_wp3 = st.columns(3)
+with col_wp1:
+    st.html("""
+    <div style='background:#F0F6FF;border:1px solid #B3D0F5;border-top:4px solid #2E6B8C;
+                border-radius:10px;padding:20px 18px;margin-bottom:12px;'>
+      <div style='font-size:1.4rem;margin-bottom:8px;'>🏠</div>
+      <div style='font-weight:800;font-size:1rem;color:#112A40;margin-bottom:6px;'>WhollyWare&#174;</div>
+      <div style='font-size:0.82rem;color:#1A3D5C;font-weight:600;margin-bottom:8px;'>
+        Household staples, smarter.
+      </div>
+      <div style='font-size:0.8rem;color:#2A4A60;line-height:1.55;'>
+        Cross-retailer optimization for cleaning supplies, paper goods, and everyday
+        non-perishables. The same sale-price engine applied to the $280B household products
+        market. Never pay full price for dish soap, trash bags, or laundry detergent again.
+      </div>
+    </div>
+    """)
+with col_wp2:
+    st.html("""
+    <div style='background:#FFF8F0;border:1px solid #F5D5A0;border-top:4px solid #8C5E1A;
+                border-radius:10px;padding:20px 18px;margin-bottom:12px;'>
+      <div style='font-size:1.4rem;margin-bottom:8px;'>🐾</div>
+      <div style='font-weight:800;font-size:1rem;color:#3D2208;margin-bottom:6px;'>WhollyPaws&#174;</div>
+      <div style='font-size:0.82rem;color:#5C3A0E;font-weight:600;margin-bottom:8px;'>
+        Smart pet savings.
+      </div>
+      <div style='font-size:0.8rem;color:#4A2A10;line-height:1.55;'>
+        Sale-driven pet food and supply planning for dog and cat households.
+        Constraint engine adapted for breed size, dietary needs, and vet recommendations.
+        Targeting the $150B U.S. pet care market — where owner loyalty is fierce and
+        brand premiums are quietly enormous.
+      </div>
+    </div>
+    """)
+with col_wp3:
+    st.html("""
+    <div style='background:#F8F0FF;border:1px solid #D5A0F5;border-top:4px solid #7A3A8C;
+                border-radius:10px;padding:20px 18px;margin-bottom:12px;'>
+      <div style='font-size:1.4rem;margin-bottom:8px;'>🌿</div>
+      <div style='font-weight:800;font-size:1rem;color:#2E0A3D;margin-bottom:6px;'>WhollyCare&#174;</div>
+      <div style='font-size:0.82rem;color:#4A1A5C;font-weight:600;margin-bottom:8px;'>
+        Personal care, honestly priced.
+      </div>
+      <div style='font-size:0.8rem;color:#3A1A4A;line-height:1.55;'>
+        Shampoo, OTC medications, skincare, dental — the products households buy
+        on autopilot at full price, every month, forever. WhollyFare for the bathroom
+        cabinet. Zero sponsored placements. Savings from transparency, not coupons.
+      </div>
+    </div>
+    """)
+
+st.html("""
+<div style='background:linear-gradient(135deg,#0F1F14,#1A3020);border-radius:10px;
+            padding:18px 24px;margin:4px 0 24px 0;color:white;'>
+  <span style='color:#5DAA6A;font-weight:700;'>The platform bet:</span>
+  <span style='opacity:.85;font-size:.9rem;'> Every Wholly product runs on the same
+  constraint engine, the same household profile, the same transparent savings math.
+  A family that trusts WhollyFare with their dinner trusts Sentir Solutions with
+  their whole household spend. That is the long game.</span>
+</div>
+""")
+
+st.html("<br>")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 9. WHY NOW

@@ -190,8 +190,8 @@ st.html("""
   <div class='phase-timing'>Now — Charlottesville Pilot · Hislop Family + Friends</div>
   <div class='phase-title'>Prove the engine. Record the savings.</div>
   <div class='phase-subtitle'>
-    One household. Four local stores. Manual flyer entry. Eight weeks of real receipts.
-    The goal is not a polished product — it's undeniable data.
+    Charlottesville pilot. Four local stores. Platform-level flyer data shared across households.
+    150-recipe library. Per-meal approval with recipe swap. Real receipts. The goal is undeniable data.
   </div>
 </div>
 """)
@@ -231,13 +231,14 @@ with p1c3:
     st.html("""
     <div class='feature-card built'>
       <div class='feature-icon'>🏪</div>
-      <div class='feature-title'>Multi-Tier Grocer Hub <span class='status-pill-built'>Built</span></div>
-      <div class='feature-body'>Four store tiers — Value, Full-Service, Specialty, Local — with
-      zip-aware filtering and trip-cost math. Kroger live via API (239 items). Manual circular
-      entry + PDF parsing for Food Lion, Harris Teeter, Aldi.
-      Admin refresh model: Tim loads once, all pilot households benefit.</div>
-      <div class='feature-why'>Why: Manual entry is 100% reliable for the pilot.
-      Admin-shared circulars is the Phase 2 bridge to full automation.</div>
+      <div class='feature-title'>Multi-Tier Grocer Hub + Platform Flyers <span class='status-pill-built'>Built</span></div>
+      <div class='feature-body'>Four store tiers with zip-aware filtering and trip-cost math.
+      Kroger pulls live via API. Food Lion, Harris Teeter, Aldi, Giant extracted via
+      Claude Vision PDF parsing. Platform flyer tables: Tim uploads once every Wednesday —
+      every pilot household sees the same current prices immediately. Each upload is a
+      clean replace — no stale circular items ever persist.</div>
+      <div class='feature-why'>Why: The operator model is the moat. One upload serves
+      all households. No user ever has to think about where prices come from.</div>
     </div>
     """)
 
@@ -252,6 +253,55 @@ with p1c4:
       week over week, net of gas costs.</div>
       <div class='feature-why'>Why: "$2.40/serving vs. $9.99 Blue Apron" on the same screen
       as your actual meal plan is the moment that drives cancellations.</div>
+    </div>
+    """)
+
+st.html("<div style='height:12px;'></div>")
+
+p1r2c1, p1r2c2, p1r2c3 = st.columns(3)
+
+with p1r2c1:
+    st.html("""
+    <div class='feature-card built'>
+      <div class='feature-icon'>✅</div>
+      <div class='feature-title'>Approve / Swap / Skip Buy-Off <span class='status-pill-built'>Built</span></div>
+      <div class='feature-body'>Each dinner in the weekly plan is an interactive card.
+      Approve locks it in. Skip drops it — its ingredients are removed from the shopping
+      list automatically. Swap opens an inline alternate picker: 4 recipe options from
+      the library filtered to your dietary constraints, varied by cuisine, plus a
+      "Surprise me" button for random selection. No meal you hate ever ships.</div>
+      <div class='feature-why'>Why: Autonomy is the difference between a tool families use
+      every week and one they abandon after the first plan they didn't like.</div>
+    </div>
+    """)
+
+with p1r2c2:
+    st.html("""
+    <div class='feature-card built'>
+      <div class='feature-icon'>📖</div>
+      <div class='feature-title'>150-Recipe Library <span class='status-pill-built'>Built — Phase 3 Ahead of Schedule</span></div>
+      <div class='feature-body'>150 original recipes across five cuisines: American, Mexican,
+      Italian, Asian, Mediterranean. Each recipe carries dietary flags, protein type, complexity
+      (weeknight / weekend), and a full ingredient list that distinguishes pantry staples from
+      items to buy. The meal planner matches sale items to recipes — cheap chicken thighs become
+      Chicken Tacos or Asian Stir-Fry depending on what's on sale and what you haven't had recently.</div>
+      <div class='feature-why'>Why: Named meals are 10× more compelling than
+      "protein + grain + vegetable." Retention starts here.</div>
+    </div>
+    """)
+
+with p1r2c3:
+    st.html("""
+    <div class='feature-card built'>
+      <div class='feature-icon'>🛒</div>
+      <div class='feature-title'>Store-Organized Shopping List <span class='status-pill-built'>Built</span></div>
+      <div class='feature-body'>Approved meals generate a shopping list automatically organized
+      by store — Kroger items together, Food Lion items together. Sale items are consolidated
+      across meals (chicken thighs for three dinners appear once, cost summed). Recipe extras,
+      pantry restocks, and weekly regulars appear in separate sections. Skipped meals are
+      excluded entirely. CSV and plain-text export for the grocery aisle.</div>
+      <div class='feature-why'>Why: The list is the last mile. If it's wrong, the
+      whole week falls apart. It has to be exactly right, in your pocket, at the store.</div>
     </div>
     """)
 
@@ -405,12 +455,13 @@ with p3r1c2:
     st.html("""
     <div class='feature-card growth'>
       <div class='feature-icon'>📖</div>
-      <div class='feature-title'>Recipe Library <span class='status-pill-future'>Phase 3</span></div>
-      <div class='feature-body'>Full step-by-step recipes built from hero ingredients the engine
-      selects each week. Recipes adapt to your constraints automatically and grow with your
-      household's history — meals you loved come back when the same ingredients go on sale.</div>
-      <div class='feature-why'>Why: Retention. A family with 20 approved recipes in their
-      WhollyFare library doesn't cancel their subscription.</div>
+      <div class='feature-title'>Expanded Recipe Library <span class='status-pill-future'>Phase 3</span></div>
+      <div class='feature-body'>Phase 1 ships 150 original recipes across 5 cuisines.
+      Phase 3 scales to 500+ recipes with meal history memory — meals you approved come back
+      when the same ingredients go on sale. Integration with Spoonacular or Edamam API at
+      50+ households. Community-contributed variations (ingredient lists are not copyrightable).</div>
+      <div class='feature-why'>Why: A family with 20 loved recipes in their WhollyFare
+      history is a family that never cancels. History is the retention moat.</div>
     </div>
     """)
 
