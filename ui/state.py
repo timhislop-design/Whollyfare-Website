@@ -1707,7 +1707,7 @@ def _coerce_cat(cat: str) -> str:
     return c if c in _VALID_CATS else "other"
 
 
-def save_flyer_items(chain: str, candidates: list, method: str = "api") -> tuple[bool, str]:
+def save_flyer_items(chain: str, candidates: list, method: str = "api", week: str = "") -> tuple[bool, str]:
     """
     Persist flyer items for one store to flyer_weeks + flyer_items.
 
@@ -1725,7 +1725,8 @@ def save_flyer_items(chain: str, candidates: list, method: str = "api") -> tuple
     if not hid:
         return False, "No household_id."
 
-    week = st.session_state.get("active_week", "")
+    if not week:
+        week = st.session_state.get("active_week", "")
     if not week:
         return False, "No active_week set."
 
