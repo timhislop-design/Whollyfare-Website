@@ -175,8 +175,8 @@ if not state.is_setup_complete():
         h1, h2, _ = st.columns([2, 2, 3])
         with h1:
             if _auth_hh and _auth_grocers:
-                _btn_label = "🍽️ This week's plan" if _auth_plan else "🏪 Go to Grocer Hub"
-                _btn_dest  = "pages/3_Plan.py" if _auth_plan else "pages/2_Grocer_Hub.py"
+                _btn_label = "📅 This Week" if _auth_plan else "🏪 Go to Grocer Hub"
+                _btn_dest  = "pages/0_This_Week.py" if _auth_plan else "pages/2_Grocer_Hub.py"
             elif _auth_hh:
                 _btn_label = "🏪 Set up your stores"
                 _btn_dest  = "pages/2_Grocer_Hub.py"

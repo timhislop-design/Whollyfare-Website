@@ -332,38 +332,82 @@ Claude commits (via bash); Tim pushes. No work is lost between sessions.
 
 ---
 
+## Platform Data Architecture (decided May 2026)
+
+**Three tiers of flyer data:**
+
+1. **Platform-managed (Admin page only):** Tim uploads PDFs and triggers Kroger API
+   pulls from `11_Admin.py`. Items go to `platform_flyer_weeks` + `platform_flyer_items`.
+   All authenticated users see this data. Admin gate enforced: `state.is_admin()` checks
+   `ADMIN_EMAILS` list in state.py. POC: hardcoded to tim.hislop@gmail.com.
+   PROD: `is_platform_admin` boolean column in `profiles` table.
+
+2. **User personal stores (session + household):** If a user adds a local store
+   that WhollyFare doesn't manage, their PDF upload calls
+   `save_flyer_items(..., platform=False)`. Items go to session state only.
+   POC: no DB persistence for personal stores. PROD: household-level `flyer_items` table.
+
+3. **Kroger API:** Currently callable from Grocer Hub (writes to platform tables).
+   Phase 2: move Kroger pull to Admin page alongside PDF uploads. Regular users
+   should never need to touch flyer loading.
+
+**Admin role:** `state.is_admin()` + `ADMIN_EMAILS` list in state.py.
+Phase 2: `is_platform_admin` column in `profiles` table + Admin management UI.
+
+---
+
+## Page Inventory (updated May 2026)
+
+| Page | File | Status |
+|---|---|---|
+| Home / Landing | `ui/Home.py` | ✅ Complete |
+| **This Week Dashboard** | `ui/pages/0_This_Week.py` | ✅ Built — weekly entry point after sign-in |
+| Household Setup | `ui/pages/1_Household.py` | ✅ Complete |
+| Grocer Hub | `ui/pages/2_Grocer_Hub.py` | ✅ Complete |
+| This Week's Plan | `ui/pages/3_Plan.py` | ✅ Built — needs polish |
+| Sunday Buy-Off | `ui/pages/4_Sunday_BuyOff.py` | ✅ Built — Approve/Swap/Skip |
+| Shopping List | `ui/pages/5_Shopping_List.py` | ✅ Built |
+| Found Money Ledger | `ui/pages/6_Ledger.py` | ✅ Complete |
+| Investor Brief | `ui/pages/7_Investor.py` | ✅ Complete |
+| Product Roadmap | `ui/pages/8_Roadmap.py` | ✅ Complete |
+| Account | `ui/pages/9_Account.py` | ✅ Built |
+| My Pantry | `ui/pages/10_Pantry.py` | ✅ Complete |
+| Admin: Circulars | `ui/pages/11_Admin.py` | ✅ Complete — admin-gated |
+| Recipe Library | `ui/pages/12_Recipes.py` | ✅ Complete |
+
+**Post-login flow:** sign-in → `0_This_Week.py` (if hh + grocers set up) or `1_Household.py`.
+
+---
+
 ## What to Build Next
 
 Priority order (as of May 2026):
 
-1. **Fix missing fork+leaf logo and "The meal plan that pays you back." tagline**
-   These are in Home.py (line 113 SVG, line 147 tagline) but not rendering on
-   Streamlit Cloud. Likely a CSS scoping or st.html() isolation issue. Fix first —
-   it's the first thing pilot friends and investors see.
+1. **Verify Admin circular pipeline end-to-end**
+   Confirm Food Lion + Harris Teeter PDFs extract on Streamlit Cloud.
+   Items should appear in `platform_flyer_items` and flow to plan generation.
 
-2. **Verify Admin circular pipeline end-to-end**
-   Push is done. Confirm Food Lion PDF extracts successfully on Streamlit Cloud.
-   Check that items appear in the preview table and save to Supabase correctly.
+2. **Plan page polish** (`3_Plan.py`)
+   Pilot friends need to understand the plan without explanation.
+   Add clearer meal layout, protein variety callout, selection rationale.
 
-3. **Plan page polish** (`3_Plan.py`)
-   Pilot friends need to understand the plan without explanation. Add selection
-   rationale, clearer meal layout, protein variety callout.
+3. **Shopping List mobile-first** (`5_Shopping_List.py`)
+   Usable on a phone in a grocery store aisle. No desktop-only layouts.
 
-4. **Shopping List mobile-first** (`5_Shopping_List.py`)
-   Usable on a phone in a grocery store aisle. That is the bar.
-   No desktop-only layouts. Per-store sections must be finger-friendly.
+4. **Pilot onboarding guide**
+   In-app walkthrough or printed one-pager so pilot friends can set up
+   and run a week without Tim present.
 
-5. **Pilot onboarding guide**
-   In-app walkthrough or printed one-pager so pilot friends can set up and run
-   a week without Tim present.
+5. **Ledger milestones + streaks**
+   Streak callouts and milestone moments to make Found Money data emotionally resonant.
 
-6. **Ledger milestones + streaks**
-   Streak callouts and milestone moments (first $100 saved, 4-week streak)
-   to make the Found Money data emotionally resonant.
+6. **Supabase end-to-end test**
+   Full week loop (flyer entry → plan → buy-off → receipt log) persists
+   across browser refresh for a real pilot session.
 
-7. **Supabase end-to-end test**
-   Full week loop (flyer entry → plan → buy-off → receipt log) persists across
-   browser refresh for a real pilot session.
+7. **Phase 2: Admin user management page**
+   UI for Tim to grant/revoke `is_platform_admin` access. Requires adding
+   `is_platform_admin boolean default false` column to `profiles` table.
 
 Do not build new features before the existing flow works end-to-end. Fix before you add.
 

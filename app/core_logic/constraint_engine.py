@@ -172,7 +172,7 @@ class ConstraintEngine:
 
     def _find_allergen_owner(self, allergen: str) -> str:
         """Return name of first member who has this allergen, or 'household'."""
-        for m in self._profile.members:
-            if allergen in (m.allergens or []):
+        for m in self.household.members:
+            if allergen in (m.allergies or []):
                 return m.name
         return "household"

@@ -337,7 +337,8 @@ def sidebar_nav():
 
     # ── WEEKLY PLAN ───────────────────────────────────────────────────────────
     _section("WEEKLY PLAN")
-    st.page_link("pages/3_Plan.py",           label="🍽️ This Week's Plan")
+    st.page_link("pages/0_This_Week.py",      label="📅 This Week")
+    st.page_link("pages/3_Plan.py",           label="🍽️ Meal Plan")
     st.page_link("pages/4_Sunday_BuyOff.py",  label="✅ Sunday Buy-Off")
     st.page_link("pages/5_Shopping_List.py",  label="🛍️ Shopping List")
     st.page_link("pages/10_Pantry.py",         label="🧂 My Pantry")

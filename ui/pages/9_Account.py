@@ -502,11 +502,11 @@ with card_col:
                 if ok:
                     st.success("✅ Signed in! Restoring your household…")
                     import time; time.sleep(0.8)
-                    # Smart redirect: returning users with stores set up go straight to the plan
+                    # Smart redirect: returning users with setup done go to This Week dashboard
                     _has_hh      = bool(st.session_state.get("household_id"))
                     _has_grocers = len(st.session_state.get("grocers", [])) > 0
                     if _has_hh and _has_grocers:
-                        st.switch_page("pages/3_Plan.py")
+                        st.switch_page("pages/0_This_Week.py")
                     else:
                         st.switch_page("pages/1_Household.py")
                 else:

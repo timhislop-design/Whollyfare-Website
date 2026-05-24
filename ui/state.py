@@ -930,6 +930,21 @@ def is_authenticated() -> bool:
     return st.session_state.get("user") is not None
 
 
+# Platform admin emails — only these users can upload platform-wide flyer data.
+# POC: hardcoded list. PROD: admin role column in profiles table + RLS policy.
+ADMIN_EMAILS: list[str] = [
+    "tim.hislop@gmail.com",
+]
+
+
+def is_admin() -> bool:
+    """True if the signed-in user is a WhollyFare platform admin."""
+    user = st.session_state.get("user")
+    if not user:
+        return False
+    return (user.get("email") or "").lower() in [e.lower() for e in ADMIN_EMAILS]
+
+
 def current_user_id() -> str | None:
     """Return the Supabase auth user UUID, or None if not signed in."""
     user = st.session_state.get("user")
@@ -1707,19 +1722,49 @@ def _coerce_cat(cat: str) -> str:
     return c if c in _VALID_CATS else "other"
 
 
-def save_flyer_items(chain: str, candidates: list, method: str = "api", week: str = "") -> tuple[bool, str]:
+def save_flyer_items(chain: str, candidates: list, method: str = "api", week: str = "", platform: bool = True) -> tuple[bool, str]:
     """
-    Persist flyer items for one store to platform_flyer_weeks + platform_flyer_items.
+    Persist flyer items for one store.
 
-    Platform-level storage: data is shared across ALL households. Tim (admin)
-    uploads once per week; every authenticated user sees the same items.
+    platform=True  (Admin uploads): writes to platform_flyer_weeks + platform_flyer_items.
+                   Data is shared across ALL households. Tim uploads once per week.
+    platform=False (User personal stores): writes to session state only. The user's
+                   privately-added store items are not shared with other households.
+                   PROD: write to household-level flyer_items table instead.
 
-    Each upload does a CLEAN REPLACE: existing items for (chain, week) are
-    deleted before new ones are inserted. Stale circular items never persist.
+    Each platform upload does a CLEAN REPLACE — stale circular items never persist.
 
     POC:  Items inserted one at a time (~100-300 rows, fast enough).
     PROD: Bulk upsert via background worker; push notification when new week lands.
     """
+    # Non-platform save: session-state only (user personal store, not admin-managed)
+    if not platform:
+        chain_key = chain.lower().replace(" ", "_")
+        from app.core_logic.constraint_engine import IngredientCandidate
+        cands = []
+        for c in candidates:
+            if hasattr(c, "name"):
+                cands.append(c)
+            else:
+                try:
+                    cands.append(IngredientCandidate(
+                        name=c.get("name",""),
+                        usda_fdc_id=c.get("usda_fdc_id"),
+                        allergens=c.get("allergens",[]),
+                        nutrition={},
+                        sale_price_per_unit=float(c.get("sale_price", c.get("sale_price_per_unit",0))),
+                        unit=c.get("unit","each"),
+                        standard_unit_weight_g=100.0,
+                        category=c.get("category","other"),
+                        tags=c.get("tags",[]),
+                    ))
+                except Exception:
+                    pass
+        fd = st.session_state.get("flyer_data", {})
+        fd[chain_key] = cands
+        st.session_state["flyer_data"] = fd
+        return True, f"Saved {len(cands)} items for {chain} (session only — personal store)."
+
     if not _DB_AVAILABLE:
         return False, "DB not available — items saved to session only."
 

@@ -46,6 +46,24 @@ state.init()
 with st.sidebar:
     style.sidebar_nav()
 
+# ── Admin gate ─────────────────────────────────────────────────────────────────
+if not state.is_authenticated():
+    style.page_header("Admin: Circular Manager", "")
+    st.warning("⚠️ You must be signed in to access this page.", icon="🔒")
+    if st.button("Sign in →", key="admin_signin_btn"):
+        st.switch_page("pages/9_Account.py")
+    st.stop()
+
+if not state.is_admin():
+    style.page_header("Admin: Circular Manager", "")
+    st.error(
+        "🚫 **Access denied.** This page is restricted to WhollyFare platform admins.\n\n"
+        "If you believe you should have access, contact tim.hislop@gmail.com.",
+        icon="🔒",
+    )
+    st.stop()
+# ── End admin gate ─────────────────────────────────────────────────────────────
+
 style.page_header(
     "Admin: Circular Manager",
     "Upload weekly circulars, extract sale items with Claude, save to the app and database.",
