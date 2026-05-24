@@ -1709,21 +1709,19 @@ def _coerce_cat(cat: str) -> str:
 
 def save_flyer_items(chain: str, candidates: list, method: str = "api", week: str = "") -> tuple[bool, str]:
     """
-    Persist flyer items for one store to flyer_weeks + flyer_items.
+    Persist flyer items for one store to platform_flyer_weeks + platform_flyer_items.
 
-    Called after a successful Kroger API pull, PDF parse, or manual save.
-    Replaces any existing items for the same (household, grocer, week).
+    Platform-level storage: data is shared across ALL households. Tim (admin)
+    uploads once per week; every authenticated user sees the same items.
 
-    POC:  One week at a time; items inserted individually (simple, ~100–300 rows).
-    PROD: Bulk upsert via background worker; incremental diff to avoid re-inserting
-          unchanged items; push notification when new week data lands.
+    Each upload does a CLEAN REPLACE: existing items for (chain, week) are
+    deleted before new ones are inserted. Stale circular items never persist.
+
+    POC:  Items inserted one at a time (~100-300 rows, fast enough).
+    PROD: Bulk upsert via background worker; push notification when new week lands.
     """
-    if not _DB_AVAILABLE or not is_authenticated():
-        return False, "Not authenticated — items saved to session only."
-
-    hid = st.session_state.get("household_id")
-    if not hid:
-        return False, "No household_id."
+    if not _DB_AVAILABLE:
+        return False, "DB not available — items saved to session only."
 
     if not week:
         week = st.session_state.get("active_week", "")
@@ -1731,85 +1729,76 @@ def save_flyer_items(chain: str, candidates: list, method: str = "api", week: st
         return False, "No active_week set."
 
     try:
-        # 1. Look up grocer_id from household_grocers
-        g_rows = _sb_select(
-            "household_grocers",
-            select="id",
-            filters={"household_id": hid, "chain_name": chain},
-        )
-        if not g_rows:
-            return False, f"No saved grocer row found for {chain}. Save your stores first."
-        grocer_id = g_rows[0]["id"]
-
-        # 2. Get or create flyer_weeks row
+        # 1. Upsert platform_flyer_weeks — one row per (chain, week)
         fw_rows = _sb_select(
-            "flyer_weeks",
+            "platform_flyer_weeks",
             select="id",
-            filters={"household_id": hid, "grocer_id": grocer_id, "week_start_date": week},
+            filters={"chain_name": chain, "week_start_date": week},
         )
         if fw_rows:
-            flyer_week_id = fw_rows[0]["id"]
-            # Delete stale items so we do a clean replace
-            _sb_delete("flyer_items", "flyer_week_id", flyer_week_id)
+            platform_week_id = fw_rows[0]["id"]
+            # Clean replace: delete all existing items for this chain+week
+            _sb_delete("platform_flyer_items", "platform_week_id", platform_week_id)
+            _log.info("save_flyer_items: replacing existing items for %s week=%s", chain, week)
         else:
-            fw_row = _sb_insert("flyer_weeks", {
-                "household_id":    hid,
-                "grocer_id":       grocer_id,
+            fw_row = _sb_insert("platform_flyer_weeks", {
+                "chain_name":      chain,
                 "week_start_date": week,
-                "load_method":     method if method in ("manual","pdf","api") else "manual",
+                "load_method":     method if method in ("manual", "pdf", "api") else "manual",
                 "item_count":      0,
+                "loaded_by":       current_user_id(),
             })
-            flyer_week_id = fw_row.get("id") if fw_row else None
-            if not flyer_week_id:
-                return False, "Could not create flyer_weeks row."
+            platform_week_id = fw_row.get("id") if fw_row else None
+            if not platform_week_id:
+                return False, "Could not create platform_flyer_weeks row."
 
-        # 3. Insert items
+        # 2. Insert items
         count = 0
         for c in candidates:
             # Support both IngredientCandidate dataclass and plain dicts
             if hasattr(c, "name"):
-                name  = c.name
-                cat   = _coerce_cat(c.category)
-                unit  = _coerce_unit(c.unit)
-                price = float(c.sale_price_per_unit)
-                reg   = None
-                tags  = list(c.tags) if c.tags else []
-                alrg  = list(c.allergens) if c.allergens else []
-                fdc   = c.usda_fdc_id
+                name   = c.name
+                cat    = _coerce_cat(c.category)
+                unit   = _coerce_unit(c.unit)
+                price  = float(c.sale_price_per_unit)
+                reg    = None
+                tags   = list(c.tags) if c.tags else []
+                alrg   = list(c.allergens) if c.allergens else []
+                fdc    = c.usda_fdc_id
                 manual = False
             else:
-                name  = c.get("name", "")
-                cat   = _coerce_cat(c.get("category", "other"))
-                unit  = _coerce_unit(c.get("unit", "each"))
-                price = float(c.get("sale_price", c.get("sale_price_per_unit", 0)))
-                reg   = c.get("reg_price") or c.get("regular_price")
-                tags  = list(c.get("tags", []))
-                alrg  = list(c.get("allergens", []))
-                fdc   = c.get("usda_fdc_id")
+                name   = c.get("name", "")
+                cat    = _coerce_cat(c.get("category", "other"))
+                unit   = _coerce_unit(c.get("unit", "each"))
+                price  = float(c.get("sale_price", c.get("sale_price_per_unit", 0)))
+                reg    = c.get("reg_price") or c.get("regular_price")
+                tags   = list(c.get("tags", []))
+                alrg   = list(c.get("allergens", []))
+                fdc    = c.get("usda_fdc_id")
                 manual = bool(c.get("_manual", False))
 
             if not name or price <= 0:
                 continue
 
-            _sb_insert("flyer_items", {
-                "flyer_week_id": flyer_week_id,
-                "grocer_id":     grocer_id,
-                "name":          name[:200],
-                "category":      cat,
-                "unit":          unit,
-                "sale_price":    round(price, 2),
-                "regular_price": round(float(reg), 2) if reg else None,
-                "allergens":     alrg,
-                "tags":          tags,
-                "usda_fdc_id":   fdc,
-                "is_manual":     manual,
+            _sb_insert("platform_flyer_items", {
+                "platform_week_id": platform_week_id,
+                "chain_name":       chain,
+                "name":             name[:200],
+                "category":         cat,
+                "unit":             unit,
+                "sale_price":       round(price, 2),
+                "regular_price":    round(float(reg), 2) if reg else None,
+                "allergens":        alrg,
+                "tags":             tags,
+                "usda_fdc_id":      fdc,
+                "is_manual":        manual,
             })
             count += 1
 
-        # 4. Update item_count on flyer_weeks row
-        _sb_update("flyer_weeks", {"item_count": count}, "id", flyer_week_id)
+        # 3. Update item_count
+        _sb_update("platform_flyer_weeks", {"item_count": count}, "id", platform_week_id)
 
-        _log.info("save_flyer_items: saved %d items for %s week=%s", count, chain, week)
+        _log.info("save_flyer_items: saved %d platform items for %s week=%s", count, chain, week)
         return True, f"Saved {count} items for {chain}."
 
     except Exception as e:
@@ -1819,51 +1808,60 @@ def save_flyer_items(chain: str, candidates: list, method: str = "api", week: st
 
 def _load_flyer_items_from_db():
     """
-    Load all flyer items for the current active_week from DB into session_state["flyer_data"].
+    Load platform flyer items for the current active_week into session_state["flyer_data"].
 
-    Called on login/session restore so the user picks up where they left off
-    without having to re-pull or re-upload circulars.
+    Reads from platform_flyer_weeks + platform_flyer_items — shared across ALL
+    households. Tim uploads once; every authenticated user sees the same prices.
 
-    POC:  Loads current week only. Items restored as IngredientCandidate objects.
-    PROD: Load previous week as fallback if current week is not yet loaded;
-          cache in Redis to avoid DB round-trip on every page navigation.
+    Filtered to chains the household has selected in their Grocer Hub so users
+    only see items from stores they actually shop at.
+
+    POC:  One query per chain. Loads current week only.
+    PROD: Redis cache; fall back to prior week if current week not yet uploaded.
     """
     if not _DB_AVAILABLE or not is_authenticated():
         return
 
     hid = st.session_state.get("household_id")
     week = st.session_state.get("active_week", "")
-    if not hid or not week:
+    if not week:
         return
 
     try:
         from app.core_logic.constraint_engine import IngredientCandidate
 
-        # 1. Find all flyer_weeks for this household + current week
-        fw_rows = _sb_select(
-            "flyer_weeks",
-            select="id,grocer_id,load_method",
-            filters={"household_id": hid, "week_start_date": week},
-        )
-        if not fw_rows:
-            return
+        # 1. Get chains this household has selected (for filtering)
+        chains = []
+        if hid:
+            g_rows = _sb_select(
+                "household_grocers",
+                select="chain_name",
+                filters={"household_id": hid},
+            )
+            chains = [r["chain_name"] for r in g_rows] if g_rows else []
 
-        # 2. Build grocer_id → chain_name lookup from saved grocers
-        g_rows = _sb_select(
-            "household_grocers",
-            select="id,chain_name",
-            filters={"household_id": hid},
-        )
-        grocer_map = {r["id"]: r["chain_name"] for r in g_rows}
+        if not chains:
+            return
 
         flyer_data = st.session_state.get("flyer_data", {})
         total = 0
 
-        for fw in fw_rows:
-            fw_id = fw["id"]
-            chain = grocer_map.get(fw["grocer_id"], "Unknown")
+        # 2. For each household chain, load platform items for current week
+        for chain in chains:
+            fw_rows = _sb_select(
+                "platform_flyer_weeks",
+                select="id",
+                filters={"chain_name": chain, "week_start_date": week},
+            )
+            if not fw_rows:
+                continue
+            platform_week_id = fw_rows[0]["id"]
 
-            items = _sb_select("flyer_items", select="*", filters={"flyer_week_id": fw_id})
+            items = _sb_select(
+                "platform_flyer_items",
+                select="*",
+                filters={"platform_week_id": platform_week_id},
+            )
             if not items:
                 continue
 
@@ -1875,21 +1873,26 @@ def _load_flyer_items_from_db():
                         usda_fdc_id=row.get("usda_fdc_id"),
                         allergens=row.get("allergens") or [],
                         nutrition={},
-                        sale_price_per_unit=float(row.get("sale_price_per_unit") or 0.0),
+                        sale_price_per_unit=float(row.get("sale_price") or 0.0),
                         unit=row.get("unit") or "each",
-                        standard_unit_weight_g=float(row.get("standard_unit_weight_g") or 100.0),
+                        standard_unit_weight_g=100.0,
                         category=row.get("category") or "other",
                         tags=row.get("tags") or [],
                     )
                     candidates.append(cand)
                 except Exception:
                     pass
+
             if candidates:
                 key = chain.lower().replace(" ", "_")
-                if key not in flyer_data:
-                    flyer_data[key] = candidates
-                else:
-                    flyer_data[key].extend(candidates)
+                # Platform data is authoritative — replace, don't extend
+                flyer_data[key] = candidates
+                total += len(candidates)
+
         st.session_state["flyer_data"] = flyer_data
-    except Exception:
-        pass  # DB unavailable — session state unchanged
+        if total:
+            _log.info("_load_flyer_items_from_db: loaded %d platform items for week=%s", total, week)
+
+    except Exception as e:
+        _log.error("_load_flyer_items_from_db: %s", e)
+        # DB unavailable — session state unchanged
