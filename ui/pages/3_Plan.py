@@ -259,6 +259,7 @@ def _run_engine(prefs: dict) -> bool:
                     "qty":      qty,
                     "store":    _store_from_ing(ing),
                     "cost":     round(alloc_cost, 2),
+                    "category": getattr(ing, "category", "other"),
                     # Transparency flags for the UI
                     "shared":   n_uses > 1,
                     "used_in":  n_uses,
@@ -767,6 +768,20 @@ for idx, meal in enumerate(meals):
         f"<div style='font-size:11px;color:#5A7A62;margin-bottom:4px;'>🏪 {store_label}</div>"
         if store_label else ""
     )
+    # Anchor — top protein sale item driving this meal's selection
+    _card_ings = meal.get("ingredients", [])
+    _anchor    = next((i for i in _card_ings if i.get("category") == "protein"),
+                      _card_ings[0] if _card_ings else None)
+    if _anchor:
+        _short   = _anchor["item"].split(",")[0][:24]
+        _anchor_html = (
+            f"<div style='font-size:10px;color:#3A8C4E;margin-top:5px;border-top:"
+            f"1px solid #E8F5E9;padding-top:5px;'>🏷️ {_short} · "
+            f"{_anchor.get('store','?')} · ${_anchor.get('cost',0):.2f}</div>"
+        )
+    else:
+        _anchor_html = ""
+
     with card_cols[idx % len(card_cols)]:
         st.html(f"""<div style='background:#FFFFFF;border-radius:10px;
                         box-shadow:0 1px 6px rgba(0,0,0,0.08);
@@ -777,6 +792,7 @@ for idx, meal in enumerate(meals):
           <div style='font-size:1.25rem;font-weight:800;color:#1E5C32;'>${cost:.2f}</div>
           <div style='font-size:11px;color:#5A7A62;margin-bottom:6px;'>${per_serving:.2f}/serving</div>
           {store_line}<div>{gf_badge}</div>
+          {_anchor_html}
         </div>""")
 
 st.divider()

@@ -73,10 +73,23 @@ STORE_NAMES = {
 
 ALL_STORES = list(dict.fromkeys(STORE_NAMES.values()))  # ordered, unique
 
-meals    = plan["meals"]
+# Honor skipped meals from the Buy-Off. Only include approved / pending meals
+# in the shopping list — skipped meals are excluded entirely.
+# POC: skipped_indices set at lock-in time. PROD: meal_plan_meals table has status column.
+_skipped_indices = set(plan.get("_skipped_indices", []))
+meals    = [m for i, m in enumerate(plan["meals"]) if i not in _skipped_indices]
 totals   = plan["totals"]
 week     = plan["week"]
 servings = plan["servings"]
+
+if _skipped_indices:
+    _n_skipped = len(_skipped_indices)
+    st.html(
+        f"<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:6px;"
+        f"padding:8px 14px;margin-bottom:12px;font-size:0.82rem;color:#5A3A00;'>"
+        f"⏭ {_n_skipped} meal{'s' if _n_skipped != 1 else ''} skipped in Buy-Off — "
+        f"their ingredients are excluded from this list.</div>"
+    )
 
 pantry       = state.pantry_items()
 out_of_stock = st.session_state.get("pantry_out_of_stock", set())

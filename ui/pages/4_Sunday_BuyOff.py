@@ -199,18 +199,196 @@ st.markdown(
       </tbody>
     </table>""")
 
-# ── Meal preview expander ─────────────────────────────────────────────────────
-with st.expander("📅 Review this week's dinners", expanded=False):
-    for meal in meals:
-        cost_per       = meal["meal_cost"] / servings if servings else 0
-        allergen_short = meal.get("allergen_notes", "")
-        gf_label       = " · GF" if meal.get("gluten_free") else ""
-        st.html(
-            f"**{meal['day']}** — {meal['name']} &nbsp;&nbsp;"
-            f"<span style='color:#5A7A62;font-size:12px;'>"
-            f"${cost_per:.2f}/serving{gf_label}"
-            f"{' · ' + allergen_short if allergen_short else ''}"
-            f"</span>")
+# ── Recipe library imports for swap feature ──────────────────────────────────
+try:
+    from app.data.recipe_library import query_recipes, get_recipe_shopping_items, get_recipe
+    _RECIPE_LIB_OK = True
+except ImportError:
+    _RECIPE_LIB_OK = False
+
+
+def _get_hh_dietary_flags() -> dict:
+    """Extract household dietary constraint flags for recipe filtering."""
+    flags: dict = {}
+    hh = st.session_state.get("household")
+    if not hh:
+        return flags
+    for member in getattr(hh, "members", []):
+        for allergy in getattr(member, "allergies", []):
+            al = allergy.lower()
+            if any(k in al for k in ["gluten", "wheat", "celiac"]):
+                flags["gluten_free"] = True
+            if any(k in al for k in ["dairy", "milk", "lactose"]):
+                flags["dairy_free"] = True
+    return flags
+
+
+def _get_alternates(meal_dict: dict, used_ids: set, n: int = 4) -> list:
+    """Return up to n alternate recipes for a meal slot, respecting constraints."""
+    if not _RECIPE_LIB_OK:
+        return []
+    hh_flags     = _get_hh_dietary_flags()
+    current_id   = meal_dict.get("recipe_id")
+    current_rec  = get_recipe(current_id) if current_id else None
+    current_prot = current_rec["primary_protein"] if current_rec else None
+    exclude      = list(used_ids | ({current_id} if current_id else set()))
+
+    # Pass 1: same protein, varied cuisines
+    alts = query_recipes(
+        proteins=[current_prot] if current_prot else None,
+        dietary_flags=hh_flags or None,
+        exclude_ids=exclude,
+        max_results=n * 2,
+    )
+    # Pass 2: any protein (fills out variety if same-protein pool is thin)
+    if len(alts) < n:
+        more = query_recipes(
+            dietary_flags=hh_flags or None,
+            exclude_ids=exclude + [r["id"] for r in alts],
+            max_results=n,
+        )
+        alts += more
+    return alts[:n]
+
+
+def _apply_swap(meal_idx: int, new_recipe: dict) -> None:
+    """Swap a meal to a new recipe and reset its approval status to pending."""
+    p    = st.session_state["plan"]
+    meal = p["meals"][meal_idx]
+    meal["name"]               = new_recipe["name"]
+    meal["recipe_id"]          = new_recipe["id"]
+    meal["recipe_ingredients"] = (
+        get_recipe_shopping_items(new_recipe) if _RECIPE_LIB_OK else []
+    )
+    p["meals"][meal_idx]         = meal
+    p["_meal_status"][meal_idx]  = "pending"
+    st.session_state["plan"]     = p
+    st.session_state[f"_swap_open_{meal_idx}"] = False
+
+
+# ── Per-meal decision cards ───────────────────────────────────────────────────
+# Approve / Swap / Skip each dinner before locking the week.
+# POC: decisions in session_state. PROD: persisted to meal_plans table.
+
+# Initialise meal_status list if this is the first visit
+if "_meal_status" not in plan:
+    plan["_meal_status"] = ["pending"] * len(meals)
+    st.session_state["plan"] = plan
+
+meal_status = plan["_meal_status"]
+
+_STATUS_STYLE: dict = {
+    "approved": ("#E8F5E9", "#1E5C32", "✓ Approved"),
+    "skipped":  ("#FFF0F0", "#BF3030", "✗ Skipping"),
+    "pending":  ("#FAFAFA", "#888888",  "· Pending"),
+}
+
+st.html("""
+<div style='font-size:0.78rem;font-weight:700;color:#5A7A62;letter-spacing:0.08em;
+            text-transform:uppercase;margin:4px 0 14px 0;'>
+    📅 This week's dinners — approve, swap, or skip each one
+</div>""")
+
+for _idx, _meal in enumerate(meals):
+    _status              = meal_status[_idx] if _idx < len(meal_status) else "pending"
+    _bg, _fc, _st_label  = _STATUS_STYLE.get(_status, _STATUS_STYLE["pending"])
+    _cost_per            = _meal["meal_cost"] / servings if servings else 0
+    _border_color        = "#5DAA6A" if _status == "approved" else (
+                           "#E57373" if _status == "skipped" else "#E0E0E0")
+
+    # Anchor item — top protein sale item driving this meal
+    _meal_ings  = _meal.get("ingredients", [])
+    _anchor_ing = next((i for i in _meal_ings if i.get("category") == "protein"),
+                       _meal_ings[0] if _meal_ings else None)
+    _anchor_txt = ""
+    if _anchor_ing:
+        _short_name = _anchor_ing["item"].split(",")[0][:26]
+        _anchor_txt = (
+            f"🏷️ {_short_name} · {_anchor_ing.get('store','?')} · "
+            f"${_anchor_ing.get('cost', 0):.2f}"
+        )
+
+    st.html(f"""
+    <div style='border:1px solid {_border_color};border-left:4px solid {_fc};
+                border-radius:8px;padding:12px 16px;margin-bottom:4px;background:{_bg};'>
+      <div style='display:flex;justify-content:space-between;align-items:flex-start;'>
+        <div>
+          <span style='font-size:0.68rem;font-weight:700;color:#5A7A62;
+                       text-transform:uppercase;letter-spacing:0.07em;'>{_meal["day"]}</span>
+          <div style='font-size:1rem;font-weight:700;color:#1A2E1D;margin:2px 0;'>{_meal["name"]}</div>
+          <div style='font-size:0.78rem;color:#5A7A62;'>${_cost_per:.2f}/serving
+            {(" &nbsp;·&nbsp; " + _anchor_txt) if _anchor_txt else ""}
+          </div>
+        </div>
+        <div style='font-size:0.75rem;font-weight:700;color:{_fc};white-space:nowrap;
+                    padding-left:12px;padding-top:2px;'>{_st_label}</div>
+      </div>
+    </div>""")
+
+    _bc1, _bc2, _bc3, _bc4 = st.columns([1, 1, 1, 3])
+    with _bc1:
+        if st.button("✅ Approve", key=f"approve_{_idx}",
+                     disabled=(_status == "approved"), use_container_width=True):
+            plan["_meal_status"][_idx] = "approved"
+            st.session_state[f"_swap_open_{_idx}"] = False
+            st.session_state["plan"] = plan
+            st.rerun()
+    with _bc2:
+        _swap_label = "✕ Cancel" if st.session_state.get(f"_swap_open_{_idx}") else "🔄 Swap"
+        if st.button(_swap_label, key=f"swap_{_idx}", use_container_width=True):
+            st.session_state[f"_swap_open_{_idx}"] = not st.session_state.get(
+                f"_swap_open_{_idx}", False)
+            st.rerun()
+    with _bc3:
+        if st.button("⏭ Skip", key=f"skip_{_idx}",
+                     disabled=(_status == "skipped"), use_container_width=True):
+            plan["_meal_status"][_idx] = "skipped"
+            st.session_state[f"_swap_open_{_idx}"] = False
+            st.session_state["plan"] = plan
+            st.rerun()
+
+    # ── Swap panel — alternate recipe picker ──────────────────────────────────
+    if st.session_state.get(f"_swap_open_{_idx}"):
+        import random as _random
+        _used_ids   = {m.get("recipe_id") for m in meals if m.get("recipe_id")} - {_meal.get("recipe_id")}
+        _alternates = _get_alternates(_meal, _used_ids, n=4)
+
+        if not _alternates:
+            st.info("No alternates found matching your dietary constraints.", icon="ℹ️")
+        else:
+            st.html("""
+            <div style='background:#FFFDF0;border:1px dashed #FFD54F;
+                        border-radius:8px;padding:12px 16px;margin:4px 0 8px 0;'>
+              <div style='font-size:0.75rem;font-weight:700;color:#5A3A00;
+                          text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;'>
+                Pick an alternate — or let us choose
+              </div>""")
+            for _alt in _alternates:
+                _cuisine_lbl = _alt.get("cuisine", "").capitalize()
+                _protein_lbl = _alt.get("primary_protein", "").capitalize()
+                _mins        = _alt.get("active_minutes", 0)
+                _adf         = _alt.get("dietary_flags", {})
+                _badges      = []
+                if _adf.get("gluten_free"): _badges.append("GF")
+                if _alt.get("complexity") == "weeknight": _badges.append("Quick")
+                _badge_str   = " · ".join(_badges)
+                _btn_label   = (
+                    f"{_alt['name']}  ·  {_cuisine_lbl} · {_protein_lbl} · {_mins} min"
+                    + (f" · {_badge_str}" if _badge_str else "")
+                )
+                if st.button(_btn_label, key=f"alt_{_idx}_{_alt['id']}",
+                             use_container_width=True):
+                    _apply_swap(_idx, _alt)
+                    st.rerun()
+            st.html("</div>")
+
+            if st.button("🎲 Surprise me", key=f"random_{_idx}"):
+                _apply_swap(_idx, _random.choice(_alternates))
+                st.rerun()
+
+    st.html("<div style='height:2px;'></div>")
+
+st.html("<div style='height:12px;'></div>")
 
 # ── Shopping split expander ───────────────────────────────────────────────────
 with st.expander("🛒 Shopping split by store", expanded=False):
@@ -323,6 +501,19 @@ else:
         type="primary",
         use_container_width=True,
     ):
+        # Finalise any still-pending meals as approved
+        _final_plan = st.session_state["plan"]
+        _statuses   = _final_plan.get("_meal_status", ["pending"] * len(meals))
+        _skipped    = []
+        for _i, _s in enumerate(_statuses):
+            if _s == "skipped":
+                _skipped.append(_i)
+            elif _s == "pending":
+                _statuses[_i] = "approved"
+        _final_plan["_meal_status"]    = _statuses
+        _final_plan["_skipped_indices"] = _skipped
+        st.session_state["plan"] = _final_plan
+
         # approve_week_db() stamps session_state AND writes to DB (if authenticated).
         # POC: silently degrades to session-only if Supabase is unavailable.
         state.approve_week_db()
