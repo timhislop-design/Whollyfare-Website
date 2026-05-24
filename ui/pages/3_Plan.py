@@ -319,9 +319,10 @@ def _run_engine(prefs: dict) -> bool:
         # Meal kit comparison prices (per serving, approximate 2025 retail rates).
         # POC: hardcoded. PROD: fetched weekly from pricing API or admin-maintained table.
         # Sources: published starting prices for 2-person plans as of May 2025.
+        # Meal kit prices: sourced from published per-serving starting prices (2-person plans).
+        # EveryPlate and Dinnerly excluded — their published rates don't reflect true delivered
+        # cost (fees, shipping, limited menu availability) and skew comparisons unrealistically.
         MEAL_KITS = [
-            ("EveryPlate",   5.99,  "#6B8F71"),   # HelloFresh budget brand
-            ("Dinnerly",     6.49,  "#7A9E7E"),
             ("HelloFresh",   9.99,  "#1A936F"),
             ("Blue Apron",   9.99,  "#2D6A9F"),
             ("Home Chef",    9.95,  "#8B5E3C"),
