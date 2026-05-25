@@ -333,6 +333,8 @@ def _run_engine(prefs: dict) -> bool:
             for name, price_per_serving, _ in MEAL_KITS
         }
 
+        state.log_activity("plan_generated", page="Plan",
+                           metadata={"n_meals": n_dinners, "week": st.session_state["active_week"]})
         st.session_state["plan"] = {
             "week":            st.session_state["active_week"],
             "servings":        hh.servings_per_meal,

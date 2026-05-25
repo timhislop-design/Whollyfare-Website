@@ -517,4 +517,5 @@ else:
         # approve_week_db() stamps session_state AND writes to DB (if authenticated).
         # POC: silently degrades to session-only if Supabase is unavailable.
         state.approve_week_db()
+        state.log_activity("buyoff_approved", page="Sunday Buy-Off")
         st.rerun()

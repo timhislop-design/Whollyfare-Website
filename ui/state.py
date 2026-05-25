@@ -573,6 +573,7 @@ def sign_up(email: str, password: str) -> tuple[bool, str]:
             st.session_state["user"] = {"id": resp.user.id, "email": resp.user.email}
             # POC: email confirmation is disabled in Supabase settings so the user
             # is active immediately. PROD: enforce email confirmation before granting access.
+            log_activity("sign_up")
             return True, "Account created."
         return False, "Sign-up failed — no user returned."
     except Exception as e:

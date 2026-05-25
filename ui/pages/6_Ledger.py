@@ -143,6 +143,9 @@ if approved_without_receipt:
             st.session_state["ledger_history"] = ledger
             # Also persist to DB (degrades gracefully if not authenticated)
             state.save_ledger_entry(ledger[idx])
+            state.log_activity("receipt_logged", page="Ledger",
+                               metadata={"actual_receipt": round(actual_total, 2),
+                                         "found_money": max(found_actual, 0)})
             st.success(f"✅ Receipt logged — ${found_actual:.2f} in real Found Money this week.")
             st.rerun()
 

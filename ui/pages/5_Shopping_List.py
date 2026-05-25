@@ -52,6 +52,7 @@ with st.sidebar:
     style.sidebar_nav()
 
 style.page_header("Shopping List", "Everything you need this week, organised by store.")
+state.log_activity("shopping_list_viewed", page="Shopping List")
 
 # -- Setup check --
 plan = st.session_state.get("plan")
