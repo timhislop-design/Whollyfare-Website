@@ -1425,25 +1425,38 @@ for g in grocers:
                 st.html(f"<span style='font-size:0.74rem;color:#5A7A62;line-height:2.2;'>{_src_label} · PDF / manual below as fallback</span>")
 
         # Determine circular support for this store
-        _circ_support = CHAIN_DATA.get(chain.lower(), {}).get("circular_support", "pdf_text")
+        _circ_support  = CHAIN_DATA.get(chain.lower(), {}).get("circular_support", "pdf_text")
+        _is_personal   = chain.lower() not in _MANAGED_CHAINS
 
-        # Build tabs based on support level
-        # manual_only — no PDF tab; pdf_image — PDF tab with caveat; others — both tabs normal
-        if _circ_support == "manual_only":
-            _tab_labels = ["✏️ Manual entry"]
+        # Personal stores and manual_only stores: staples tab only, no PDF upload.
+        # PDF upload is only offered for WhollyFare-managed stores where Claude
+        # extraction has been tested and curated.
+        if _is_personal or _circ_support == "manual_only":
+            _tab_labels = ["⭐ My staples"]
         else:
             _tab_labels = ["📄 Upload circular", "✏️ Manual entry"]
         _tabs = st.tabs(_tab_labels)
-        # PDF is now tab 0 (default). Manual entry is tab 1 (collapsed by default).
-        if _circ_support == "manual_only":
+        if _is_personal or _circ_support == "manual_only":
             tab_manual = _tabs[0]
             tab_pdf    = None
         else:
             tab_pdf    = _tabs[0]
             tab_manual = _tabs[1]
 
-        # For manual_only stores, show a gentle disclaimer above the tab
-        if _circ_support == "manual_only":
+        # Disclaimer block — personal stores first, then managed-store support levels
+        if _is_personal:
+            st.html(
+                "<div style='background:#F3F0FF;border-left:3px solid #9E8FD8;"
+                "border-radius:0 6px 6px 0;padding:8px 12px;font-size:0.79rem;"
+                "color:#3D2E7A;margin-bottom:8px;line-height:1.5;'>"
+                "⭐ <strong>Personal store.</strong> WhollyFare doesn't manage this store's "
+                "circular — PDF extraction won't work reliably here. Add the staples you "
+                "always buy here and they'll appear on your shopping list. "
+                "In a future update, WhollyFare will flag when a meal plan ingredient "
+                "matches something you already pick up at this store."
+                "</div>"
+            )
+        elif _circ_support == "manual_only":
             st.html(
                 "<div style='background:#FBF8F5;border-left:3px solid #D7CCC8;"
                 "border-radius:0 6px 6px 0;padding:8px 12px;font-size:0.79rem;"
@@ -1481,9 +1494,15 @@ for g in grocers:
             )
             # Collapsed by default — expand if no items yet or user wants to add
             with st.expander(_exp_label, expanded=len(_store_items) == 0):
-                st.html("<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:10px;'>"
-                        "Type items directly from the weekly circular or store visit. "
-                        "Useful for items the PDF upload missed, or stores without a circular.</div>")
+                if _is_personal:
+                    st.html("<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:10px;'>"
+                            "Add staples you regularly buy here — olive oil, specific cheeses, "
+                            "specialty items. These appear on your shopping list every week "
+                            "so you never forget them.</div>")
+                else:
+                    st.html("<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:10px;'>"
+                            "Type items directly from the weekly circular or store visit. "
+                            "Useful for items the PDF upload missed, or stores without a circular.</div>")
                 with st.form(key=f"manual_form_{chain}", clear_on_submit=True):
                     f1, f2, f3 = st.columns([3, 1.5, 1.5])
                     with f1:
