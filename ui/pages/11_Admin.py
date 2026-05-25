@@ -558,7 +558,7 @@ with tab_users:
 
         st.divider()
 
-        for u in users:
+        for _ui, u in enumerate(users):
             uid       = u.get("id", "")
             email     = u.get("email", "(no email)")
             joined    = (u.get("created_at") or "")[:10] or "\u2014"
@@ -588,7 +588,7 @@ with tab_users:
                         "</div>"
                     )
                 with action_col:
-                    safe_key = uid[:8] if uid else email[:8]
+                    safe_key = f"{_ui}_{uid[:8] if uid else 'u'}"
                     btn_cols = st.columns(2)
 
                     with btn_cols[0]:
@@ -755,7 +755,14 @@ with tab_dash:
         )
 
     elif "admin_activity_cache" in st.session_state:
-        st.info("No activity recorded yet.")
+        st.info("No activity recorded yet. Activity will appear here once pilot users start signing in and generating plans.")
+    else:
+        st.html(
+            "<div style='background:#F0F7F1;border:1px dashed #5DAA6A;border-radius:8px;"
+            "padding:24px;text-align:center;color:#5A7A62;font-size:0.88rem;margin-top:8px;'>"
+            "Click <strong>Load / Refresh activity</strong> above to pull the latest events."
+            "</div>"
+        )
 
 
 # \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
@@ -794,7 +801,7 @@ with tab_fb:
             + str(len(feedback_rows)) + " item(s) shown</div>"
         )
 
-        for row in feedback_rows:
+        for _fi, row in enumerate(feedback_rows):
             row_id  = row.get("id", "")
             ts      = (row.get("created_at") or "")[:16].replace("T", " ")
             email   = row.get("email") or "\u2014"
@@ -826,7 +833,7 @@ with tab_fb:
                     "</div>"
                 )
 
-                safe_id = str(row_id)[:8] if row_id else "unk"
+                safe_id = f"{_fi}_{str(row_id)[:8] if row_id else 'unk'}"
                 ac1, ac2, ac3 = st.columns(3)
                 with ac1:
                     if status != "read" and st.button(
