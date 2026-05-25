@@ -643,9 +643,12 @@ def sign_in(email: str, password: str) -> tuple[bool, str]:
         _load_grocers_from_db()
         # Restore this week's circular data so user doesn't have to re-pull.
         _load_flyer_items_from_db()
+        # Cache admin + test flags from profiles so is_admin() is free.
+        _load_admin_flag()
         # Persist refresh token to browser localStorage so the session survives
         # page navigation, browser refresh, and Streamlit Cloud worker restarts.
         _save_tokens_to_browser()
+        log_activity("sign_in")
         return True, "Signed in."
 
     except Exception as e:
@@ -788,6 +791,7 @@ def try_restore_from_browser() -> bool:
             _load_household_from_db()
             _load_grocers_from_db()
             _load_flyer_items_from_db()
+            _load_admin_flag()
             _save_tokens_to_browser()   # write back rotated tokens
             _log.info("try_restore_from_browser: session restored successfully")
             return True
@@ -930,25 +934,230 @@ def is_authenticated() -> bool:
     return st.session_state.get("user") is not None
 
 
-# Platform admin emails — only these users can upload platform-wide flyer data.
-# POC: hardcoded list. PROD: admin role column in profiles table + RLS policy.
+# Bootstrap admin emails — fallback if DB is unavailable.
+# Primary admin check is is_platform_admin column in profiles table.
 ADMIN_EMAILS: list[str] = [
     "tim.hislop@gmail.com",
 ]
 
 
 def is_admin() -> bool:
-    """True if the signed-in user is a WhollyFare platform admin."""
+    """True if the signed-in user is a WhollyFare platform admin.
+
+    Checks session state cache first (set at sign-in / restore).
+    Falls back to ADMIN_EMAILS if DB was unavailable at sign-in.
+    """
     user = st.session_state.get("user")
     if not user:
         return False
+    # Prefer DB-backed flag cached at sign-in
+    if st.session_state.get("_is_platform_admin") is True:
+        return True
+    # Bootstrap fallback — covers Tim even if profile load failed
     return (user.get("email") or "").lower() in [e.lower() for e in ADMIN_EMAILS]
+
+
+def _load_admin_flag() -> None:
+    """Load is_platform_admin from profiles into session state cache.
+    Called at sign-in and session restore so is_admin() never hits the DB."""
+    uid = current_user_id()
+    if not uid:
+        return
+    try:
+        rows = _sb_select("profiles", select="is_platform_admin,is_test_account",
+                          filters={"id": uid})
+        if rows:
+            st.session_state["_is_platform_admin"] = rows[0].get("is_platform_admin", False)
+            st.session_state["_is_test_account"]   = rows[0].get("is_test_account", False)
+    except Exception as e:
+        _log.warning("_load_admin_flag: %s", e)
 
 
 def current_user_id() -> str | None:
     """Return the Supabase auth user UUID, or None if not signed in."""
     user = st.session_state.get("user")
     return user["id"] if user else None
+
+
+def log_activity(event_type: str, page: str = "", metadata: dict | None = None) -> None:
+    """Fire-and-forget activity event. Never raises — a logging failure must not
+    break the page that triggered it.
+
+    event_type values: 'sign_in', 'sign_up', 'page_view', 'plan_generated',
+                       'buyoff_approved', 'shopping_list_viewed', 'flyer_uploaded'
+    """
+    if not _DB_AVAILABLE or not is_authenticated():
+        return
+    try:
+        user = st.session_state.get("user", {})
+        _sb_insert("activity_events", {
+            "user_id":    user.get("id"),
+            "email":      user.get("email", ""),
+            "event_type": event_type,
+            "page":       page or "",
+            "metadata":   metadata or {},
+        })
+    except Exception as e:
+        _log.debug("log_activity: %s", e)   # silent — never blocks the caller
+
+
+# ── Admin API helpers ─────────────────────────────────────────────────────────
+# These call Supabase's admin REST endpoints (auth/v1/admin/*) using the
+# service_role key. Only callable server-side — key never reaches the browser.
+
+def _admin_headers() -> dict:
+    """Headers for Supabase admin auth endpoints."""
+    svc = st.secrets.get("supabase", {}).get("service_role_key", "")
+    url_base = st.secrets.get("supabase", {}).get("url", "")
+    return {
+        "apikey":        svc,
+        "Authorization": f"Bearer {svc}",
+        "Content-Type":  "application/json",
+    }, url_base
+
+
+def admin_list_users() -> list[dict]:
+    """Return all auth users with their profile flags. Admin only.
+    POC: fetches up to 1000 users. PROD: paginate."""
+    try:
+        headers, url_base = _admin_headers()
+        resp = _requests.get(
+            f"{url_base}/auth/v1/admin/users?per_page=1000",
+            headers=headers, timeout=15,
+        )
+        if not resp.ok:
+            _log.error("admin_list_users: %s %s", resp.status_code, resp.text)
+            return []
+        users = resp.json().get("users", [])
+        # Enrich with profile flags
+        profile_rows = _sb_select("profiles",
+                                  select="id,is_platform_admin,is_test_account,tier")
+        profile_map = {r["id"]: r for r in profile_rows} if profile_rows else {}
+        for u in users:
+            p = profile_map.get(u["id"], {})
+            u["is_platform_admin"] = p.get("is_platform_admin", False)
+            u["is_test_account"]   = p.get("is_test_account", False)
+            u["tier"]              = p.get("tier", "free")
+        return users
+    except Exception as e:
+        _log.error("admin_list_users: %s", e)
+        return []
+
+
+def admin_set_platform_admin(user_id: str, value: bool) -> tuple[bool, str]:
+    """Grant or revoke platform admin status for a user."""
+    try:
+        _sb_update("profiles", {"is_platform_admin": value}, "id", user_id)
+        return True, "Updated."
+    except Exception as e:
+        return False, str(e)
+
+
+def admin_set_test_account(user_id: str, value: bool) -> tuple[bool, str]:
+    """Flag or unflag a user account as a test account."""
+    try:
+        _sb_update("profiles", {"is_test_account": value}, "id", user_id)
+        return True, "Updated."
+    except Exception as e:
+        return False, str(e)
+
+
+def admin_create_test_user(email: str, password: str) -> tuple[bool, str]:
+    """Create a new user with email pre-confirmed (no confirmation email sent).
+    Use for internal test accounts only — the account is flagged is_test_account.
+    POC: no email sent, account active immediately. PROD: same behaviour."""
+    try:
+        headers, url_base = _admin_headers()
+        resp = _requests.post(
+            f"{url_base}/auth/v1/admin/users",
+            headers=headers,
+            json={"email": email, "password": password, "email_confirm": True},
+            timeout=15,
+        )
+        if not resp.ok:
+            return False, resp.json().get("message", resp.text)
+        uid = resp.json().get("id") or resp.json().get("user", {}).get("id")
+        if uid:
+            _sb_update("profiles", {"is_test_account": True}, "id", uid)
+        return True, "Test account created."
+    except Exception as e:
+        return False, str(e)
+
+
+def admin_send_password_reset(email: str) -> tuple[bool, str]:
+    """Send a password reset email via Supabase. Safer than admin-setting
+    the password directly — keeps Supabase auth as the authority."""
+    try:
+        headers, url_base = _admin_headers()
+        resp = _requests.post(
+            f"{url_base}/auth/v1/recover",
+            headers=headers,
+            json={"email": email},
+            timeout=10,
+        )
+        if resp.ok:
+            return True, "Password reset email sent."
+        return False, resp.json().get("message", resp.text)
+    except Exception as e:
+        return False, str(e)
+
+
+def admin_delete_user(user_id: str) -> tuple[bool, str]:
+    """Permanently delete a user and their auth record. Irreversible."""
+    try:
+        headers, url_base = _admin_headers()
+        resp = _requests.delete(
+            f"{url_base}/auth/v1/admin/users/{user_id}",
+            headers=headers, timeout=10,
+        )
+        if resp.ok:
+            return True, "User deleted."
+        return False, resp.json().get("message", resp.text)
+    except Exception as e:
+        return False, str(e)
+
+
+def admin_get_activity(limit: int = 200) -> list[dict]:
+    """Fetch recent activity events for the admin dashboard."""
+    try:
+        rows = _sb_select("activity_events", select="*")
+        rows = sorted(rows or [], key=lambda r: r.get("created_at",""), reverse=True)
+        return rows[:limit]
+    except Exception as e:
+        _log.error("admin_get_activity: %s", e)
+        return []
+
+
+def admin_get_feedback(status: str = "new") -> list[dict]:
+    """Fetch feedback submissions, filtered by status."""
+    try:
+        filters = {"status": status} if status != "all" else {}
+        rows = _sb_select("feedback", select="*", filters=filters)
+        return sorted(rows or [], key=lambda r: r.get("created_at",""), reverse=True)
+    except Exception as e:
+        _log.error("admin_get_feedback: %s", e)
+        return []
+
+
+def submit_feedback(message: str, page: str = "", rating: int | None = None) -> tuple[bool, str]:
+    """Submit user feedback. Works for authenticated users."""
+    if not message.strip():
+        return False, "Message is required."
+    try:
+        user = st.session_state.get("user", {})
+        row: dict = {
+            "message": message.strip(),
+            "page":    page or "",
+            "email":   user.get("email", ""),
+        }
+        if user.get("id"):
+            row["user_id"] = user["id"]
+        if rating and 1 <= rating <= 5:
+            row["rating"] = rating
+        _sb_insert("feedback", row)
+        return True, "Thanks for your feedback!"
+    except Exception as e:
+        return False, str(e)
 
 
 # ── Authenticated client helper ─────────────────────────────────────────────

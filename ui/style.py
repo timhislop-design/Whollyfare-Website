@@ -364,6 +364,76 @@ def sidebar_nav():
     st.page_link("pages/8_Roadmap.py",  label="🗺️ Product Roadmap")
     _coming_soon("❓ Help & FAQ")
     st.page_link("pages/9_Account.py", label="⚙️ Account")
-    st.page_link("pages/11_Admin.py",  label="🗂️  Admin: Circulars")
 
-    # ── Auth widget ─────────────────────────────────────────────
+    # Admin link — only visible to signed-in platform admins.
+    # Import inline to avoid circular dependency at module load.
+    try:
+        import ui.state as _state
+        if _state.is_admin():
+            st.page_link("pages/11_Admin.py", label="🗂️ Admin Console")
+    except Exception:
+        pass
+
+    # ── Feedback footer ───────────────────────────────────────────────────────
+    # Shown to all signed-in users. Feedback goes to the admin dashboard.
+    try:
+        import ui.state as _state_fb
+        if _state_fb.is_authenticated():
+            st.html(
+                "<div style='margin-top:18px;padding-top:10px;"
+                "border-top:1px solid #2e7d4f;'>"
+                "<a href='?feedback=1' style='font-size:0.72rem;color:#9FD9A8;"
+                "text-decoration:none;opacity:0.8;'>💬 Share feedback</a>"
+                "</div>"
+            )
+    except Exception:
+        pass
+
+    # ── Feedback form handler (sidebar inline form when ?feedback=1) ──────────
+    # Shown to all signed-in users. Detects the ?feedback=1 query param set by
+    # the "Share feedback" link in the sidebar footer.
+    try:
+        import ui.state as _state_fb2
+        if _state_fb2.is_authenticated():
+            _qp = st.query_params
+            if _qp.get("feedback") == "1":
+                with st.expander("Share feedback", expanded=True):
+                    with st.form("sidebar_feedback_form", clear_on_submit=True):
+                        _fb_msg = st.text_area(
+                            "What\'s on your mind?",
+                            placeholder="Bug, suggestion, question \u2014 anything helps.",
+                            height=100,
+                            label_visibility="collapsed",
+                        )
+                        _fb_rating = st.select_slider(
+                            "How is your experience?",
+                            options=[1, 2, 3, 4, 5],
+                            value=4,
+                            label_visibility="visible",
+                        )
+                        if st.form_submit_button("Send feedback", type="primary", use_container_width=True):
+                            if _fb_msg.strip():
+                                _ok, _msg = _state_fb2.submit_feedback(
+                                    message=_fb_msg.strip(),
+                                    page="sidebar",
+                                    rating=_fb_rating,
+                                )
+                                if _ok:
+                                    st.success("Thanks! Feedback sent.")
+                                    st.query_params.clear()
+                                    st.rerun()
+                                else:
+                                    st.error(_msg)
+                            else:
+                                st.warning("Please enter a message before sending.")
+    except Exception:
+        pass
+
+    # ── Auth widget ─────────────────────────────────────────────────────────────
+    # POC: sign-in / sign-up / sign-out panel at the bottom of the sidebar.
+    # Import here (not at module level) to avoid circular import with state.py.
+    try:
+        from ui.components.auth import auth_sidebar
+        auth_sidebar()
+    except Exception:
+        pass  # Silently skip if auth component is unavailable
