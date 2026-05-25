@@ -338,8 +338,9 @@ for tier in STORE_TIERS:
 # the user to upload their own flyer each week.
 _MANAGED_CHAINS = {
     "kroger", "harris teeter", "food lion", "aldi", "giant food",
-    "walmart", "wegmans", "lidl", "whole foods", "trader joe's",
-    "ew thomas", "foods of all nations",
+    "walmart", "wegmans", "whole foods",
+    # Lidl removed — nearest store is Culpeper (~40 mi), not practical for pilot.
+    # Trader Joe's, EW Thomas, Foods of All Nations removed — no weekly circular.
 }
 
 # ══════════════════════════════════════════════════════════════════════════════

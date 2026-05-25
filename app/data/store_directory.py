@@ -87,16 +87,6 @@ CHARLOTTESVILLE_STORES: list[dict] = [
         "flyer_day":   "Sunday",
     },
     {
-        "chain":       "Lidl",
-        "location":    "Charlottesville",
-        "flyer_url":   "https://www.lidl.com/en_US/specials.htm",
-        "method":      "pdf",
-        "tier":        "value_discount",
-        "notes":       "Download from lidl.com/en_US/specials.htm. "
-                       "New circular posts Wednesday.",
-        "flyer_day":   "Wednesday",
-    },
-    {
         "chain":       "Whole Foods",
         "location":    "Charlottesville",
         "flyer_url":   "https://www.wholefoodsmarket.com/sales-flyer",
@@ -144,8 +134,4 @@ STORE_BY_CHAIN: dict[str, dict] = {s["chain"]: s for s in CHARLOTTESVILLE_STORES
 # Stores with PDF circulars (Tim downloads weekly)
 PDF_STORES: list[dict] = [s for s in CHARLOTTESVILLE_STORES if s["method"] == "pdf"]
 
-# Wednesday-refresh stores (Aldi, Food Lion, Harris Teeter, Lidl, Whole Foods)
-WEDNESDAY_STORES: list[str] = [
-    s["chain"] for s in CHARLOTTESVILLE_STORES
-    if s.get("flyer_day") == "Wednesday"
-]
+# Wednesday-refresh stores (Aldi, Food Lion, Harris Tee
