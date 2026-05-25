@@ -1885,6 +1885,19 @@ def _load_flyer_items_from_db():
             )
             chains = [r["chain_name"] for r in g_rows] if g_rows else []
 
+        # Fallback 1: session state grocers (user mid-setup, not yet saved to DB)
+        if not chains:
+            chains = [g.get("chain", "") for g in st.session_state.get("grocers", [])
+                      if g.get("chain")]
+
+        # Fallback 2: no stores selected at all — load ALL platform items so new
+        # users see prices before completing household setup.
+        # POC: fast at pilot scale (handful of chains). PROD: Redis cache.
+        if not chains:
+            all_weeks = _sb_select("platform_flyer_weeks", select="id,chain_name",
+                                   filters={"week_start_date": week})
+            chains = [r["chain_name"] for r in all_weeks] if all_weeks else []
+
         if not chains:
             return
 

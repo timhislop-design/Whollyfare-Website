@@ -135,7 +135,7 @@ STORE_TIERS = [
         "border":  "#FFCC80",
         "pill_bg": "#FFF3E0",
         "stores": [
-            {"chain": "ALDI", "refresh_day": "Wednesday",           "source": "manual",  "rewards": False, "delivery": False,
+            {"chain": "Aldi", "refresh_day": "Wednesday",           "source": "manual",  "rewards": False, "delivery": False,
              "circular_support": "pdf_image",
              "flyer": "https://www.aldi.us/en/weekly-specials/",
              "note": "No loyalty card. Weekly Specialbuys are image-based — upload the PDF and review results carefully, or enter key items manually."},
@@ -295,7 +295,7 @@ STORE_TIERS = [
         "pill_bg": "#EFEBE9",
         "stores": [
             # Charlottesville / Palmyra VA pilot area — pre-seeded for Tim's household
-            {"chain": "EW Thomas Grocery",        "source": "manual", "rewards": False, "delivery": False,
+            {"chain": "EW Thomas",        "source": "manual", "rewards": False, "delivery": False,
              "circular_support": "manual_only",
              "flyer": "",
              "note": "Palmyra, VA. Local institution — meat counter, produce, and weekly specials."},
@@ -332,6 +332,15 @@ for tier in STORE_TIERS:
         CHAIN_NOTES[key]      = s.get("note", "")
         CHAIN_DATA[key]       = {**s, "tier": tier["key"]}
 
+
+# Chains WhollyFare manages centrally — Tim uploads once, all users benefit.
+# Keyed lowercase to match CHAIN_DATA. Personal stores (not listed) require
+# the user to upload their own flyer each week.
+_MANAGED_CHAINS = {
+    "kroger", "harris teeter", "food lion", "aldi", "giant food",
+    "walmart", "wegmans", "lidl", "whole foods", "trader joe's",
+    "ew thomas", "foods of all nations",
+}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STORE PROFILE WIZARD
@@ -618,8 +627,14 @@ if _show_wizard:
                         key=f"wiz_check_{chain}",
                     )
                     st.session_state["wizard_selections"][chain] = checked
-                    st.html(f"<div style='font-size:0.68rem;color:{_sc};margin:-4px 0 4px 0;'>"
+                    st.html(f"<div style='font-size:0.68rem;color:{_sc};margin:-4px 0 2px 0;'>"
                             f"{_si} {_sl}</div>")
+                    if chain.lower() in _MANAGED_CHAINS:
+                        st.html("<div style='font-size:0.68rem;color:#1E5C32;margin:-2px 0 4px 0;'>"
+                                "⭐ WhollyFare managed — prices update automatically</div>")
+                    else:
+                        st.html("<div style='font-size:0.68rem;color:#8D6E63;margin:-2px 0 4px 0;'>"
+                                "📤 Personal store — you upload your own flyer each week</div>")
 
                     if checked:
                         # Trip distance input for selected stores
