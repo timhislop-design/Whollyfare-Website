@@ -29,7 +29,7 @@ st.set_page_config(
     page_title="Account · WhollyFare",
     page_icon="🔐",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 state.init()
 
@@ -449,10 +449,12 @@ with card_col:
                 with st.spinner("Creating your account…"):
                     ok, msg = state.sign_up(new_email.strip(), new_pw)
                 if ok:
-                    st.success("✅ Account created! Setting you up…")
                     st.balloons()
-                    import time; time.sleep(1.2)
-                    st.switch_page("pages/1_Household.py")
+                    st.success(
+                        "✅ Account created! **Check your email** — we sent you a confirmation "
+                        "link. Click it to activate your account, then come back here to sign in."
+                    )
+                    st.info("📬 Can't find it? Check your spam folder. The email is from WhollyFare via Supabase.")
                 else:
                     if "already registered" in msg.lower() or "already exists" in msg.lower():
                         st.error("That email is already registered. Use the Sign In tab.")
