@@ -48,6 +48,57 @@ style.page_header(
 ledger: list[dict] = state.load_ledger()
 grocers: list[dict] = st.session_state.get("grocers", [])
 
+# ── Milestone + streak computation ───────────────────────────────────────────
+# These run at page load so the banner and metrics are always current.
+
+def _compute_streak(entries: list) -> int:
+    """Consecutive weeks (most recent first) where found money > 0."""
+    if not entries:
+        return 0
+    sorted_entries = sorted(entries, key=lambda e: e.get("week", ""), reverse=True)
+    streak = 0
+    for e in sorted_entries:
+        found = e.get("actual_found_money", e.get("found_money", 0)) or 0
+        if found > 0:
+            streak += 1
+        else:
+            break
+    return streak
+
+
+def _top_milestone(total_net: float, streak: int) -> tuple[str, str] | None:
+    """
+    Return (emoji, message) for the highest savings or streak milestone hit,
+    or None if no milestone has been reached yet.
+
+    Savings milestones: $25, $50, $100, $250, $500, $1000
+    Streak milestones:  2, 4, 8, 12 weeks
+    """
+    # Savings milestones — check highest first
+    if total_net >= 1000:
+        return ("🏆", f"Four-figure savings! You've found <strong>${total_net:,.2f}</strong> in real money. That's WhollyFare working.")
+    if total_net >= 500:
+        return ("🎉", f"<strong>${total_net:,.2f}</strong> found — you've crossed $500. Half a vacation fund, found at the grocery store.")
+    if total_net >= 250:
+        return ("🌟", f"<strong>${total_net:,.2f}</strong> saved — past the $250 mark. A month of dinners, paid for by smarter shopping.")
+    if total_net >= 100:
+        return ("💚", f"<strong>${total_net:,.2f}</strong> in Found Money — you've hit $100. This is the number that convinces the skeptics.")
+    if total_net >= 50:
+        return ("✨", f"<strong>${total_net:,.2f}</strong> saved so far — past $50. Real money, from real sale prices.")
+    if total_net >= 25:
+        return ("🌱", f"<strong>${total_net:,.2f}</strong> found — your first $25. The savings are real and they compound.")
+    # Streak milestones
+    if streak >= 12:
+        return ("🔥", f"{streak}-week streak — three months of consistent meal planning. This is a habit now.")
+    if streak >= 8:
+        return ("🔥", f"{streak}-week streak — two months in a row. Your household has this down.")
+    if streak >= 4:
+        return ("⚡", f"{streak} weeks in a row — the habit is forming. Four weeks of Found Money, no breaks.")
+    if streak >= 2:
+        return ("⚡", f"{streak} weeks running — you're building the habit. Keep it going.")
+    return None
+
+
 # ── Store names (dynamic from session, not hardcoded) ────────────────────────
 def _store_label() -> str:
     names = [g.get("chain", "?") for g in grocers]
@@ -216,6 +267,24 @@ if has_trip_data:
         </div>"""
     )
 
+# ── Milestone banner — the emotional payoff ──────────────────────────────────
+_streak      = _compute_streak(ledger)
+_milestone   = _top_milestone(total_net, _streak)
+
+if _milestone:
+    _m_emoji, _m_msg = _milestone
+    st.html(
+        f"<div style='background:linear-gradient(135deg,#1A2E1D,#2D6A4F);"
+        f"border-radius:12px;padding:18px 22px;margin-bottom:16px;'>"
+        f"<div style='font-size:1.6rem;display:inline-block;margin-right:10px;"
+        f"vertical-align:middle;'>{_m_emoji}</div>"
+        f"<span style='font-size:0.95rem;font-weight:600;color:#fff;"
+        f"vertical-align:middle;'>{_m_msg}</span>"
+        + (f"<div style='margin-top:8px;font-size:0.78rem;color:#9FD9A8;'>"
+           f"🔥 {_streak}-week streak</div>" if _streak >= 2 else "")
+        + "</div>"
+    )
+
 c1, c2, c3, c4 = st.columns(4)
 c1.metric(
     "Net Found Money" if has_trip_data else "Total Found Money",
@@ -230,10 +299,12 @@ c2.metric(
     f"${total_vs_hf:,.2f}",
     help="vs. HelloFresh at $9.99/serving",
 )
+_streak_label = f"{_streak}🔥" if _streak >= 2 else str(weeks_receipts)
 c3.metric(
-    "Weeks tracked",
-    f"{weeks_receipts} of {weeks_planned}",
-    help=f"{weeks_receipts} weeks with real receipts logged",
+    "Current streak" if _streak >= 2 else "Weeks tracked",
+    f"{_streak_label}",
+    delta=f"{weeks_receipts} receipts logged" if _streak >= 2 else f"of {weeks_planned} weeks",
+    help=f"{_streak} consecutive weeks with Found Money · {weeks_receipts} receipts logged",
 )
 c4.metric(
     "Estimate accuracy",
