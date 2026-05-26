@@ -131,7 +131,7 @@ if not state.is_setup_complete():
       <div style='font-size:1.05rem;color:rgba(255,255,255,0.75);
                   max-width:500px;line-height:1.65;margin-bottom:38px;'>
         Built from this week's actual sale prices at your local grocery stores —
-        no subscriptions, no ads, no one getting paid to put food on your plate.
+        no paid placements, no hidden fees, no one getting paid to influence what ends up on your plate.
       </div>
 
       <!-- Stats row -->
@@ -189,7 +189,7 @@ if not state.is_setup_complete():
             if st.button("📈 Investor brief", use_container_width=True):
                 st.switch_page("pages/7_Investor.py")
     else:
-        h1, h2, h3, h4 = st.columns([1, 1, 1, 1])
+        h1, h2, h3, _ = st.columns([1, 1, 1, 2])
         with h1:
             if st.button("🌿 Get started free", type="primary", use_container_width=True):
                 st.session_state["_auth_tab"] = "create"
@@ -199,10 +199,6 @@ if not state.is_setup_complete():
                 st.session_state["_auth_tab"] = "signin"
                 st.switch_page("pages/9_Account.py")
         with h3:
-            if st.button("✨ Create account", use_container_width=True):
-                st.session_state["_auth_tab"] = "create"
-                st.switch_page("pages/9_Account.py")
-        with h4:
             if st.button("📈 Investor brief", use_container_width=True):
                 st.switch_page("pages/7_Investor.py")
 

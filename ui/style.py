@@ -379,6 +379,48 @@ def sidebar_nav():
         st.page_link("pages/7_Investor.py", label="📈 Investor Brief")
         st.page_link("pages/8_Roadmap.py",  label="🗺️ Product Roadmap")
 
+    # ── Trial / upgrade banner ───────────────────────────────────────────────
+    # Shown to authenticated users who are on trial or free tier.
+    # Hidden for paid users and admins (they don't need the nudge).
+    try:
+        import ui.state as _st_mod
+        if _st_mod.is_authenticated() and not _st_mod.is_admin():
+            _days_left = _st_mod.trial_days_remaining()
+            _tier      = _st_mod.get_user_tier()
+            _on_trial  = _st_mod.is_on_trial()
+
+            if _on_trial:
+                # Trial active — show countdown
+                _trial_color = "#1E5C32" if _days_left > 3 else "#8C4A00"
+                _trial_bg    = "#E3F4E8" if _days_left > 3 else "#FFF8E1"
+                _trial_border = "#A8D5B0" if _days_left > 3 else "#FFD54F"
+                st.html(
+                    f"<div style='background:{_trial_bg};border:1px solid {_trial_border};"
+                    f"border-radius:10px;padding:10px 12px;margin-bottom:8px;'>"
+                    f"<div style='font-size:0.75rem;font-weight:700;color:{_trial_color};'>"
+                    f"🎁 Free trial — {_days_left} day{'s' if _days_left != 1 else ''} left</div>"
+                    f"<div style='font-size:0.7rem;color:#5A7A62;margin-top:2px;'>"
+                    f"Full Meal Planner access through your trial.</div></div>"
+                )
+                if st.button("See plans & pricing →", key="trial_upgrade_btn",
+                             use_container_width=True):
+                    st.switch_page("Home.py")
+            elif _tier == "free":
+                # Trial expired, still on free tier — upgrade nudge
+                st.html(
+                    "<div style='background:#FFF3E0;border:1px solid #FFCC80;"
+                    "border-radius:10px;padding:10px 12px;margin-bottom:8px;'>"
+                    "<div style='font-size:0.75rem;font-weight:700;color:#8C4A00;'>"
+                    "⬆️ Free plan</div>"
+                    "<div style='font-size:0.7rem;color:#5A7A62;margin-top:2px;'>"
+                    "Upgrade to keep your weekly plan.</div></div>"
+                )
+                if st.button("Upgrade — from $7/mo →", key="free_upgrade_btn",
+                             use_container_width=True, type="primary"):
+                    st.switch_page("Home.py")
+    except Exception:
+        pass  # Never break the sidebar over a tier check
+
     # ── Feedback footer ───────────────────────────────────────────────────────
     # Button is always visible. Form requires sign-in so Tim knows who submitted.
     # st.rerun() lives outside any try/except — RerunException is a subclass of

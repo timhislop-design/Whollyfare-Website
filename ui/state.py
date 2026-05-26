@@ -984,17 +984,19 @@ def is_admin() -> bool:
 
 
 def _load_admin_flag() -> None:
-    """Load is_platform_admin from profiles into session state cache.
-    Called at sign-in and session restore so is_admin() never hits the DB."""
+    """Load is_platform_admin, tier, and created_at from profiles into session state.
+    Called at sign-in and session restore so tier checks never hit the DB."""
     uid = current_user_id()
     if not uid:
         return
     try:
-        rows = _sb_select("profiles", select="is_platform_admin,is_test_account",
+        rows = _sb_select("profiles", select="is_platform_admin,is_test_account,tier,created_at",
                           filters={"id": uid})
         if rows:
             st.session_state["_is_platform_admin"] = rows[0].get("is_platform_admin", False)
             st.session_state["_is_test_account"]   = rows[0].get("is_test_account", False)
+            st.session_state["_user_tier"]         = rows[0].get("tier", "free")
+            st.session_state["_user_created_at"]   = rows[0].get("created_at", "")
     except Exception as e:
         _log.warning("_load_admin_flag: %s", e)
 
@@ -1003,6 +1005,78 @@ def current_user_id() -> str | None:
     """Return the Supabase auth user UUID, or None if not signed in."""
     user = st.session_state.get("user")
     return user["id"] if user else None
+
+
+# ── Subscription tier helpers ─────────────────────────────────────────────────
+# Tiers (ascending): free < meal_planner < health_guard < full_table
+# Trial: new users get meal_planner access for 7 days from account creation.
+# Tim's pilot households are upgraded to meal_planner (or higher) manually via
+# the Supabase dashboard until Phase 2 adds an Admin user-management UI.
+
+_TIER_RANK = {
+    "free":         0,
+    "meal_planner": 1,
+    "health_guard": 2,
+    "full_table":   3,
+}
+_TRIAL_DAYS = 7
+
+
+def trial_days_remaining() -> int:
+    """Days left in the 7-day free trial (0 if expired or not authenticated).
+
+    POC: Reads created_at from session cache (loaded at sign-in).
+    PROD: Same — created_at never changes, so caching is safe forever.
+    """
+    import datetime as _dt
+    created_str = st.session_state.get("_user_created_at", "")
+    if not created_str:
+        return 0
+    try:
+        # Supabase returns ISO 8601 — strip trailing Z / timezone for fromisoformat
+        created_str = created_str.replace("Z", "+00:00")
+        created = _dt.datetime.fromisoformat(created_str)
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=_dt.timezone.utc)
+        now = _dt.datetime.now(_dt.timezone.utc)
+        elapsed = (now - created).days
+        remaining = _TRIAL_DAYS - elapsed
+        return max(remaining, 0)
+    except Exception as e:
+        _log.debug("trial_days_remaining: %s", e)
+        return 0
+
+
+def get_user_tier() -> str:
+    """Return the effective tier for the current user.
+
+    During the 7-day trial, returns 'meal_planner' regardless of stored tier.
+    After trial, returns the stored tier (default 'free').
+    Returns 'free' if not authenticated.
+    """
+    if not is_authenticated():
+        return "free"
+    if trial_days_remaining() > 0:
+        return "meal_planner"   # trial = full Meal Planner access
+    return st.session_state.get("_user_tier", "free")
+
+
+def has_access(min_tier: str) -> bool:
+    """True if the user's effective tier is >= min_tier.
+
+    Usage:
+        if not state.has_access("meal_planner"):
+            _show_upsell(); st.stop()
+
+    Tier order: free < meal_planner < health_guard < full_table
+    """
+    effective = get_user_tier()
+    return _TIER_RANK.get(effective, 0) >= _TIER_RANK.get(min_tier, 0)
+
+
+def is_on_trial() -> bool:
+    """True if the user is within their 7-day free trial."""
+    return is_authenticated() and trial_days_remaining() > 0
 
 
 def log_activity(event_type: str, page: str = "", metadata: dict | None = None) -> None:

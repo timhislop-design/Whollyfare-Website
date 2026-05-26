@@ -52,6 +52,48 @@ with st.sidebar:
     style.sidebar_nav()
 
 style.page_header("Shopping List", "Everything you need this week, organised by store.")
+
+# ── Subscription tier gate ────────────────────────────────────────────────────
+# Free users who have completed their 7-day trial see this upsell card instead
+# of the page content. Trial users and paid users pass through silently.
+# POC: tier checked from session state (cached at sign-in). No DB hit.
+# PROD: same — tier is immutable within a session; changes take effect on next sign-in.
+if not state.has_access("meal_planner"):
+    style.page_header("Shopping List", "")
+    st.html("""
+    <div style='max-width:520px;margin:32px auto 0;background:white;border-radius:18px;
+                border-top:5px solid #1E5C32;box-shadow:0 4px 32px rgba(30,92,50,0.10);
+                padding:36px 36px 28px;text-align:center;'>
+      <div style='font-size:2.2rem;margin-bottom:12px;'>🔒</div>
+      <div style='font-size:1.3rem;font-weight:800;color:#1A2E1D;margin-bottom:8px;'>
+        Shopping List — Meal Planner feature
+      </div>
+      <div style='font-size:0.93rem;color:#5A7A62;line-height:1.65;margin-bottom:24px;'>
+        Your approved plan becomes a phone-ready shopping list, organised by store and category. Upgrade to Meal Planner to unlock your weekly shopping list.
+      </div>
+      <div style='background:#F4FAF5;border:1px solid #D0EDD8;border-radius:12px;
+                  padding:16px 20px;margin-bottom:24px;text-align:left;'>
+        <div style='font-size:0.75rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.09em;color:#3A8C4E;margin-bottom:8px;'>
+          Meal Planner — $7/month
+        </div>
+        <div style='font-size:0.85rem;color:#4A5568;line-height:1.6;'>
+          ✓ &nbsp;Weekly 5-dinner plan built from this week's sale prices<br>
+          ✓ &nbsp;Sunday Buy-Off — one tap to approve and lock in savings<br>
+          ✓ &nbsp;Shopping list organised by store, ready on your phone<br>
+          ✓ &nbsp;Found Money tracked every week
+        </div>
+      </div>
+    </div>
+    """)
+    _u1, _u2, _u3 = st.columns([1, 2, 1])
+    with _u2:
+        if st.button("See plans & pricing →", type="primary", use_container_width=True,
+                     key="upsell_cta_shopping_list"):
+            st.switch_page("Home.py")
+    st.stop()
+
+
 state.log_activity("shopping_list_viewed", page="Shopping List")
 
 # -- Setup check --
