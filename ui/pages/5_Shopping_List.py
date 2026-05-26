@@ -315,7 +315,8 @@ def _render_item_row(store: str, item: dict, idx: int):
     moveable  = item.get("moveable", True)
     meals_str = ", ".join(m for m in item.get("_meals", []) if m)
 
-    col_chk, col_info, col_cost, col_ctrl = st.columns([0.5, 4.5, 1.2, 1.3])
+    # Mobile-first: 2-column layout — large checkbox + all item info in one block
+    col_chk, col_info = st.columns([1, 9])
 
     with col_chk:
         st.checkbox(label=name, value=checked, key=check_key,
@@ -325,50 +326,52 @@ def _render_item_row(store: str, item: dict, idx: int):
         now        = st.session_state.get(check_key, False)
         name_style = "text-decoration:line-through;color:#9AA8A0;" if now else "color:#1A2E1D;"
         meta_style = "color:#9AA8A0;" if now else "color:#5A7A62;"
-        src_badge  = (" &nbsp;<span style='font-size:0.7rem;background:#E8F5E9;"
-                      "color:#3A8C4E;padding:1px 5px;border-radius:3px;'>"
+        cost_style = "color:#9AA8A0;" if now else "color:#1E5C32;font-weight:700;"
+        src_badge  = (" &nbsp;<span style='font-size:0.72rem;background:#E8F5E9;"
+                      "color:#3A8C4E;padding:1px 6px;border-radius:3px;'>"
                       + _source_label(source) + "</span>") if source != "sale" else ""
+        cost_str   = ("$" + "{:.2f}".format(cost)) if cost > 0 else ""
+        meta_parts = []
+        if qty:
+            meta_parts.append(qty)
+        if meals_str:
+            meta_parts.append(meals_str)
+        if cost_str:
+            meta_parts.append("<span style='" + cost_style + "'>" + cost_str + "</span>")
+        meta_line = "&nbsp;&middot;&nbsp;".join(meta_parts)
         st.html(
-            "<div style='padding:4px 0;'>"
-            "<div style='font-size:0.95rem;font-weight:600;" + name_style + "'>"
+            "<div style='padding:6px 0;'>"
+            "<div style='font-size:1rem;font-weight:600;" + name_style + "'>"
             + name + src_badge + "</div>"
-            "<div style='font-size:0.75rem;" + meta_style + "'>"
-            + qty + ("&nbsp;&middot;&nbsp;" + meals_str if meals_str else "") + "</div>"
-            "</div>")
+            + ("<div style='font-size:0.82rem;" + meta_style + "'>" + meta_line + "</div>"
+               if meta_line else "")
+            + "</div>")
 
-    with col_cost:
-        now        = st.session_state.get(check_key, False)
-        cost_style = "color:#9AA8A0;text-decoration:line-through;" if now else "color:#1E5C32;font-weight:700;"
-        cost_str   = ("$" + "{:.2f}".format(cost)) if cost > 0 else "est."
-        st.html("<div style='padding:4px 0;text-align:right;font-size:0.95rem;" + cost_style + "'>"
-                + cost_str + "</div>")
-
-    with col_ctrl:
-        # Move to store (only for moveable items) or Remove (always available for manual/extras)
-        ctrl_key = "ctrl_" + store + "_" + name + "_" + str(idx)
-        if moveable:
-            other_stores = [s for s in ALL_STORES if s != store] + (
-                ["Unassigned"] if store != "Unassigned" else []
-            )
-            move_options = ["move..."] + other_stores + ["remove"]
-            choice = st.selectbox(
-                label="move", options=move_options, index=0,
-                key=ctrl_key, label_visibility="collapsed"
-            )
-            if choice != "move...":
-                # Remove from current store
-                cart[store] = [i for i in cart.get(store, []) if i["name"] != name]
-                if choice != "remove":
-                    item_copy = dict(item)
-                    item_copy["moveable"] = True
-                    cart.setdefault(choice, []).append(item_copy)
-                st.session_state["shopping_cart"] = cart
-                st.rerun()
-        elif source == "manual":
-            if st.button("x", key=ctrl_key, help="Remove"):
-                cart[store] = [i for i in cart.get(store, []) if i["name"] != name]
-                st.session_state["shopping_cart"] = cart
-                st.rerun()
+    # Move/remove controls — full width below the row for easy thumb access
+    ctrl_key = "ctrl_" + store + "_" + name + "_" + str(idx)
+    if moveable:
+        other_stores = [s for s in ALL_STORES if s != store] + (
+            ["Unassigned"] if store != "Unassigned" else []
+        )
+        move_options = ["move to a different store..."] + other_stores + ["remove"]
+        choice = st.selectbox(
+            label="move", options=move_options, index=0,
+            key=ctrl_key, label_visibility="collapsed"
+        )
+        if choice != "move to a different store...":
+            cart[store] = [i for i in cart.get(store, []) if i["name"] != name]
+            if choice != "remove":
+                item_copy = dict(item)
+                item_copy["moveable"] = True
+                cart.setdefault(choice, []).append(item_copy)
+            st.session_state["shopping_cart"] = cart
+            st.rerun()
+    elif source == "manual":
+        if st.button("Remove", key=ctrl_key, help="Remove this item",
+                     use_container_width=True):
+            cart[store] = [i for i in cart.get(store, []) if i["name"] != name]
+            st.session_state["shopping_cart"] = cart
+            st.rerun()
 
     st.html("<hr style='margin:0;border:none;border-top:1px solid #EEF3EE;'>")
 
@@ -376,15 +379,14 @@ def _render_item_row(store: str, item: dict, idx: int):
 def _add_item_form(store: str, form_key: str):
     """Inline form to add a manual item to a specific store's cart."""
     with st.form(form_key, clear_on_submit=True):
-        c1, c2, c3 = st.columns([4, 2, 1.5])
+        c1, c2 = st.columns([6, 3])
         with c1:
             new_name = st.text_input("Item name", placeholder="e.g. Greek yogurt",
                                      label_visibility="collapsed")
         with c2:
             new_qty = st.text_input("Qty", placeholder="e.g. 32 oz",
                                     label_visibility="collapsed")
-        with c3:
-            add_btn = st.form_submit_button("+ Add", use_container_width=True)
+        add_btn = st.form_submit_button("+ Add item", use_container_width=True)
         if add_btn and new_name.strip():
             cart.setdefault(store, []).append({
                 "name":     new_name.strip(),
@@ -520,7 +522,8 @@ if weekly_regs:
         qty_label = (str(reg.get("qty", "")) + " " + str(reg.get("unit", ""))).strip()
         hints     = reg_hints.get(rname, [])
 
-        col_chk, col_info, col_sale = st.columns([0.5, 5, 2])
+        # Mobile-first: 2-column layout, sale hint inline in item name row
+        col_chk, col_info = st.columns([1, 9])
         with col_chk:
             st.checkbox(label=rname, value=checked, key=check_key,
                         label_visibility="collapsed")
@@ -528,21 +531,21 @@ if weekly_regs:
             now = st.session_state.get(check_key, False)
             ns  = "text-decoration:line-through;color:#9AA8A0;" if now else "color:#1A2E1D;"
             ms  = "color:#9AA8A0;" if now else "color:#5A7A62;"
-            st.html(
-                "<div style='padding:4px 0;'>"
-                "<div style='font-size:0.95rem;font-weight:600;" + ns + "'>" + rname + "</div>"
-                "<div style='font-size:0.75rem;" + ms + "'>" + qty_label + "</div>"
-                "</div>")
-        with col_sale:
+            sale_badge = ""
             if hints:
                 parts = []
                 for h in hints:
                     ps = ("$" + "{:.2f}".format(h["price"])) if h.get("price") else ""
                     parts.append(h["store"] + (" " + ps if ps else ""))
-                st.html(
-                    "<div style='padding:4px 0;font-size:0.76rem;color:#1E5C32;"
-                    "background:#E3F4E8;border-radius:4px;padding:3px 8px;'>"
-                    "On sale: " + " / ".join(parts) + "</div>")
+                sale_badge = (" &nbsp;<span style='font-size:0.72rem;background:#E3F4E8;"
+                              "color:#1E5C32;padding:1px 6px;border-radius:3px;'>"
+                              "sale: " + " / ".join(parts) + "</span>")
+            st.html(
+                "<div style='padding:6px 0;'>"
+                "<div style='font-size:1rem;font-weight:600;" + ns + "'>"
+                + rname + sale_badge + "</div>"
+                "<div style='font-size:0.82rem;" + ms + "'>" + qty_label + "</div>"
+                "</div>")
         st.html("<hr style='margin:0;border:none;border-top:1px solid #EEF3EE;'>")
 
     footer_wr = "All in the cart" if all_wr else "Add these to your regular run -- cost tracked separately."
@@ -735,13 +738,14 @@ else:
             "padding:4px 0 12px 0;'>No staples added yet — add water, coffee, snacks, anything.</div>")
 
 with st.form("add_hs_form", clear_on_submit=True):
-    hs_c1, hs_c2, hs_c3, hs_c4 = st.columns([3, 2, 1.5, 1])
+    hs_c1, hs_c2 = st.columns([6, 3])
     with hs_c1:
         hs_name = st.text_input("Item", placeholder="e.g. Spring water, Coffee",
                                 label_visibility="collapsed")
     with hs_c2:
         hs_qty = st.text_input("Qty", placeholder="e.g. 2 cases",
                                label_visibility="collapsed")
+    hs_c3, hs_c4 = st.columns([6, 3])
     with hs_c3:
         hs_cost = st.text_input("Cost $", placeholder="e.g. 4.99",
                                 label_visibility="collapsed")
