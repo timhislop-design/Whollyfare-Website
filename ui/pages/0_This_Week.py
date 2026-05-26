@@ -194,6 +194,66 @@ _step_card("💰", "Savings Ledger", f"${total_net:.2f} found so far",
            "View ledger →", "pages/6_Ledger.py",
            done=(total_net > 0))
 
+# ── Tonight's Dinner card ─────────────────────────────────────────────────────
+# Shown only when a plan exists. Highlights tonight's meal (by weekday) so
+# returning users get an immediate answer to "what are we making tonight?"
+# Routes to the Recipe Cards view in 12_Recipes.py.
+if plan_meals:
+    import datetime as _tn_dt
+    _tn_today  = _tn_dt.datetime.today().strftime("%A")
+    _tn_meal   = next((m for m in plan_meals if m.get("day", "") == _tn_today), None)
+    # Fall back to first meal if today isn't in the plan (weekend, etc.)
+    _tn_meal   = _tn_meal or (plan_meals[0] if plan_meals else None)
+    if _tn_meal:
+        _tn_name    = _tn_meal.get("name", "Dinner")
+        _tn_cuisine = _tn_meal.get("cuisine", "american").lower()
+        _tn_day     = _tn_meal.get("day", "")
+        _tn_cost    = _tn_meal.get("total_cost", 0.0)
+        _tn_is_tod  = (_tn_day == _tn_today)
+        _tn_label   = "Tonight" if _tn_is_tod else _tn_day
+        _CUISINE_GRAD = {
+            "mexican":       ("🌮", "linear-gradient(135deg,#BF4F00,#F28B30)"),
+            "italian":       ("🍝", "linear-gradient(135deg,#A0001A,#E53935)"),
+            "asian":         ("🍜", "linear-gradient(135deg,#1E5C32,#5DAA6A)"),
+            "american":      ("🍗", "linear-gradient(135deg,#5D3000,#A0522D)"),
+            "mediterranean": ("🫒", "linear-gradient(135deg,#0D47A1,#1976D2)"),
+        }
+        _tn_emoji, _tn_grad = _CUISINE_GRAD.get(_tn_cuisine,
+                              ("🍽️", "linear-gradient(135deg,#1E5C32,#3A8C4E)"))
+        st.html("<hr style='margin:28px 0 20px;border-color:#E0E0E0;'>")
+        st.html(f"""
+        <div style='border-radius:16px;overflow:hidden;
+                    box-shadow:0 4px 20px rgba(30,92,50,0.10);margin-bottom:12px;'>
+          <div style='background:{_tn_grad};height:100px;
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:3.5rem;position:relative;'>
+            {_tn_emoji}
+            <div style='position:absolute;top:10px;left:14px;background:rgba(0,0,0,0.25);
+                        border-radius:20px;padding:3px 10px;font-size:0.7rem;
+                        font-weight:700;color:white;letter-spacing:0.05em;'>
+              {_tn_label.upper()}
+            </div>
+            <div style='position:absolute;bottom:8px;right:12px;font-size:0.75rem;
+                        font-weight:700;color:rgba(255,255,255,0.9);'>
+              ${_tn_cost:.2f} est.
+            </div>
+          </div>
+          <div style='background:white;padding:14px 18px;'>
+            <div style='font-size:0.7rem;font-weight:700;letter-spacing:0.1em;
+                        text-transform:uppercase;color:#5DAA6A;margin-bottom:3px;'>
+              {_tn_cuisine.title()} &nbsp;·&nbsp; Tap for full recipe
+            </div>
+            <div style='font-size:1.1rem;font-weight:800;color:#1A2E1D;'>
+              {_tn_name}
+            </div>
+          </div>
+        </div>
+        """)
+        if st.button("📖 See recipe & cooking steps →", use_container_width=True,
+                     key="tonight_recipe_btn"):
+            st.session_state["recipe_view"] = "this_week"
+            st.switch_page("pages/12_Recipes.py")
+
 # ── This week's store prices snapshot ─────────────────────────────────────────
 if db_chains or session_chains:
     st.html("<hr style='margin:28px 0 18px;border-color:#E0E0E0;'>")

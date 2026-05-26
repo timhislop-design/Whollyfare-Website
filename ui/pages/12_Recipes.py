@@ -49,11 +49,14 @@ except ImportError:
 if "recipe_favorites"   not in st.session_state: st.session_state["recipe_favorites"]   = set()
 if "recipe_subs_active" not in st.session_state: st.session_state["recipe_subs_active"] = []
 if "roulette_result"    not in st.session_state: st.session_state["roulette_result"]     = None
-if "recipe_view"        not in st.session_state: st.session_state["recipe_view"]         = "browse"
 if "_add_recipe_open"   not in st.session_state: st.session_state["_add_recipe_open"]    = False
 if "_family_recipes"    not in st.session_state: st.session_state["_family_recipes"]     = []
 if "find_recipe_results"  not in st.session_state: st.session_state["find_recipe_results"]  = []
 if "find_recipe_searched" not in st.session_state: st.session_state["find_recipe_searched"] = False
+if "_recipe_steps_cache"  not in st.session_state: st.session_state["_recipe_steps_cache"]  = {}
+# Default to This Week tab if a plan exists, otherwise Browse
+if "recipe_view" not in st.session_state:
+    st.session_state["recipe_view"] = "this_week" if st.session_state.get("plan") else "browse"
 
 # ── Supabase helpers ───────────────────────────────────────────────────────────
 def _hh_id():
@@ -189,6 +192,52 @@ def _apply_subs(ingredients: list, active_subs: list) -> list:
                 break
         result.append({**ing, "_sub": sub_note})
     return result
+
+# ── Per-cuisine gradient card styles ──────────────────────────────────────────
+CUISINE_CARD_STYLE = {
+    "mexican":       ("🌮", "linear-gradient(135deg,#BF4F00,#F28B30)"),
+    "italian":       ("🍝", "linear-gradient(135deg,#A0001A,#E53935)"),
+    "asian":         ("🍜", "linear-gradient(135deg,#1E5C32,#5DAA6A)"),
+    "american":      ("🍗", "linear-gradient(135deg,#5D3000,#A0522D)"),
+    "mediterranean": ("🫒", "linear-gradient(135deg,#0D47A1,#1976D2)"),
+}
+
+
+def _generate_steps(meal_name: str, ingredients: list, cuisine: str) -> list[str]:
+    """Return cached or Claude-generated cooking steps. Called lazily on expander open."""
+    cache = st.session_state["_recipe_steps_cache"]
+    if meal_name in cache:
+        return cache[meal_name]
+    try:
+        import anthropic as _anth
+        _key = st.secrets.get("ANTHROPIC_API_KEY", "")
+        if not _key:
+            return ["Add ANTHROPIC_API_KEY to Streamlit secrets to enable cooking steps."]
+        _ing_str = ", ".join(
+            f"{i['qty']} {i['unit']} {i['name']}" for i in ingredients[:12]
+        )
+        _prompt = (
+            f"Write exactly 5 clear cooking steps for this recipe.\n"
+            f"Recipe: {meal_name}\nCuisine: {cuisine}\nKey ingredients: {_ing_str}\n\n"
+            f"Rules: numbered 1-5, each step 1-2 sentences, focus on technique and timing. "
+            f"No intro, no preamble. Start immediately with step 1."
+        )
+        _client = _anth.Anthropic(api_key=_key)
+        _msg = _client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=450,
+            messages=[{"role": "user", "content": _prompt}],
+        )
+        _text = _msg.content[0].text.strip()
+        _steps = [s.strip() for s in _text.split("\n")
+                  if s.strip() and (s.strip()[0].isdigit() or s.strip().lower().startswith("step"))]
+        if not _steps:
+            _steps = [s.strip() for s in _text.split("\n") if s.strip()]
+        cache[meal_name] = _steps
+        return _steps
+    except Exception as _e:
+        return [f"Steps unavailable: {_e}"]
+
 
 # ── Cuisine config ─────────────────────────────────────────────────────────────
 CUISINE_META = {
@@ -544,7 +593,16 @@ def _search_web_recipes(cuisine: str, protein: str, extra: str = "") -> list:
 style.page_header("Recipe Library", "150 recipes across 5 cuisines · favorites · family recipes · substitutions")
 
 # ── Top toolbar: view toggle ───────────────────────────────────────────────────
-tb_col1, tb_col2, tb_col3, tb_col4, tb_col5 = st.columns([2, 2, 2, 2, 2])
+_has_plan = bool(st.session_state.get("plan"))
+tb_col0, tb_col1, tb_col2, tb_col3, tb_col4, tb_col5 = st.columns([2, 2, 2, 2, 2, 2])
+with tb_col0:
+    if st.button("📅 This Week", use_container_width=True,
+                 type="primary" if st.session_state["recipe_view"] == "this_week" else "secondary",
+                 disabled=not _has_plan,
+                 help="Generate your plan first to see this week's recipes"):
+        st.session_state["recipe_view"] = "this_week"
+        st.session_state["roulette_result"] = None
+        st.rerun()
 with tb_col1:
     if st.button("📖 Browse All", use_container_width=True,
                  type="primary" if st.session_state["recipe_view"] == "browse" else "secondary"):
@@ -602,6 +660,156 @@ if active_subs:
             f"ingredients shown with swaps highlighted in orange.</div>")
 
 st.divider()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# THIS WEEK VIEW — step-by-step recipe cards for the current plan
+# ══════════════════════════════════════════════════════════════════════════════
+if st.session_state["recipe_view"] == "this_week":
+    import datetime as _tw_dt
+
+    _tw_plan = st.session_state.get("plan")
+    if not _tw_plan:
+        st.html("""<div style='text-align:center;padding:60px 20px;'>
+          <div style='font-size:3rem;margin-bottom:12px;'>🍽️</div>
+          <div style='font-size:1.2rem;font-weight:700;color:#1A2E1D;margin-bottom:8px;'>
+            No plan yet this week</div>
+          <div style='font-size:0.9rem;color:#5A7A62;'>
+            Generate your weekly plan and come back here to cook from it.</div>
+        </div>""")
+        if st.button("→ Generate this week's plan", type="primary", key="tw_gen_plan"):
+            st.switch_page("pages/3_Plan.py")
+    else:
+        _tw_meals     = _tw_plan.get("meals", [])
+        _tw_subs      = st.session_state.get("recipe_subs_active", [])
+        _tw_today     = _tw_dt.datetime.today().strftime("%A")
+        _tw_tonight_i = next((i for i, m in enumerate(_tw_meals)
+                              if m.get("day", "") == _tw_today), None)
+        # Tonight first, then the rest in order
+        _tw_ordered = (
+            [_tw_meals[_tw_tonight_i]] + [m for i, m in enumerate(_tw_meals) if i != _tw_tonight_i]
+            if _tw_tonight_i is not None else _tw_meals
+        )
+        st.html(f"""<div style='margin-bottom:20px;'>
+          <div style='font-size:1.3rem;font-weight:800;color:#1A2E1D;'>This Week's Recipes</div>
+          <div style='font-size:0.88rem;color:#5A7A62;margin-top:3px;'>
+            {len(_tw_meals)} dinners · tap a card for ingredients and step-by-step cooking</div>
+        </div>""")
+
+        for _tw_meal in _tw_ordered:
+            _twm_name    = _tw_meal.get("name", "Dinner")
+            _twm_day     = _tw_meal.get("day", "")
+            _twm_cuisine = _tw_meal.get("cuisine", "american").lower()
+            _twm_ings    = _tw_meal.get("ingredients", [])
+            _twm_cost    = _tw_meal.get("total_cost", 0.0)
+            _twm_tonight = (_twm_day == _tw_today)
+            _twm_badge   = (
+                "<span style='background:#1E5C32;color:white;font-size:0.65rem;"
+                "font-weight:700;border-radius:20px;padding:2px 9px;"
+                "margin-left:8px;vertical-align:middle;'>TONIGHT</span>"
+                if _twm_tonight else ""
+            )
+            _twm_emoji, _twm_grad = CUISINE_CARD_STYLE.get(
+                _twm_cuisine, ("🍽️", "linear-gradient(135deg,#1E5C32,#3A8C4E)")
+            )
+            _twm_ing_display = _apply_subs(_twm_ings, _tw_subs)
+
+            # Build ingredient table rows
+            _twm_rows = ""
+            for _twi in _twm_ing_display:
+                _twi_sub  = _twi.get("_sub")
+                _twi_name = _twi["name"]
+                _twi_qty  = f"{_twi['qty']} {_twi['unit']}"
+                _twi_sub_cell = (
+                    f"<td style='padding:6px 8px;font-size:0.75rem;color:#3A8C4E;"
+                    f"font-style:italic;'>→ {_twi_sub}</td>"
+                ) if _twi_sub else "<td></td>"
+                _twm_rows += (
+                    f"<tr style='border-bottom:1px solid #F0F9F2;'>"
+                    f"<td style='padding:6px 8px;font-size:0.84rem;color:#1A2E1D;'>{_twi_name}</td>"
+                    f"<td style='padding:6px 8px;font-size:0.84rem;color:#5A7A62;"
+                    f"text-align:right;'>{_twi_qty}</td>{_twi_sub_cell}</tr>"
+                )
+
+            # Recipe card hero
+            st.html(f"""
+            <div style='border-radius:16px;overflow:hidden;margin-bottom:4px;
+                        box-shadow:0 4px 24px rgba(30,92,50,0.10);'>
+              <div style='background:{_twm_grad};height:110px;
+                          display:flex;align-items:center;justify-content:center;
+                          font-size:3.8rem;position:relative;'>
+                {_twm_emoji}
+                <div style='position:absolute;bottom:8px;right:12px;font-size:0.75rem;
+                            font-weight:700;color:rgba(255,255,255,0.9);'>
+                  ${_twm_cost:.2f} est.
+                </div>
+              </div>
+              <div style='background:white;padding:16px 18px 8px;'>
+                <div style='font-size:0.7rem;font-weight:700;letter-spacing:0.1em;
+                            text-transform:uppercase;color:#5DAA6A;margin-bottom:3px;'>
+                  {_twm_day} &nbsp;·&nbsp; {_twm_cuisine.title()}
+                </div>
+                <div style='font-size:1.15rem;font-weight:800;color:#1A2E1D;'>
+                  {_twm_name}{_twm_badge}
+                </div>
+              </div>
+            </div>""")
+
+            with st.expander("📋 Open recipe", expanded=_twm_tonight):
+                _tw_tab_ing, _tw_tab_steps = st.tabs(["🛒 Ingredients", "👨‍🍳 How to cook"])
+
+                with _tw_tab_ing:
+                    _tw_sub_lbl = ""
+                    if _tw_subs:
+                        _tw_sub_names = [SUBSTITUTIONS[s]["label"] for s in _tw_subs
+                                         if s in SUBSTITUTIONS]
+                        if _tw_sub_names:
+                            _tw_sub_lbl = (
+                                f"<div style='font-size:0.75rem;color:#3A8C4E;margin-bottom:8px;'>"
+                                f"Substitutions active: {', '.join(_tw_sub_names)}</div>"
+                            )
+                    st.html(
+                        _tw_sub_lbl
+                        + "<table style='width:100%;border-collapse:collapse;'>"
+                        + "<thead><tr>"
+                        + "<th style='padding:5px 8px;font-size:0.7rem;text-transform:uppercase;"
+                          "letter-spacing:0.07em;color:#9AA8A0;text-align:left;'>Ingredient</th>"
+                        + "<th style='padding:5px 8px;font-size:0.7rem;text-transform:uppercase;"
+                          "letter-spacing:0.07em;color:#9AA8A0;text-align:right;'>Amount</th>"
+                        + "<th style='padding:5px 8px;font-size:0.7rem;text-transform:uppercase;"
+                          "letter-spacing:0.07em;color:#9AA8A0;'>Adjustment</th>"
+                        + "</tr></thead>"
+                        + f"<tbody>{_twm_rows}</tbody></table>"
+                    )
+
+                with _tw_tab_steps:
+                    with st.spinner("Getting cooking steps…"):
+                        _tw_steps = _generate_steps(_twm_name, _twm_ings, _twm_cuisine)
+                    _tw_steps_html = ""
+                    for _twsi, _tws in enumerate(_tw_steps, 1):
+                        # Strip leading "1." / "Step 1." prefixes
+                        _twc = _tws.lstrip("0123456789.").lstrip()
+                        if _twc.lower().startswith("step"):
+                            _twc = (_twc.split(".", 1)[-1].strip()
+                                    if "." in _twc else _twc[4:].strip())
+                        _tw_steps_html += (
+                            f"<div style='display:flex;gap:14px;align-items:flex-start;"
+                            f"padding:10px 0;border-bottom:1px solid #F0F9F2;'>"
+                            f"<div style='width:26px;height:26px;background:#1E5C32;color:white;"
+                            f"border-radius:50%;display:flex;align-items:center;"
+                            f"justify-content:center;font-size:0.78rem;font-weight:800;"
+                            f"flex-shrink:0;margin-top:2px;'>{_twsi}</div>"
+                            f"<div style='font-size:0.88rem;color:#1A2E1D;line-height:1.6;"
+                            f"padding-top:2px;'>{_twc}</div></div>"
+                        )
+                    if _tw_steps_html:
+                        st.html(f"<div style='padding:4px 0;'>{_tw_steps_html}</div>")
+                    else:
+                        st.info("Cooking steps unavailable for this recipe.")
+
+            st.html("<div style='height:16px;'></div>")
+
+    st.stop()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
