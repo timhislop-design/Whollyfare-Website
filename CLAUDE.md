@@ -35,12 +35,16 @@ revenue model. That asymmetry is structural and durable.
 ## The Pilot Household
 
 Tim Hislop, Abby, and Chas — Charlottesville, VA.
-Stores: Kroger Barracks Road, Food Lion Pantops, Aldi Rio Road, Harris Teeter Barracks Road.
 
-The pilot runs on **manual flyer entry** (type items from the weekly circular)
-with PDF upload via the Admin Circular Manager as the primary path for PDF stores.
-Kroger pulls automatically via API. Tim operates the Admin page each Wednesday —
-users just log in and get current prices.
+**Pilot store scope: ~10 major grocery chains within the Charlottesville radius.**
+Primary chains: Kroger (Barracks Rd), Food Lion (Pantops), Aldi (Rio Rd), Harris Teeter
+(Barracks Rd), Giant, Walmart, Lidl, Whole Foods, Wegmans, and others in the region.
+Excluded from main rotation: Trader Joe's (specialty/pricing model), EW Thomas (local
+independent, no regular circular) — both appear in Grocer Hub but not the weekly plan cycle.
+
+The pilot runs on **the Admin circular pipeline**: Tim uploads PDFs and triggers the Kroger
+API pull from `11_Admin.py` every Wednesday. Claude Vision extracts sale items from PDFs.
+Users log in and get current platform prices — they never touch flyer loading themselves.
 
 ---
 

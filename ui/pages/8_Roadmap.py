@@ -174,9 +174,9 @@ st.html("""
   </div>
   <div style='margin-top:14px;padding-top:12px;border-top:1px solid #C8E0CC;
               font-size:0.78rem;color:#3A8C4E;font-weight:600;'>
-    Phase 1: steps 1–5 are manual (circulars loaded by Tim, plans approved weekly).
-    Phase 2: multi-household accounts, step 6 mobile-native.
-    Phase 3: steps 2 &amp; 6 fully automated — circulars pulled by API, cart sent to Instacart/Shipt.
+    Phase 1: Tim loads circulars manually every Wednesday (~10 stores, ~20 min). Plans approved weekly.
+    Phase 2: supervised AI agent — downloads PDFs on schedule, extracts via Claude Vision, flags exceptions for one-tap approval.
+    Phase 3: fully autonomous — circulars processed end-to-end without human steps; cart sent to Instacart/Shipt.
   </div>
 </div>
 """)
@@ -190,7 +190,7 @@ st.html("""
   <div class='phase-timing'>Now — Charlottesville Pilot · Hislop Family + Friends</div>
   <div class='phase-title'>Prove the engine. Record the savings.</div>
   <div class='phase-subtitle'>
-    Charlottesville pilot. Four local stores. Platform-level flyer data shared across households.
+    Charlottesville pilot. ~10 major grocery chains across the Charlottesville region. Platform-level flyer data shared across households.
     150-recipe library. Per-meal approval with recipe swap. Real receipts. The goal is undeniable data.
   </div>
 </div>
@@ -371,20 +371,19 @@ with p2r1c3:
 st.html("<div style='height:10px;'></div>")
 
 # Row 2
-p2r2c1, p2r2c2, p2r2c3 = st.columns(3)
+p2r2c1, p2r2c2, p2r2c3, p2r2c4 = st.columns(4)
 
 with p2r2c1:
     st.html("""
     <div class='feature-card beta'>
       <div class='feature-icon'>👨‍👩‍👧</div>
-      <div class='feature-title'>Multi-Household + Admin Data <span class='status-pill-next'>Phase 2</span></div>
+      <div class='feature-title'>Multi-Household Accounts <span class='status-pill-next'>Phase 2</span></div>
       <div class='feature-body'>Full user accounts with isolated household profiles, plan history,
-      and Found Money ledgers. Admin shared-circular model: Tim (or any admin) loads the
-      week's circulars once into a shared_flyers table — every household in the same market
-      benefits automatically. Zip-native store matching: your zip finds your nearest
-      Food Lion, not just the chain.</div>
-      <div class='feature-why'>Why: One person doing Sunday updates serves ten households.
-      That's the bridge from manual to automated — and it's already architectured in.</div>
+      and Found Money ledgers. Platform circular model: the operator loads the week's circulars
+      once — every household in the same market benefits automatically.
+      Zip-native store matching: your zip finds your nearest Food Lion, not just the chain.</div>
+      <div class='feature-why'>Why: One platform operator serves ten households.
+      The bridge from manual to automated is already architectured in.</div>
     </div>
     """)
 
@@ -411,6 +410,21 @@ with p2r2c3:
       decisions. The compliance layer that health-system partners will eventually license.</div>
       <div class='feature-why'>Why: Families managing celiac or CKD need to see the
       engine's reasoning, not just its output. Trust requires transparency.</div>
+    </div>
+    """)
+
+with p2r2c4:
+    st.html("""
+    <div class='feature-card beta'>
+      <div class='feature-icon'>🤖</div>
+      <div class='feature-title'>AI-Supervised Circular Automation <span class='status-pill-next'>Phase 2</span></div>
+      <div class='feature-body'>A scheduled AI agent downloads each store's weekly PDF circular,
+      extracts sale items via Claude Vision, and queues results for one-tap approval —
+      no manual upload required. Parse errors or missing stores trigger an email alert.
+      The operator approves in seconds; all households see current prices immediately.</div>
+      <div class='feature-why'>Why: This is the operational moat. Supervised automation removes
+      the data-ops ceiling without removing human oversight — and it means expansion to
+      50 markets requires zero additional ops staff.</div>
     </div>
     """)
 
@@ -443,11 +457,12 @@ with p3r1c1:
     <div class='feature-card growth'>
       <div class='feature-icon'>🤖</div>
       <div class='feature-title'>Automated Circular Parsing <span class='status-pill-future'>Phase 3</span></div>
-      <div class='feature-body'>No more manual uploads. Grocer circulars pulled automatically
-      each week via API integrations — Kroger is live; others via data partnerships or improved
-      PDF automation. The Sunday workflow becomes truly one tap.</div>
-      <div class='feature-why'>Why: Manual upload is the POC's biggest friction point.
-      Removing it is the difference between a product families use and one they try once.</div>
+      <div class='feature-body'>Phase 2 introduced supervised automation — agent downloads, Claude Vision extracts,
+      operator approves in one tap. Phase 3 removes the approval step entirely. Full API integrations
+      with Kroger, Aldi, Food Lion, and others. Circulars processed end-to-end, zero human steps.
+      The Wednesday workflow disappears. Data is always current across all markets.</div>
+      <div class='feature-why'>Why: Full automation is the data moat at national scale.
+      Competitors relying on manual ops cannot match fresh weekly pricing across 15+ chains.</div>
     </div>
     """)
 

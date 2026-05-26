@@ -318,7 +318,7 @@ st.html("""
     it is the honest truth about what this product means to me and my family.
   </div>
   <div class="founder-body">
-    I am Tim Hislop. I built WhollyFare&#174; because my family shops at four stores in
+    I am Tim Hislop. I built WhollyFare&#174; because my family shops across ten major grocery chains in
     Charlottesville, Virginia and I was tired of leaving money on the table every week.
     I am currently employed full-time at ECS. WhollyFare is what I am building every night
     and every weekend — not because a VC told me there was a market opportunity, but because
@@ -450,9 +450,9 @@ st.html("""
   </div>
   <div style='margin-top:18px;padding-top:16px;border-top:1px solid rgba(93,170,106,.15);
               font-size:.78rem;color:rgba(255,255,255,.45);line-height:1.55;'>
-    <strong style='color:#5DAA6A;'>Phase 1 (now):</strong> Tim loads store circulars via Claude Vision PDF extraction every Wednesday — every pilot household sees current prices instantly. Households build their plan, approve or swap each dinner, and generate a store-organized shopping list automatically.
-    &nbsp;·&nbsp; <strong style='color:#5DAA6A;'>Phase 2:</strong> Multi-household accounts, mobile-native UI, automated coupon matching.
-    &nbsp;·&nbsp; <strong style='color:#5DAA6A;'>Phase 3:</strong> Grocer APIs replace manual uploads. Instacart/Shipt replace the clipboard.
+    <strong style='color:#5DAA6A;'>Phase 1 (now):</strong> Tim loads ~10 store circulars weekly via Claude Vision PDF extraction and Kroger API — every pilot household sees current prices instantly. Plans built, approved, and shopped every week.
+    &nbsp;·&nbsp; <strong style='color:#5DAA6A;'>Phase 2:</strong> AI-supervised automation — a scheduled agent downloads PDFs, extracts items via Claude Vision, and queues for one-tap approval. No manual uploads. Multi-household accounts. Coupon Vault.
+    &nbsp;·&nbsp; <strong style='color:#5DAA6A;'>Phase 3:</strong> Fully autonomous circular processing. Grocer API integrations at scale. Instacart/Shipt cart fulfillment. Zero ops staff required to keep data current.
   </div>
 </div>
 """)
@@ -498,6 +498,7 @@ sincere = [
     ("📍 Local-first", "Plans are built from your local grocers' actual weekly circulars — not national averages or partnered inventory. Savings are real and verifiable."),
     ("💰 Safety over savings", "WhollyFare will never recommend an unsafe ingredient because it's on sale. The constraint engine runs before the budget optimizer. Always."),
     ("🔐 User data ownership", "Household health data is yours. WhollyFare does not sell, share, or use it for targeting. Full stop."),
+    ("🤖 Scales without headcount", "A scheduled AI agent downloads weekly circulars, extracts items via Claude Vision, and queues for one-tap approval. Expansion to 50 markets requires zero additional data ops staff. Manual competitors cannot match the pace."),
 ]
 col_a, col_b = st.columns(2)
 for i, (title, desc) in enumerate(sincere):
@@ -507,8 +508,11 @@ for i, (title, desc) in enumerate(sincere):
   <div class="sc-body">{desc}</div>
 </div>""")
 st.html("""<div class="moat-callout">
-  Competitors cannot copy the Sincere Strategy&#174; without dismantling their own revenue model.
-  That asymmetry is structural and gets stronger the longer WhollyFare builds trust.
+  <strong>Consumer moat:</strong> Competitors cannot copy the Sincere Strategy&#174; without dismantling their own revenue model.
+  That asymmetry gets stronger the longer WhollyFare builds trust.<br><br>
+  <strong>Operational moat:</strong> AI-agent automation for weekly circular data means WhollyFare scales to 50 markets
+  without proportionally scaling a data ops team. Competitors relying on manual workflows cannot match the
+  data freshness WhollyFare delivers as a baseline. Both moats widen with time.
 </div>""")
 st.html("<br>")
 st.divider()
@@ -1119,7 +1123,7 @@ st.html("""
 <div style='background:#1E5C32;color:white;border-radius:10px;padding:14px 20px;margin-bottom:20px;
             font-size:0.9rem;line-height:1.65;'>
   <strong style='color:#9FD9A8;'>Charlottesville is the test bed. Not the goal.</strong><br>
-  The pilot proves the model works for one family at four stores in one city.
+  The pilot proves the model works for one family across ~10 major grocery chains in one region.
   The roadmap shows how that model becomes the meal planning layer for any household,
   at any store, in any market in the country — built on direct API integrations with
   the grocer chains that already serve them.
@@ -1129,8 +1133,8 @@ st.html("""
 with st.expander("Month 1 — Hislop Family Pilot · Live Now", expanded=False):
     st.html("""
 <div style='font-size:0.82rem;color:#5A7A62;margin-bottom:14px;line-height:1.6;'>
-  <strong style='color:#1E5C32;'>May 2026 · Charlottesville, VA · 1 household · 4 stores</strong><br>
-  Tim, Abby, and Chas run the full flow every Sunday. Manual flyer entry. Real receipts.
+  <strong style='color:#1E5C32;'>May 2026 · Charlottesville, VA · 1 household · ~10 major grocery chains</strong><br>
+  Tim, Abby, and Chas run the full flow every week. Platform circulars loaded every Wednesday via Admin page. Real receipts.
   The goal is eight weeks of undeniable Found Money data.
 </div>
 <div style='display:grid;grid-template-columns:1fr 1fr;gap:20px;'>
@@ -1142,7 +1146,7 @@ with st.expander("Month 1 — Hislop Family Pilot · Live Now", expanded=False):
     Budget optimizer + meal planner<br>
     4-step weekly preferences wizard (schedule, cuisine, protein, notes)<br>
     Per-serving cost hero (~$2–4 vs. $9.99+ meal kits) + 6-service comparison<br>
-    Manual flyer entry — all 4 Cville stores<br>
+    Admin circular pipeline — Claude Vision PDF extraction + Kroger API, ~10 chains<br>
     Kroger API — live, 239 items from Barracks Rd<br>
     Sunday Buy-Off screen — net Found Money with trip cost offset<br>
     Shopping list — mobile-first, interactive checkboxes<br>
