@@ -339,13 +339,13 @@ def sidebar_nav():
 
     # ── More / Settings — collapsed by default ────────────────────────────────
     # Setup pages users visit once. Account. Admin (gated). Landing page.
-    with st.expander("⚙️ More", expanded=False):
+    with st.expander("🏡 My Household", expanded=False):
         st.page_link("pages/1_Household.py",  label="👨‍👩‍👧 Household")
         st.page_link("pages/2_Grocer_Hub.py", label="🏪 My Stores")
         st.page_link("pages/10_Pantry.py",    label="🧂 My Pantry")
         st.page_link("pages/12_Recipes.py",   label="📖 Recipes")
-        st.page_link("pages/9_Account.py",    label="👤 Account")
         st.page_link("Home.py",               label="🏠 About WhollyFare")
+        st.page_link("pages/9_Account.py",    label="👤 My Account")
         # Admin link — only visible to signed-in platform admins.
         try:
             import ui.state as _state
