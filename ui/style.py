@@ -327,52 +327,32 @@ def sidebar_nav():
             f"padding:1px 5px; border-radius:8px; vertical-align:middle;'>SOON</span></div>"
         )
 
-    # ── Home ─────────────────────────────────────────────────────────────────
-    st.page_link("Home.py", label="🏠 Home")
+    # ── Primary nav — the 4-step weekly flow ────────────────────────────────────
+    # No section headers. 5 items max. Mobile tab-bar mental model.
+    st.page_link("pages/0_This_Week.py",     label="📅 This Week")
+    st.page_link("pages/3_Plan.py",          label="🍽️ My Plan")
+    st.page_link("pages/4_Sunday_BuyOff.py", label="✅ Review & Approve")
+    st.page_link("pages/5_Shopping_List.py", label="🛒 Shopping List")
+    st.page_link("pages/6_Ledger.py",        label="💰 Savings")
 
-    # ── GET STARTED ───────────────────────────────────────────────────────────
-    _section("GET STARTED")
-    st.page_link("pages/1_Household.py",  label="👨‍👩‍👧 Household Setup")
-    st.page_link("pages/2_Grocer_Hub.py", label="🏪 Grocer Hub")
+    st.html("<div style='margin:8px 0;'></div>")
 
-    # ── WEEKLY PLAN ───────────────────────────────────────────────────────────
-    _section("WEEKLY PLAN")
-    st.page_link("pages/0_This_Week.py",      label="📅 This Week")
-    st.page_link("pages/3_Plan.py",           label="🍽️ Meal Plan")
-    st.page_link("pages/4_Sunday_BuyOff.py",  label="✅ Sunday Buy-Off")
-    st.page_link("pages/5_Shopping_List.py",  label="🛍️ Shopping List")
-    st.page_link("pages/10_Pantry.py",         label="🧂 My Pantry")
-    st.page_link("pages/12_Recipes.py",        label="📖 Recipe Library")
-
-    # ── SAVINGS INTELLIGENCE ──────────────────────────────────────────────────
-    _section("SAVINGS INTELLIGENCE")
-    st.page_link("pages/6_Ledger.py", label="💰 Found Money Ledger")
-    _coming_soon("🎟️ Coupon Vault")
-    _coming_soon("📊 Price Intelligence")
-
-    # ── HEALTH GUARD ──────────────────────────────────────────────────────────
-    _section("HEALTH GUARD")
-    _coming_soon("🛡️ Health Guard Dashboard")
-
-    # ── DELIVERY ──────────────────────────────────────────────────────────────
-    _section("DELIVERY")
-    _coming_soon("🚚 Delivery Hub")
-
-    # ── PLATFORM ──────────────────────────────────────────────────────────────
-    _section("PLATFORM")
-    st.page_link("pages/7_Investor.py", label="📈 Investor Brief")
-    st.page_link("pages/8_Roadmap.py",  label="🗺️ Product Roadmap")
-    _coming_soon("❓ Help & FAQ")
-    st.page_link("pages/9_Account.py", label="⚙️ Account")
-
-    # Admin link — only visible to signed-in platform admins.
-    # Import inline to avoid circular dependency at module load.
-    try:
-        import ui.state as _state
-        if _state.is_admin():
-            st.page_link("pages/11_Admin.py", label="🗂️ Admin Console")
-    except Exception:
-        pass
+    # ── More / Settings — collapsed by default ────────────────────────────────
+    # Setup pages users visit once. Account. Admin (gated). Landing page.
+    with st.expander("⚙️ More", expanded=False):
+        st.page_link("pages/1_Household.py",  label="👨‍👩‍👧 Household")
+        st.page_link("pages/2_Grocer_Hub.py", label="🏪 My Stores")
+        st.page_link("pages/10_Pantry.py",    label="🧂 My Pantry")
+        st.page_link("pages/12_Recipes.py",   label="📖 Recipes")
+        st.page_link("pages/9_Account.py",    label="👤 Account")
+        st.page_link("Home.py",               label="🏠 About WhollyFare")
+        # Admin link — only visible to signed-in platform admins.
+        try:
+            import ui.state as _state
+            if _state.is_admin():
+                st.page_link("pages/11_Admin.py", label="🗂️ Admin Console")
+        except Exception:
+            pass
 
     # ── Feedback footer ───────────────────────────────────────────────────────
     # Button is always visible. Form requires sign-in so Tim knows who submitted.
