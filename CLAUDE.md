@@ -205,6 +205,11 @@ Friday (Giant, Walmart), Sunday (Wegmans).
 ```toml
 ANTHROPIC_API_KEY = "sk-ant-..."
 
+# Contact form email — Gmail App Password (not account password).
+# Generate at myaccount.google.com → Security → App passwords (requires 2FA).
+CONTACT_EMAIL_USER = "tim.hislop@gmail.com"
+CONTACT_EMAIL_PASS = "xxxx xxxx xxxx xxxx"
+
 [supabase]
 url              = "https://liviclgyapbeoefxbunh.supabase.co"
 anon_key         = "..."
@@ -360,54 +365,79 @@ Phase 2: `is_platform_admin` column in `profiles` table + Admin management UI.
 
 | Page | File | Status |
 |---|---|---|
-| Home / Landing | `ui/Home.py` | ✅ Complete |
-| **This Week Dashboard** | `ui/pages/0_This_Week.py` | ✅ Built — weekly entry point after sign-in |
-| Household Setup | `ui/pages/1_Household.py` | ✅ Complete |
-| Grocer Hub | `ui/pages/2_Grocer_Hub.py` | ✅ Complete |
-| This Week's Plan | `ui/pages/3_Plan.py` | ✅ Built — needs polish |
-| Sunday Buy-Off | `ui/pages/4_Sunday_BuyOff.py` | ✅ Built — Approve/Swap/Skip |
-| Shopping List | `ui/pages/5_Shopping_List.py` | ✅ Built |
-| Found Money Ledger | `ui/pages/6_Ledger.py` | ✅ Complete |
+| Home / Landing | `ui/Home.py` | ✅ Complete — freemium hero, 3 CTAs, pricing tiers |
+| **This Week Dashboard** | `ui/pages/0_This_Week.py` | ✅ Complete — onboarding flow, Tonight's Dinner card |
+| Household Setup | `ui/pages/1_Household.py` | ✅ Complete — Step 2 of 3 CTA |
+| Grocer Hub | `ui/pages/2_Grocer_Hub.py` | ✅ Complete — Step 3 of 3 CTA |
+| This Week's Plan | `ui/pages/3_Plan.py` | ✅ Complete — single-column, rationale lines, tier-gated |
+| Sunday Buy-Off | `ui/pages/4_Sunday_BuyOff.py` | ✅ Complete — Approve/Swap/Skip, tier-gated |
+| Shopping List | `ui/pages/5_Shopping_List.py` | ✅ Complete — mobile-first 2-col, tier-gated |
+| Found Money Ledger | `ui/pages/6_Ledger.py` | ✅ Complete — milestones, streak tracker |
 | Investor Brief | `ui/pages/7_Investor.py` | ✅ Complete |
 | Product Roadmap | `ui/pages/8_Roadmap.py` | ✅ Complete |
-| Account | `ui/pages/9_Account.py` | ✅ Built |
+| Account | `ui/pages/9_Account.py` | ✅ Complete |
 | My Pantry | `ui/pages/10_Pantry.py` | ✅ Complete |
 | Admin: Circulars | `ui/pages/11_Admin.py` | ✅ Complete — admin-gated |
-| Recipe Library | `ui/pages/12_Recipes.py` | ✅ Complete |
+| Recipe Library | `ui/pages/12_Recipes.py` | ✅ Complete — This Week tab, Tonight's Dinner, Claude steps |
+| Help & FAQ | `ui/pages/13_Help.py` | ✅ Complete — searchable, contact form, updatable FAQ_SECTIONS |
 
 **Post-login flow:** sign-in → `0_This_Week.py` (if hh + grocers set up) or `1_Household.py`.
+
+**Sidebar nav structure (May 2026):**
+Primary (5 items): 📅 This Week · 🍽️ My Plan · ✅ Review & Approve · 🛒 Shopping List · 💰 Savings
+Expanders: 🏡 My Household (Household, My Stores, My Pantry, Recipes, Help & FAQ, About, My Account, Admin)
+           🔭 Coming Soon (Health Guard, Coupon Vault, Price Intelligence, Delivery Hub)
+           📈 Investor Vision (Investor Brief, Product Roadmap)
+
+**Freemium tier system (May 2026):**
+- Supabase: `profiles.tier text DEFAULT 'free'` — values: free | meal_planner | health_guard | full_table
+- Trial: 7 days from `profiles.created_at` = full meal_planner access (computed in app, not stored)
+- Key functions in `state.py`: `get_user_tier()`, `trial_days_remaining()`, `has_access(min_tier)`, `is_on_trial()`
+- Tier loaded at sign-in via `_load_admin_flag()` into `_user_tier` + `_user_created_at` session keys
+- Pilot household upgrade: `UPDATE profiles SET tier = 'meal_planner' WHERE email = '...';`
+- Tim's account: `full_table` — never sees gates
+- Sidebar: trial countdown banner → upgrade nudge after expiry
+
+**Recipe Cards / Tonight's Dinner (May 2026):**
+- `12_Recipes.py` "📅 This Week" tab — per-cuisine gradient cards, Claude Haiku steps (cached in `_recipe_steps_cache`)
+- `CUISINE_CARD_STYLE` dict: maps cuisine → (emoji, CSS gradient)
+- `_generate_steps(name, ingredients, cuisine)` — Haiku call, ~$0.001/recipe, cached per session
+- `0_This_Week.py` Tonight's Dinner card — shows today's meal, routes to This Week recipe tab
+- **Tonight's Dinner is the primary daily retention mechanic — treat every improvement to it as high priority**
+
+**Help & FAQ maintenance rule:**
+- Content lives in `FAQ_SECTIONS` list at top of `13_Help.py` — edit data, never render code
+- Each section has a `[MAINTENANCE_TAG]` — grep for it when the corresponding feature changes
+- Contact form: writes to Supabase feedback table + Gmail SMTP (needs `CONTACT_EMAIL_USER` + `CONTACT_EMAIL_PASS` in secrets)
 
 ---
 
 ## What to Build Next
 
-Priority order (as of May 2026):
+Priority order (as of late May 2026 — pilot-ready baseline complete):
 
-1. **Verify Admin circular pipeline end-to-end**
-   Confirm Food Lion + Harris Teeter PDFs extract on Streamlit Cloud.
-   Items should appear in `platform_flyer_items` and flow to plan generation.
+1. **End-to-end test + bug fixes** (first priority before any new features)
+   Full week loop: Admin circular upload → plan generation → Buy-Off approval →
+   Shopping List → Ledger. Must persist across browser refresh. Test on mobile.
 
-2. **Plan page polish** (`3_Plan.py`)
-   Pilot friends need to understand the plan without explanation.
-   Add clearer meal layout, protein variety callout, selection rationale.
+2. **Verify Admin circular pipeline on Streamlit Cloud**
+   Food Lion + Harris Teeter PDFs must extract and appear in `platform_flyer_items`.
+   Kroger API pull must work from Grocer Hub.
 
-3. **Shopping List mobile-first** (`5_Shopping_List.py`)
-   Usable on a phone in a grocery store aisle. No desktop-only layouts.
+3. **Contact form email** — add `CONTACT_EMAIL_USER` + `CONTACT_EMAIL_PASS`
+   (Gmail App Password) to Streamlit Cloud secrets to enable email from `13_Help.py`.
 
-4. **Pilot onboarding guide**
-   In-app walkthrough or printed one-pager so pilot friends can set up
-   and run a week without Tim present.
+4. **Phase 2: Admin user management UI**
+   Tim grants/revokes pilot household access from within the app.
+   Currently done via Supabase SQL: `UPDATE profiles SET tier = 'meal_planner' WHERE email = '...'`
 
-5. **Ledger milestones + streaks**
-   Streak callouts and milestone moments to make Found Money data emotionally resonant.
+5. **Tonight's Dinner card polish** (`0_This_Week.py`)
+   This is the primary daily retention mechanic. Any UX improvement here compounds.
+   Consider: cook time display, quick ingredient count, "already cooked this?" toggle.
 
-6. **Supabase end-to-end test**
-   Full week loop (flyer entry → plan → buy-off → receipt log) persists
-   across browser refresh for a real pilot session.
-
-7. **Phase 2: Admin user management page**
-   UI for Tim to grant/revoke `is_platform_admin` access. Requires adding
-   `is_platform_admin boolean default false` column to `profiles` table.
+6. **Supabase plan persistence**
+   Plan currently lost on browser refresh (session state only).
+   PROD path: save plan to `meal_plans` + `meal_plan_meals` tables on generation.
 
 Do not build new features before the existing flow works end-to-end. Fix before you add.
 

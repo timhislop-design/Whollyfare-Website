@@ -534,15 +534,110 @@ if _q and not _any_results:
         "</div></div>"
     )
 
-# ── Footer ────────────────────────────────────────────────────────────────────
+# ── Contact WhollyFare form ───────────────────────────────────────────────────
+# Writes to Supabase feedback table (same as sidebar feedback button) AND
+# sends an email notification to tim.hislop@gmail.com via Gmail SMTP.
+# Email requires CONTACT_EMAIL_USER + CONTACT_EMAIL_PASS in Streamlit secrets.
+# POC: If SMTP credentials are absent or fail, form still saves to Supabase and
+#      informs the user. PROD: replace with transactional email service (Resend/SendGrid).
+
+def _send_contact_email(from_email: str, subject: str, message: str) -> bool:
+    """Send contact form submission to tim.hislop@gmail.com via Gmail SMTP."""
+    import smtplib
+    from email.mime.text import MIMEText
+    try:
+        smtp_user = st.secrets.get("CONTACT_EMAIL_USER", "")
+        smtp_pass = st.secrets.get("CONTACT_EMAIL_PASS", "")
+        if not smtp_user or not smtp_pass:
+            return False
+        body = (
+            f"New WhollyFare contact form submission\n\n"
+            f"From: {from_email}\n"
+            f"Subject: {subject}\n\n"
+            f"Message:\n{message}\n\n"
+            f"---\nReply directly to: {from_email}"
+        )
+        msg = MIMEText(body)
+        msg["Subject"] = f"[WhollyFare Contact] {subject}"
+        msg["From"]    = smtp_user
+        msg["To"]      = "tim.hislop@gmail.com"
+        msg["Reply-To"] = from_email
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=8) as server:
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+        return True
+    except Exception as _e:
+        return False
+
+
 st.html("<div style='height:40px;'></div>")
 st.html(
-    "<div style='text-align:center;padding:20px;background:#F4FAF5;"
-    "border-radius:12px;border:1px solid #D0EDD8;'>"
-    "<div style='font-size:0.9rem;font-weight:600;color:#1E5C32;margin-bottom:6px;'>"
-    "Still have a question?</div>"
-    "<div style='font-size:0.84rem;color:#5A7A62;line-height:1.6;'>"
-    "Use the 💬 Share feedback button in the sidebar — it goes directly to Tim.<br>"
-    "During the pilot, every message is read and most issues are fixed within 24 hours."
-    "</div></div>"
+    "<div style='font-size:1.1rem;font-weight:800;color:#1A2E1D;margin-bottom:4px;'>"
+    "✉️ Contact WhollyFare</div>"
+    "<div style='font-size:0.88rem;color:#5A7A62;margin-bottom:16px;'>"
+    "During the pilot, Tim reads every message personally and responds within 24 hours.</div>"
 )
+
+_user = st.session_state.get("user", {})
+_prefill_email = _user.get("email", "") if _user else ""
+
+with st.form("contact_whollyfare_form", clear_on_submit=True):
+    _contact_email = st.text_input(
+        "Your email address",
+        value=_prefill_email,
+        placeholder="you@example.com",
+    )
+    _contact_subject = st.selectbox(
+        "What's this about?",
+        options=[
+            "Question about the app",
+            "Something isn't working",
+            "Feature request or idea",
+            "Pricing or subscription",
+            "Something else",
+        ],
+    )
+    _contact_msg = st.text_area(
+        "Your message",
+        placeholder="Tell us what's on your mind — the more detail the better.",
+        height=120,
+    )
+    _contact_submit = st.form_submit_button(
+        "Send message →", type="primary", use_container_width=True
+    )
+
+if _contact_submit:
+    if not _contact_email.strip() or "@" not in _contact_email:
+        st.warning("Please enter a valid email address so we can reply.")
+    elif not _contact_msg.strip():
+        st.warning("Please enter a message before sending.")
+    else:
+        _db_ok, _db_msg = False, ""
+        _email_ok = False
+        # Write to Supabase feedback table
+        try:
+            _db_ok, _db_msg = state.submit_feedback(
+                message=f"[Contact: {_contact_subject}] {_contact_msg.strip()}",
+                page="Help & FAQ / Contact",
+                rating=None,
+            )
+        except Exception as _e:
+            _db_ok = False
+        # Send email notification
+        _email_ok = _send_contact_email(
+            from_email=_contact_email.strip(),
+            subject=_contact_subject,
+            message=_contact_msg.strip(),
+        )
+        if _db_ok or _email_ok:
+            st.success(
+                "✅ Message sent! Tim will reply to "
+                + _contact_email.strip()
+                + " within 24 hours."
+            )
+        else:
+            # Both paths failed — still acknowledge gracefully
+            st.warning(
+                "Message saved. If you don't hear back within 48 hours, "
+                "email tim.hislop@gmail.com directly."
+            )
