@@ -337,6 +337,10 @@ def sidebar_nav():
 
     st.html("<div style='margin:8px 0;'></div>")
 
+    # ── Help — always visible, never buried ─────────────────────────────────
+    # Pilot users who are confused shouldn't have to hunt for help.
+    st.page_link("pages/13_Help.py", label="❓ Help & FAQ")
+
     # ── More / Settings — collapsed by default ────────────────────────────────
     # Setup pages users visit once. Account. Admin (gated). Landing page.
     with st.expander("🏡 My Household", expanded=False):
@@ -344,7 +348,6 @@ def sidebar_nav():
         st.page_link("pages/2_Grocer_Hub.py", label="🏪 My Stores")
         st.page_link("pages/10_Pantry.py",    label="🧂 My Pantry")
         st.page_link("pages/12_Recipes.py",   label="📖 Recipes")
-        st.page_link("pages/13_Help.py",      label="❓ Help & FAQ")
         st.page_link("Home.py",               label="🏠 About WhollyFare")
         st.page_link("pages/9_Account.py",    label="👤 My Account")
         # Admin link — only visible to signed-in platform admins.
