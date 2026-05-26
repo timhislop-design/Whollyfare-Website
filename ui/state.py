@@ -322,6 +322,31 @@ def is_setup_complete() -> bool:
     )
 
 
+def setup_stage() -> str:
+    """
+    Return the user's current setup stage — used to drive first-login routing.
+
+    Returns one of:
+      "no_auth"   — not signed in
+      "household" — signed in but no household profile yet
+      "stores"    — household done but no stores selected
+      "plan"      — stores done but no plan generated this week
+      "ready"     — plan exists; user is in the weekly flow
+
+    POC: Reads session_state only. PROD: cross-device by querying Supabase
+         for household, grocers, and active meal_plan rows on sign-in.
+    """
+    if not is_authenticated():
+        return "no_auth"
+    if st.session_state.get("household") is None:
+        return "household"
+    if len(st.session_state.get("grocers", [])) == 0:
+        return "stores"
+    if st.session_state.get("plan") is None:
+        return "plan"
+    return "ready"
+
+
 def stores_loaded_this_week() -> list[str]:
     """Return store names that have flyer data for the active week."""
     return list(st.session_state.get("flyer_data", {}).keys())

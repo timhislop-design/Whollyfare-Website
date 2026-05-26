@@ -26,7 +26,7 @@ import ui.style as style
 st.set_page_config(
     page_title="This Week — WhollyFare",
     page_icon="📅",
-    layout="wide",
+    layout="centered",
 )
 state.init()
 
@@ -106,102 +106,93 @@ st.html(
     f"{status_icon} {status_msg}</div>"
 )
 
-# ── Main layout: 3-column workflow + 1-column savings ─────────────────────────
-col_steps, col_savings = st.columns([3, 1], gap="large")
+# ── Savings strip ─────────────────────────────────────────────────────────────
+ledger       = st.session_state.get("ledger_history", [])
+total_net    = sum(e.get("net_found_money", e.get("amount", 0)) for e in ledger)
+weeks_tracked = len(ledger)
 
-with col_steps:
-    # Row 1: setup steps
-    c1, c2, c3 = st.columns(3)
+loaded_count = len(db_chains) + len([c for c in session_chains if c not in
+                                      [k.lower().replace(" ", "_") for k in db_chains]])
 
-    def _step_card(col, icon, title, subtitle, btn_label, btn_page, done=False, warn=False):
-        border = "#5DAA6A" if done else ("#F5A623" if warn else "#D0D0D0")
-        bg     = "#F6FFF8" if done else ("#FFFBF2" if warn else "#FAFAFA")
-        check  = "✅ " if done else ""
-        with col:
-            st.html(
-                f"<div style='border:2px solid {border};border-radius:10px;"
-                f"background:{bg};padding:14px 16px;min-height:110px;'>"
-                f"<div style='font-size:1.4rem;'>{icon}</div>"
-                f"<div style='font-weight:700;font-size:0.95rem;margin:4px 0 2px;'>{check}{title}</div>"
-                f"<div style='font-size:0.78rem;color:#666;'>{subtitle}</div>"
-                f"</div>"
-            )
-            if st.button(btn_label, key=f"step_{title}", use_container_width=True):
-                st.switch_page(btn_page)
-
-    _step_card(c1, "👨‍👩‍👧", "Household", "Members & dietary needs",
-               "Edit →" if hh_done else "Set up →", "pages/1_Household.py", done=hh_done)
-
-    _step_card(c2, "🏪", "Grocer Hub", "Your stores + pantry",
-               "Manage →" if grocers_done else "Add stores →", "pages/2_Grocer_Hub.py",
-               done=grocers_done, warn=(hh_done and not grocers_done))
-
-    # Flyer freshness card
-    loaded_count = len(db_chains) + len([c for c in session_chains if c not in
-                                          [k.lower().replace(" ","_") for k in db_chains]])
-    flyer_subtitle = (f"{loaded_count} store(s) loaded for this week"
-                      if loaded_count else "No circulars loaded yet")
-    _step_card(c3, "📋", "Circulars", flyer_subtitle,
-               "View prices →", "pages/2_Grocer_Hub.py",
-               done=(loaded_count > 0), warn=(grocers_done and loaded_count == 0))
-
-    st.html("<div style='margin-top:18px;'></div>")
-
-    # Row 2: weekly plan steps
-    d1, d2, d3 = st.columns(3)
-
-    meal_subtitle = (f"{len(active_meals)} dinners planned" if plan_meals
-                     else "Not generated yet")
-    _step_card(d1, "🍽️", "This Week's Plan", meal_subtitle,
-               "Generate plan →" if not plan else "View plan →", "pages/3_Plan.py",
-               done=bool(plan_meals), warn=(loaded_count > 0 and not plan))
-
-    buyoff_subtitle = ("Locked in ✓" if plan_locked
-                       else f"{len(active_meals)} meals to review" if plan_meals
-                       else "Approve your plan here")
-    _step_card(d2, "✅", "Sunday Buy-Off", buyoff_subtitle,
-               "Review meals →", "pages/4_Sunday_BuyOff.py",
-               done=plan_locked, warn=(bool(plan_meals) and not plan_locked))
-
-    list_subtitle = ("Ready to shop" if plan_locked
-                     else "Finalize your plan first")
-    _step_card(d3, "🛍️", "Shopping List", list_subtitle,
-               "View list →", "pages/5_Shopping_List.py",
-               done=plan_locked)
-
-with col_savings:
-    # ── Savings summary card ───────────────────────────────────────────────────
-    ledger = st.session_state.get("ledger_history", [])
-    total_net = sum(e.get("net_found_money", e.get("amount", 0)) for e in ledger)
-    weeks_tracked = len(ledger)
-
-    st.html(
-        f"<div style='background:#1B5E20;border-radius:12px;padding:20px 18px;"
-        f"color:#fff;text-align:center;'>"
-        f"<div style='font-size:0.75rem;color:#9FD9A8;text-transform:uppercase;"
-        f"letter-spacing:0.08em;margin-bottom:6px;'>Found Money — All Time</div>"
-        f"<div style='font-size:2.4rem;font-weight:800;color:#4CAF50;'>"
-        f"${total_net:.2f}</div>"
-        f"<div style='font-size:0.75rem;color:#9FD9A8;margin-top:4px;'>"
-        f"{weeks_tracked} week{'s' if weeks_tracked != 1 else ''} tracked</div>"
-        f"</div>"
+_strip_parts = [
+    f"<span style='margin-right:20px;'><strong style='font-size:1.1rem;color:#1B5E20;'>"
+    f"${total_net:.2f}</strong> <span style='font-size:0.78rem;color:#666;'>found money</span></span>"
+]
+if net_saved and net_saved > 0:
+    _strip_parts.append(
+        f"<span style='margin-right:20px;'><strong style='font-size:1.1rem;color:#1B5E20;'>"
+        f"${net_saved:.2f}</strong> <span style='font-size:0.78rem;color:#666;'>this week</span></span>"
+    )
+if weeks_tracked:
+    _strip_parts.append(
+        f"<span style='font-size:0.78rem;color:#888;'>{weeks_tracked} week"
+        f"{'s' if weeks_tracked != 1 else ''} tracked</span>"
     )
 
-    if net_saved and net_saved > 0:
-        st.html(
-            f"<div style='background:#E3F4E8;border-radius:8px;padding:12px 14px;"
-            f"text-align:center;margin-top:12px;'>"
-            f"<div style='font-size:0.72rem;color:#2E7D32;'>This week (net of gas)</div>"
-            f"<div style='font-size:1.5rem;font-weight:700;color:#1B5E20;'>"
-            f"${net_saved:.2f}</div>"
-            f"</div>"
-        )
+st.html(
+    "<div style='background:#F0FAF2;border-radius:10px;padding:12px 18px;"
+    "margin-bottom:20px;display:flex;align-items:center;flex-wrap:wrap;'>"
+    + "".join(_strip_parts) + "</div>"
+)
 
-    st.html("<div style='margin-top:16px;'></div>")
-    if st.button("📒 View full ledger", use_container_width=True):
-        st.switch_page("pages/6_Ledger.py")
-    if st.button("🧂 Update pantry", use_container_width=True):
-        st.switch_page("pages/10_Pantry.py")
+# ── Step cards — single column, mobile-first ───────────────────────────────────
+def _step_card(icon, title, subtitle, btn_label, btn_page, done=False, warn=False, disabled=False):
+    border = "#5DAA6A" if done else ("#F5A623" if warn else "#D0D0D0")
+    bg     = "#F6FFF8" if done else ("#FFFBF2" if warn else "#FAFAFA")
+    check  = "✅ " if done else ("⚠️ " if warn else "")
+    st.html(
+        f"<div style='border:2px solid {border};border-radius:10px;"
+        f"background:{bg};padding:14px 16px;margin-bottom:4px;'>"
+        f"<span style='font-size:1.3rem;'>{icon}</span>"
+        f"<strong style='font-size:0.95rem;margin-left:8px;'>{check}{title}</strong>"
+        f"<div style='font-size:0.8rem;color:#666;margin-top:4px;margin-left:2px;'>{subtitle}</div>"
+        f"</div>"
+    )
+    if not disabled:
+        if st.button(btn_label, key=f"step_{title}", use_container_width=True):
+            st.switch_page(btn_page)
+    st.html("<div style='margin-bottom:10px;'></div>")
+
+# Setup steps
+_step_card("👨‍👩‍👧", "Household", "Members & dietary needs",
+           "Edit →" if hh_done else "Set up now →",
+           "pages/1_Household.py", done=hh_done)
+
+_step_card("🏪", "My Stores", "Where you shop this week",
+           "Manage stores →" if grocers_done else "Add stores →",
+           "pages/2_Grocer_Hub.py",
+           done=grocers_done, warn=(hh_done and not grocers_done))
+
+flyer_subtitle = (f"{loaded_count} store(s) loaded for this week"
+                  if loaded_count else "No prices loaded yet — Tim uploads Wednesdays")
+_step_card("📋", "This Week's Prices", flyer_subtitle,
+           "View Grocer Hub →", "pages/2_Grocer_Hub.py",
+           done=(loaded_count > 0), warn=(grocers_done and loaded_count == 0))
+
+st.html("<hr style='margin:8px 0 16px;border-color:#E8EEE9;'>")
+
+# Weekly flow steps
+meal_subtitle = (f"{len(active_meals)} dinners planned" if plan_meals else "Not generated yet")
+_step_card("🍽️", "This Week's Plan", meal_subtitle,
+           "Generate plan →" if not plan else "View plan →",
+           "pages/3_Plan.py",
+           done=bool(plan_meals), warn=(loaded_count > 0 and not plan))
+
+buyoff_subtitle = ("Locked in ✓" if plan_locked
+                   else f"{len(active_meals)} meals to review" if plan_meals
+                   else "Approve your plan here")
+_step_card("✅", "Review & Approve", buyoff_subtitle,
+           "Review meals →", "pages/4_Sunday_BuyOff.py",
+           done=plan_locked, warn=(bool(plan_meals) and not plan_locked))
+
+list_subtitle = "Ready — open this in the store" if plan_locked else "Approve your plan first"
+_step_card("🛒", "Shopping List", list_subtitle,
+           "Open list →", "pages/5_Shopping_List.py",
+           done=plan_locked, disabled=(not plan_locked))
+
+_step_card("💰", "Savings Ledger", f"${total_net:.2f} found so far",
+           "View ledger →", "pages/6_Ledger.py",
+           done=(total_net > 0))
 
 # ── This week's store prices snapshot ─────────────────────────────────────────
 if db_chains or session_chains:

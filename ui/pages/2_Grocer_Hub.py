@@ -1762,4 +1762,27 @@ st.divider()
 # Meal planning happens on the Plan page, not here. The engine (constraint
 # filter → budget optimizer → meal planner) runs after the user sets their
 # weekly cuisine preferences on 3_Plan.py.
-# POC note
+# POC: CTA shown when stores are saved but no plan exists yet.
+# PROD: same — this is the correct long-term UX.
+
+_grocers_saved = len(st.session_state.get("grocers", [])) > 0
+_plan_exists   = st.session_state.get("plan") is not None
+
+if _grocers_saved and not _plan_exists:
+    st.html(
+        "<div style='background:#1E5C32;border-radius:10px;padding:16px 20px;"
+        "margin-top:8px;'>"
+        "<div style='color:#fff;font-size:1rem;font-weight:700;margin-bottom:4px;'>"
+        "Step 3 of 3 — Generate your first meal plan</div>"
+        "<div style='color:#9FD9A8;font-size:0.85rem;'>"
+        "Your stores are set. WhollyFare will build a 5-dinner plan from this week's "
+        "sale prices, filtered for your household's dietary needs.</div>"
+        "</div>"
+    )
+    if st.button("→ Next: Generate my plan", type="primary", use_container_width=True,
+                 key="grocer_next_plan"):
+        st.switch_page("pages/3_Plan.py")
+elif _grocers_saved and _plan_exists:
+    if st.button("→ View this week's plan", use_container_width=True,
+                 key="grocer_view_plan"):
+        st.switch_page("pages/3_Plan.py")

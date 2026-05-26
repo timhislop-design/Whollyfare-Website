@@ -257,6 +257,23 @@ if "_hh_save_msg" in st.session_state:
     else:
         st.warning(_msg_text)
 
+# First-login next-step CTA: guide users to Grocer Hub if they have no stores yet
+_grocers_count = len(st.session_state.get("grocers", []))
+_hh_saved      = st.session_state.get("household") is not None
+if _hh_saved and _grocers_count == 0:
+    st.html(
+        "<div style='background:#1E5C32;border-radius:10px;padding:16px 20px;"
+        "margin-bottom:16px;'>"
+        "<div style='color:#fff;font-size:1rem;font-weight:700;margin-bottom:4px;'>"
+        "Step 2 of 3 — Add your grocery stores</div>"
+        "<div style='color:#9FD9A8;font-size:0.85rem;'>"
+        "Tell WhollyFare where you shop. We'll load this week's sale prices for each store.</div>"
+        "</div>"
+    )
+    if st.button("→ Next: Set up my stores", type="primary", use_container_width=True,
+                 key="hh_next_grocer_hub"):
+        st.switch_page("pages/2_Grocer_Hub.py")
+
 with col1:
     hh_name = st.text_input(
         "Household name",
@@ -578,9 +595,10 @@ if save_pressed:
 
         db_ok, db_msg = state.save_household(household_dict)
         if db_ok and "session only" not in db_msg:
-            st.session_state["_hh_save_msg"] = ("success", "Household profile saved. Head to the Grocer Hub to set up your stores →")
+            st.session_state["_hh_save_msg"] = ("success", "Household profile saved!")
         elif not db_ok:
             st.session_state["_hh_save_msg"] = ("error", f"Save failed: {db_msg}")
         else:
             # Session-only save (no auth or DB unavailable)
             st.session_state["_hh_save_msg"] = ("info", "Saved to this session. Sign in to persist across devices.")
+        st.rerun()  # Surface the save message immediately
