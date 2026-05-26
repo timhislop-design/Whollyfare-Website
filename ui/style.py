@@ -354,6 +354,31 @@ def sidebar_nav():
         except Exception:
             pass
 
+    # ── Coming Soon — collapsed, exciting to open ─────────────────────────────
+    # Phase 2–3 features. Shown here so pilots can see where we're headed.
+    # Remove or move to sentir.ai when product launches publicly.
+    with st.expander("🔭 Coming Soon", expanded=False):
+        st.html(
+            "<div style='font-size:0.72rem;color:#9FD9A8;margin-bottom:8px;'>"
+            "Phase 2–3 features in development</div>"
+        )
+        _coming_soon("🛡️ Health Guard Dashboard")
+        _coming_soon("🎟️ Coupon Vault")
+        _coming_soon("📊 Price Intelligence")
+        _coming_soon("🚚 Delivery Hub")
+        _coming_soon("❓ Help & FAQ")
+
+    # ── Investor / Vision — collapsed, one tap for the full story ─────────────
+    # Investor Brief + Product Roadmap. Keep here through pilot phase.
+    # Move to sentir.ai investor portal or password-protect post-launch.
+    with st.expander("📈 Investor Vision", expanded=False):
+        st.html(
+            "<div style='font-size:0.72rem;color:#9FD9A8;margin-bottom:8px;'>"
+            "WhollyFare® · Sentir Solutions® LLC · Charlottesville VA</div>"
+        )
+        st.page_link("pages/7_Investor.py", label="📈 Investor Brief")
+        st.page_link("pages/8_Roadmap.py",  label="🗺️ Product Roadmap")
+
     # ── Feedback footer ───────────────────────────────────────────────────────
     # Button is always visible. Form requires sign-in so Tim knows who submitted.
     # st.rerun() lives outside any try/except — RerunException is a subclass of
