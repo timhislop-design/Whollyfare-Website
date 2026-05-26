@@ -375,71 +375,59 @@ def sidebar_nav():
         pass
 
     # ── Feedback footer ───────────────────────────────────────────────────────
-    # Uses st.button() — NOT <a href> — because an anchor tag in st.html()
-    # causes a full browser navigation that resets Streamlit's WebSocket session.
-    # IMPORTANT: st.rerun() raises RerunException (subclass of Exception) so it
-    # must sit OUTSIDE the try/except or it gets silently swallowed.
-    _fb_btn_clicked = False
-    try:
-        import ui.state as _state_fb
-        if _state_fb.is_authenticated():
-            st.html(
-                "<div style='margin-top:18px;padding-top:10px;"
-                "border-top:1px solid #2e7d4f;'></div>"
-            )
-            if st.button(
-                "💬 Share feedback",
-                key="sidebar_feedback_btn",
-                use_container_width=True,
-            ):
-                st.session_state["_show_feedback"] = True
-                _fb_btn_clicked = True
-    except Exception:
-        pass
-    if _fb_btn_clicked:
-        st.rerun()
+    # Direct session_state check — no import, no try/except to swallow errors.
+    # st.rerun() must NOT be inside a try/except Exception block because
+    # RerunException (which st.rerun() raises) is a subclass of Exception and
+    # would be silently caught, preventing the rerun.
+    if st.session_state.get("user"):
+        st.html(
+            "<div style='margin-top:18px;padding-top:10px;"
+            "border-top:1px solid #2e7d4f;'></div>"
+        )
+        if st.button(
+            "💬 Share feedback",
+            key="sidebar_feedback_btn",
+            use_container_width=True,
+        ):
+            st.session_state["_show_feedback"] = True
+            st.rerun()
 
     # ── Feedback form handler ─────────────────────────────────────────────────
-    # Shown inline in sidebar when _show_feedback is True.
-    # st.rerun() to close the form also lives outside the try/except.
-    _fb_done = False
-    try:
-        import ui.state as _state_fb2
-        if _state_fb2.is_authenticated():
-            if st.session_state.get("_show_feedback"):
-                with st.expander("💬 Share feedback", expanded=True):
-                    with st.form("sidebar_feedback_form", clear_on_submit=True):
-                        _fb_msg = st.text_area(
-                            "What's on your mind?",
-                            placeholder="Bug, suggestion, question — anything helps.",
-                            height=100,
-                            label_visibility="collapsed",
-                        )
-                        _fb_rating = st.select_slider(
-                            "How is your experience?",
-                            options=[1, 2, 3, 4, 5],
-                            value=4,
-                            label_visibility="visible",
-                        )
-                        if st.form_submit_button("Send feedback", type="primary", use_container_width=True):
-                            if _fb_msg.strip():
-                                _ok, _msg = _state_fb2.submit_feedback(
-                                    message=_fb_msg.strip(),
-                                    page="sidebar",
-                                    rating=_fb_rating,
-                                )
-                                if _ok:
-                                    st.success("👍 Thanks! Feedback sent.")
-                                    st.session_state.pop("_show_feedback", None)
-                                    _fb_done = True
-                                else:
-                                    st.error(_msg)
-                            else:
-                                st.warning("Please enter a message before sending.")
-    except Exception:
-        pass
-    if _fb_done:
-        st.rerun()
+    if st.session_state.get("user") and st.session_state.get("_show_feedback"):
+        with st.expander("💬 Share feedback", expanded=True):
+            with st.form("sidebar_feedback_form", clear_on_submit=True):
+                _fb_msg = st.text_area(
+                    "What's on your mind?",
+                    placeholder="Bug, suggestion, question — anything helps.",
+                    height=100,
+                    label_visibility="collapsed",
+                )
+                _fb_rating = st.select_slider(
+                    "How is your experience?",
+                    options=[1, 2, 3, 4, 5],
+                    value=4,
+                    label_visibility="visible",
+                )
+                if st.form_submit_button("Send feedback", type="primary",
+                                        use_container_width=True):
+                    if _fb_msg.strip():
+                        try:
+                            import ui.state as _st
+                            _ok, _msg = _st.submit_feedback(
+                                message=_fb_msg.strip(),
+                                page="sidebar",
+                                rating=_fb_rating,
+                            )
+                        except Exception as _e:
+                            _ok, _msg = False, str(_e)
+                        if _ok:
+                            st.success("👍 Thanks! Feedback sent.")
+                            st.session_state.pop("_show_feedback", None)
+                            st.rerun()
+                        else:
+                            st.error(_msg)
+                    else:
+                        st.warning("Please enter a message before sending.")
 
     # ── Auth widget ─────────────────────────────────────────────────────────────
     # POC: sign-in / sign-up / sign-out panel at the bottom of the sidebar.
