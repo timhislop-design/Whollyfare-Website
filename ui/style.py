@@ -344,6 +344,7 @@ def sidebar_nav():
         st.page_link("pages/2_Grocer_Hub.py", label="🏪 My Stores")
         st.page_link("pages/10_Pantry.py",    label="🧂 My Pantry")
         st.page_link("pages/12_Recipes.py",   label="📖 Recipes")
+        st.page_link("pages/13_Help.py",      label="❓ Help & FAQ")
         st.page_link("Home.py",               label="🏠 About WhollyFare")
         st.page_link("pages/9_Account.py",    label="👤 My Account")
         # Admin link — only visible to signed-in platform admins.
@@ -366,7 +367,6 @@ def sidebar_nav():
         _coming_soon("🎟️ Coupon Vault")
         _coming_soon("📊 Price Intelligence")
         _coming_soon("🚚 Delivery Hub")
-        _coming_soon("❓ Help & FAQ")
 
     # ── Investor / Vision — collapsed, one tap for the full story ─────────────
     # Investor Brief + Product Roadmap. Keep here through pilot phase.
