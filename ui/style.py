@@ -379,13 +379,12 @@ def sidebar_nav():
     try:
         import ui.state as _state_fb
         if _state_fb.is_authenticated():
-            st.html(
-                "<div style='margin-top:18px;padding-top:10px;"
-                "border-top:1px solid #2e7d4f;'>"
-                "<a href='?feedback=1' style='font-size:0.72rem;color:#9FD9A8;"
-                "text-decoration:none;opacity:0.8;'>💬 Share feedback</a>"
-                "</div>"
-            )
+            st.html("<div style='margin-top:18px;padding-top:10px;"
+                   "border-top:1px solid #2e7d4f;'></div>")
+            if st.button("💬 Share feedback", key="sidebar_feedback_btn",
+                         use_container_width=True):
+                st.session_state["_show_feedback"] = True
+                st.rerun()
     except Exception:
         pass
 
@@ -395,8 +394,7 @@ def sidebar_nav():
     try:
         import ui.state as _state_fb2
         if _state_fb2.is_authenticated():
-            _qp = st.query_params
-            if _qp.get("feedback") == "1":
+            if st.session_state.get("_show_feedback"):
                 with st.expander("Share feedback", expanded=True):
                     with st.form("sidebar_feedback_form", clear_on_submit=True):
                         _fb_msg = st.text_area(
@@ -420,7 +418,7 @@ def sidebar_nav():
                                 )
                                 if _ok:
                                     st.success("Thanks! Feedback sent.")
-                                    st.query_params.clear()
+                                    st.session_state.pop("_show_feedback", None)
                                     st.rerun()
                                 else:
                                     st.error(_msg)

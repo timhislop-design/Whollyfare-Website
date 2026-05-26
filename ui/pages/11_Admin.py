@@ -35,9 +35,18 @@ with st.sidebar:
 # \u2500\u2500 Admin gate \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 if not state.is_authenticated():
     style.page_header("Admin Console", "")
-    st.warning("You must be signed in to access this page.", icon="\U0001f512")
-    if st.button("Sign in", key="admin_signin_btn"):
-        st.switch_page("pages/9_Account.py")
+    # On first render the JS bridge for try_restore_from_browser() may not
+    # have completed yet. Show a neutral loading state rather than the login
+    # wall — the session auto-restores on the second render cycle.
+    if not st.session_state.get("_browser_restore_attempted"):
+        st.html(
+            "<div style='text-align:center;padding:48px 0;color:#5A7A62;"
+            "font-size:0.95rem;'>&#128260; Loading your session…</div>"
+        )
+    else:
+        st.warning("You must be signed in to access this page.", icon="\U0001f512")
+        if st.button("Sign in", key="admin_signin_btn"):
+            st.switch_page("pages/9_Account.py")
     st.stop()
 
 if not state.is_admin():
