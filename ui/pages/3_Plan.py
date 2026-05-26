@@ -26,7 +26,7 @@ import streamlit as st
 import ui.state as state
 import ui.style as style
 
-st.set_page_config(page_title="Plan · WhollyFare", page_icon="🍽️", layout="wide")
+st.set_page_config(page_title="Plan · WhollyFare", page_icon="🍽️", layout="centered")
 state.init()
 
 with st.sidebar:
@@ -443,7 +443,10 @@ if _show_prefs:
     if isinstance(_default_cuisines, str):           # back-compat single value
         _default_cuisines = [_default_cuisines]
 
-    _c_cols = st.columns(6)
+    # Mobile-first: 3 columns per row, two rows of cuisines
+    _c_row1 = st.columns(3)
+    _c_row2 = st.columns(3)
+    _c_cols = _c_row1 + _c_row2
     _selected_cuisines = []
 
     for i, (icon, label, desc) in enumerate(CUISINES):
@@ -752,115 +755,120 @@ st.divider()
 # Meal cards + detail expanders
 # ════════════════════════════════════════════════════════════════════
 
-# Meal cards
+# ── Single-column meal cards with rationale + interleaved detail expanders ─────
+# Mobile-first: each meal is a full-width card. Rationale line tells the user
+# WHY WhollyFare chose this meal — the on-sale anchor ingredient and its store.
+# Detail expander sits directly below each card so the connection is obvious.
+
 DAY_COLORS = ["#1E5C32", "#3A8C4E", "#5DAA6A", "#F28B30", "#BF5E00"]
-card_cols  = st.columns(min(len(meals), 5))
 
 for idx, meal in enumerate(meals):
     color       = DAY_COLORS[idx % len(DAY_COLORS)]
     cost        = meal["meal_cost"]
     per_serving = cost / servings if servings else 0
-    raw_store   = meal.get("best_store", "")
-    store_label = STORE_NAMES.get(raw_store, raw_store) if raw_store and raw_store != "—" else ""
-    gf_badge    = (
-        "<span style='background:#E3F4E8;color:#1E5C32;border-radius:10px;"
-        "padding:2px 7px;font-size:10px;font-weight:600;'>GF</span> "
-        if meal.get("gluten_free") else ""
-    )
-    store_line = (
-        f"<div style='font-size:11px;color:#5A7A62;margin-bottom:4px;'>🏪 {store_label}</div>"
-        if store_label else ""
-    )
-    # Anchor — top protein sale item driving this meal's selection
+
+    # Anchor: the on-sale item that drove this meal's selection
     _card_ings = meal.get("ingredients", [])
     _anchor    = next((i for i in _card_ings if i.get("category") == "protein"),
                       _card_ings[0] if _card_ings else None)
+
+    # Rationale line: honest explanation of why this meal was chosen
     if _anchor:
-        _short   = _anchor["item"].split(",")[0][:24]
-        _anchor_html = (
-            f"<div style='font-size:10px;color:#3A8C4E;margin-top:5px;border-top:"
-            f"1px solid #E8F5E9;padding-top:5px;'>🏷️ {_short} · "
-            f"{_anchor.get('store','?')} · ${_anchor.get('cost',0):.2f}</div>"
-        )
+        _anchor_name  = _anchor["item"].split(",")[0].strip()
+        _anchor_store = STORE_NAMES.get(_anchor.get("store", ""), _anchor.get("store", "")) or "your store"
+        _shared_note  = f" (shared across {_anchor['used_in']} meals)" if _anchor.get("shared") else ""
+        _rationale    = f"🏷️ {_anchor_name} is on sale at {_anchor_store} this week{_shared_note}"
     else:
-        _anchor_html = ""
+        _rationale = "🏷️ Best-value ingredients from this week's circulars"
 
-    with card_cols[idx % len(card_cols)]:
-        st.html(f"""<div style='background:#FFFFFF;border-radius:10px;
-                        box-shadow:0 1px 6px rgba(0,0,0,0.08);
-                        border-top:4px solid {color};padding:14px 12px;margin-bottom:8px;'>
-          <div style='font-size:11px;font-weight:700;color:{color};
-                      letter-spacing:0.06em;text-transform:uppercase;margin-bottom:4px;'>{meal['day']}</div>
-          <div style='font-size:13px;font-weight:700;color:#1E5C32;line-height:1.3;margin-bottom:8px;'>{meal['name']}</div>
-          <div style='font-size:1.25rem;font-weight:800;color:#1E5C32;'>${cost:.2f}</div>
-          <div style='font-size:11px;color:#5A7A62;margin-bottom:6px;'>${per_serving:.2f}/serving</div>
-          {store_line}<div>{gf_badge}</div>
-          {_anchor_html}
-        </div>""")
+    gf_badge = (" &nbsp;<span style='background:#E3F4E8;color:#1E5C32;border-radius:10px;"
+                "padding:2px 7px;font-size:10px;font-weight:600;'>GF</span>"
+                if meal.get("gluten_free") else "")
 
-st.divider()
+    st.html(
+        f"<div style='border-left:4px solid {color};border-radius:0 10px 10px 0;"
+        f"background:#F8FBF8;padding:14px 18px;margin-bottom:4px;'>"
+        f"<div style='display:flex;justify-content:space-between;align-items:flex-start;'>"
+        f"  <div>"
+        f"    <div style='font-size:0.72rem;font-weight:700;color:{color};"
+        f"                text-transform:uppercase;letter-spacing:0.06em;'>{meal['day']}</div>"
+        f"    <div style='font-size:1.05rem;font-weight:700;color:#1A2E1D;margin-top:3px;'>"
+        f"      {meal['name']}{gf_badge}</div>"
+        f"  </div>"
+        f"  <div style='text-align:right;flex-shrink:0;margin-left:12px;'>"
+        f"    <div style='font-size:1.2rem;font-weight:800;color:#1E5C32;'>${cost:.2f}</div>"
+        f"    <div style='font-size:0.72rem;color:#5A7A62;'>${per_serving:.2f}/serving</div>"
+        f"  </div>"
+        f"</div>"
+        f"<div style='font-size:0.82rem;color:#3A8C4E;margin-top:8px;'>{_rationale}</div>"
+        f"</div>"
+    )
 
-# Meal detail expanders
-st.subheader("Meal details")
-st.caption("Tap any meal to see exactly which ingredients the engine chose and where to buy them.")
-
-for meal in meals:
-    with st.expander(f"**{meal['day']}** — {meal['name']}", expanded=False):
+    # Detail expander directly below the card — no scrolling to connect them
+    with st.expander("See ingredients & details", expanded=False):
         if meal.get("allergen_notes"):
-            st.info(f"⚠️ **Allergen notes:** {meal['allergen_notes']}", icon="🛡️")
+            st.info(f"⚠️ {meal['allergen_notes']}", icon="🛡️")
 
-        # ── Recipe ingredients (from library) ─────────────────────────────
+        # Recipe ingredients from library
         recipe_ings = meal.get("recipe_ingredients", [])
         if recipe_ings:
-            st.html("""<div style='font-size:11px;font-weight:700;color:#3A8C4E;
-                                   letter-spacing:0.08em;text-transform:uppercase;
-                                   margin-bottom:6px;'>What you need for this recipe</div>""")
-            # Group by pantry_stable — show what to buy vs. assume on hand
-            to_buy     = [i for i in recipe_ings if not i.get("pantry_stable", False)]
-            pantry_ok  = [i for i in recipe_ings if i.get("pantry_stable", False)]
-
-            if to_buy:
-                for ri in to_buy:
-                    qty_str = f"{ri['qty']} {ri['unit']}"
-                    st.html(f"""<div style='display:flex;justify-content:space-between;
-                                            padding:4px 0;border-bottom:1px solid #F0F9F2;
-                                            font-size:13px;'>
-                      <span style='color:#1A2E1D;'>🛒 {ri["name"]}</span>
-                      <span style='color:#5A7A62;font-size:12px;'>{qty_str}</span>
-                    </div>""")
+            st.html("<div style='font-size:11px;font-weight:700;color:#3A8C4E;"
+                    "letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;'>"
+                    "What you need</div>")
+            to_buy    = [i for i in recipe_ings if not i.get("pantry_stable", False)]
+            pantry_ok = [i for i in recipe_ings if i.get("pantry_stable", False)]
+            for ri in to_buy:
+                qty_str = f"{ri['qty']} {ri['unit']}".strip()
+                st.html(
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"padding:5px 0;border-bottom:1px solid #F0F9F2;font-size:0.88rem;'>"
+                    f"<span style='color:#1A2E1D;'>🛒 {ri['name']}</span>"
+                    f"<span style='color:#5A7A62;'>{qty_str}</span></div>"
+                )
             if pantry_ok:
-                pantry_names = ", ".join(i["name"] for i in pantry_ok)
-                st.html(f"""<div style='font-size:11px;color:#888;margin-top:6px;
-                                        font-style:italic;'>
-                    Pantry / assume on hand: {pantry_names}
-                </div>""")
-            st.html("<div style='height:8px'></div>")
+                st.html(f"<div style='font-size:0.75rem;color:#999;margin-top:6px;"
+                        f"font-style:italic;'>On hand: "
+                        + ", ".join(i["name"] for i in pantry_ok) + "</div>")
+            st.html("<div style='height:8px;'></div>")
 
-        # ── Sale items (optimizer selected) ────────────────────────────────
+        # Sale items — 2-column mobile-friendly table
         ings = meal.get("ingredients", [])
         if ings:
-            st.html("""<div style='font-size:11px;font-weight:700;color:#F28B30;
-                                   letter-spacing:0.08em;text-transform:uppercase;
-                                   margin-bottom:6px;'>On sale this week — anchors this plan</div>""")
-            h1, h2, h3, h4 = st.columns([3, 1, 2, 1])
-            with h1: st.html("**Item**")
-            with h2: st.markdown("**Qty**")
-            with h3: st.markdown("**Store**")
-            with h4: st.markdown("**Cost**")
-
+            st.html("<div style='font-size:11px;font-weight:700;color:#F28B30;"
+                    "letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;'>"
+                    "On sale this week</div>")
             for ing in ings:
-                c1, c2, c3, c4 = st.columns([3, 1, 2, 1])
-                sname = STORE_NAMES.get(ing.get("store",""), ing.get("store","")) or "—"
-                shared_note = f" ×{ing['used_in']}" if ing.get("shared") else ""
-                with c1: st.caption(ing["item"] + shared_note)
-                with c2: st.caption(ing["qty"])
-                with c3: st.caption(sname)
-                with c4: st.caption(f"${ing['cost']:.2f}")
+                sname       = STORE_NAMES.get(ing.get("store",""), ing.get("store","")) or "—"
+                shared_note = f" · shared ×{ing['used_in']}" if ing.get("shared") else ""
+                st.html(
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"padding:5px 0;border-bottom:1px solid #FFF3E0;font-size:0.88rem;'>"
+                    f"<span style='color:#1A2E1D;'>{ing['item']}"
+                    f"<span style='color:#aaa;font-size:0.75rem;'>{shared_note}</span></span>"
+                    f"<span style='color:#5A7A62;'>{ing['qty']} · {sname} · "
+                    f"<strong style='color:#1E5C32;'>${ing['cost']:.2f}</strong></span></div>"
+                )
 
-        st.markdown(
-            f"<div style='text-align:right;font-size:13px;font-weight:700;"
-            f"color:#1E5C32;margin-top:8px;border-top:1px solid #D8EDD0;padding-top:6px;'>"
-            f"Meal total: ${meal['meal_cost']:.2f}</div>")
+        st.html(
+            f"<div style='text-align:right;font-size:0.88rem;font-weight:700;"
+            f"color:#1E5C32;margin-top:8px;padding-top:6px;border-top:1px solid #D8EDD0;'>"
+            f"Meal total: ${meal['meal_cost']:.2f}</div>"
+        )
+
+    st.html("<div style='margin-bottom:8px;'></div>")
+
+# ── Review & Approve CTA ──────────────────────────────────────────────────────
+st.html(
+    "<div style='background:#1E5C32;border-radius:10px;padding:16px 20px;margin:16px 0 8px;'>"
+    "<div style='color:#fff;font-size:1rem;font-weight:700;margin-bottom:4px;'>"
+    "Happy with this plan?</div>"
+    "<div style='color:#9FD9A8;font-size:0.85rem;'>"
+    "Review each meal, swap anything that doesn't work, and lock in your shopping list.</div>"
+    "</div>"
+)
+if st.button("→ Review & Approve meals", type="primary", use_container_width=True,
+             key="plan_to_buyoff"):
+    st.switch_page("pages/4_Sunday_BuyOff.py")
 
 st.divider()
 
