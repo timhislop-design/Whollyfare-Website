@@ -388,17 +388,23 @@ class MealPlanner:
     # These are conservative national averages used when a recipe ingredient
     # isn't on sale at any configured store this week.
     # Pilot: hard-coded estimates. Phase 2: live prices from Kroger API / Flipp.
+    # Sale-weighted estimates for non-hero ingredients — based on typical
+    # Charlottesville store pricing (Kroger/Food Lion/Aldi on a normal week).
+    # Hero proteins are anchored by the actual sale circular price, so these
+    # estimates only cover supporting cast: veg, grains, canned goods, dairy.
+    # Pilot: validated against real Charlottesville receipts May 2026.
+    # Phase 2: replace with live Kroger API prices for every ingredient.
     CATEGORY_PRICE_ESTIMATES: dict[str, float] = {
-        "protein":  7.00,   # $/lb — pulled down by sale items that anchor the plan
-        "produce":  1.50,   # $/unit or bunch
-        "grain":    2.00,   # $/package
-        "dairy":    3.00,   # $/unit
-        "canned":   1.25,   # $/can
-        "legume":   1.50,   # $/can or bag
-        "frozen":   3.50,   # $/package
-        "pantry":   0.10,   # per-use estimate (rarely reaches $0 — e.g. cheese)
-        "spice":    0.05,   # per-use
-        "other":    2.00,
+        "protein":  3.50,   # $/lb — store brand / sale avg (chicken ~$1.49-2.99, pork ~$2.49)
+        "produce":  0.99,   # $/unit or bunch — Aldi/Food Lion typical
+        "grain":    1.50,   # $/package — rice, pasta, store brand
+        "dairy":    2.00,   # $/unit — eggs, milk, butter store brand
+        "canned":   0.89,   # $/can — store brand beans, tomatoes, broth
+        "legume":   1.00,   # $/can or bag
+        "frozen":   2.50,   # $/package — store brand veg, etc.
+        "pantry":   0.05,   # per-use — oil, vinegar, soy sauce splash
+        "spice":    0.02,   # per-use — salt, pepper, garlic powder pinch
+        "other":    1.25,
     }
 
     def _estimate_cost_per_serving(

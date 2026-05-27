@@ -148,6 +148,28 @@ weekly_regs  = st.session_state.get("weekly_regulars") or state.WEEKLY_REGULARS_
 # PROD:  persist cart to DB so overrides survive refresh and cross-device sync.
 # ==============================================================================
 
+def _combine_qty(base: str, add: str) -> str:
+    """
+    Numerically combine two qty strings when units match.
+    "2 lb" + "2 lb" -> "4 lb".  Falls back to base if units differ or unparseable.
+    Pilot: integer + simple fraction support. Phase 2: unit conversion (oz -> lb).
+    """
+    import re
+    base = (base or "").strip()
+    add  = (add  or "").strip()
+    if not add or add == base:
+        return base
+    m1 = re.match(r'^([0-9]+\.?[0-9]*)\s*(.*)$', base)
+    m2 = re.match(r'^([0-9]+\.?[0-9]*)\s*(.*)$', add)
+    if m1 and m2 and m1.group(2).strip().lower() == m2.group(2).strip().lower():
+        total = float(m1.group(1)) + float(m2.group(1))
+        unit  = m1.group(2).strip()
+        # Show as int if whole number
+        total_str = str(int(total)) if total == int(total) else f"{total:g}"
+        return (total_str + " " + unit).strip()
+    return base  # can't combine cleanly — keep original
+
+
 def _build_cart(plan, pantry, out_of_stock):
     """
     Build the canonical shopping cart from the current plan.
@@ -179,10 +201,11 @@ def _build_cart(plan, pantry, out_of_stock):
             key       = name.lower() + "|" + store
 
             if key in sale_item_keys:
-                # Shared ingredient (used in multiple meals) -- accumulate cost
+                # Shared ingredient (used in multiple meals) -- accumulate cost + qty
                 for item in cart.get(store, []):
                     if item["name"].lower() == name.lower() and item["source"] == "sale":
                         item["cost"] = round(item["cost"] + cost, 2)
+                        item["qty"]  = _combine_qty(item["qty"], qty_str)
                         if meal.get("day") and meal["day"] not in item.get("_meals", []):
                             item.setdefault("_meals", []).append(meal["day"])
                         break
@@ -225,6 +248,7 @@ def _build_cart(plan, pantry, out_of_stock):
             found = False
             for item in cart.get("Unassigned", []):
                 if item["name"].lower() == name_low:
+                    item["qty"] = _combine_qty(item["qty"], qty_str)
                     if meal.get("day") and meal["day"] not in item.get("_meals", []):
                         item.setdefault("_meals", []).append(meal["day"])
                     found = True

@@ -1714,46 +1714,6 @@ if view_store:
         st.dataframe(rows, use_container_width=True, height=320)
 
 
-# ── Demo load ─────────────────────────────────────────────────────────────────
-with st.expander("✨ Load sample Charlottesville prices (demo only)", expanded=False):
-    st.caption("Pre-loads Kroger Barracks Road + Food Lion Pantops data for May 11, 2026. "
-               "Do not use in your actual Found Money ledger.")
-    if st.button("Load sample week", key="load_demo"):
-        try:
-            from app.data.sample_data import load_all_demo_data
-            demo = load_all_demo_data()
-            norm_grocers = []
-            for g in demo["grocers"]:
-                src = g.get("source") or ("api" if g.get("source_type") == "api" else "manual")
-                norm_grocers.append({
-                    "chain":      g.get("chain") or g.get("name", "?"),
-                    "location":   g.get("location", ""),
-                    "source":     src,
-                    "rewards":    g.get("rewards", False),
-                    "delivery":   g.get("delivery", False),
-                    "is_primary": g.get("is_primary", False),
-                    "tier":       "mainstream",
-                })
-            raw_flyer = demo["flyer_data"]
-            norm_flyer = {}
-            if "stores" in raw_flyer:
-                for _sid, _sdata in raw_flyer["stores"].items():
-                    norm_flyer[_sdata.get("store_name", _sid)] = _sdata.get("items", [])
-            else:
-                norm_flyer = raw_flyer
-            st.session_state.update({
-                "grocers":        norm_grocers,
-                "flyer_data":     norm_flyer,
-                "plan":           demo["plan"],
-                "ledger_history": demo["ledger_history"],
-                "active_week":    demo["active_week"],
-            })
-            st.success("Sample prices loaded! Scroll down to run the engine.")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Could not load demo data: {e}")
-
-
 st.divider()
 
 
