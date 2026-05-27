@@ -512,7 +512,12 @@ st.html("""<div class="moat-callout">
   That asymmetry gets stronger the longer WhollyFare builds trust.<br><br>
   <strong>Operational moat:</strong> AI-agent automation for weekly circular data means WhollyFare scales to 50 markets
   without proportionally scaling a data ops team. Competitors relying on manual workflows cannot match the
-  data freshness WhollyFare delivers as a baseline. Both moats widen with time.
+  data freshness WhollyFare delivers as a baseline. Both moats widen with time.<br><br>
+  <strong>Capital moat:</strong> Phase 1 was built by one founder using agentic AI as a technical co-founder.
+  Legitimate workarounds — Claude Vision extraction, constraint-first filtering, user-credentialed session access —
+  are not temporary bridges to vendor contracts. They are the architecture. When a coupon provider or grocer
+  eventually wants to partner, WhollyFare arrives at that table with a live product, a retention curve, and proven
+  extraction infrastructure. That is not a vendor pitch. That is a negotiation.
 </div>""")
 st.html("<br>")
 st.divider()
