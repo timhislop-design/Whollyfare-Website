@@ -130,10 +130,43 @@ FAQ_SECTIONS = [
                 "q": "What is the pantry tracker?",
                 "a": (
                     "The pantry tracker (My Pantry in the sidebar) lets you mark staples you "
-                    "always have on hand — olive oil, salt, garlic, etc. WhollyFare uses this "
-                    "to avoid including pantry staples on your shopping list. You can also track "
-                    "Weekly Regulars: items you buy every week regardless of the plan, like milk "
-                    "or eggs, so they always appear on your list."
+                    "always have on hand — olive oil, salt, garlic, etc. WhollyFare excludes "
+                    "these from your shopping list and costs them at $0 in meal estimates, "
+                    "so your per-serving numbers reflect what you actually need to buy."
+                ),
+            },
+            {
+                "q": "How does the 'running low' flag work?",
+                "a": (
+                    "Every time you approve a week's meal plan, WhollyFare notes which pantry "
+                    "staples appeared in those recipes — olive oil in the stir-fry, garlic in "
+                    "three dinners, that kind of thing. When the cumulative count crosses what "
+                    "a typical container would cover, the item gets flagged running low (🔶) "
+                    "on the Pantry page. No sensors, no guessing — just your own cooking history. "
+                    "Hit 'Restocked' when you pick it up and the counter resets to zero."
+                ),
+            },
+            {
+                "q": "What is a restock recommendation and why should I trust it?",
+                "a": (
+                    "When a pantry item is running low and also on sale at one of your stores "
+                    "this week, WhollyFare surfaces it on your shopping list under "
+                    "'Good time to restock.' It shows you the store, the sale price, and exactly "
+                    "how many meals you've cooked with that item since you last restocked — "
+                    "so you can see the reasoning, not just the recommendation. "
+                    "There are no sponsored placements in WhollyFare. This flag is triggered "
+                    "purely by your usage data and the store circular. That is the Sincere "
+                    "Strategy: if we recommend something, we show you why."
+                ),
+            },
+            {
+                "q": "What are Weekly Regulars?",
+                "a": (
+                    "Weekly Regulars are items you buy every week regardless of the meal plan — "
+                    "milk, eggs, cold cuts, orange juice. They appear as a separate section on "
+                    "your shopping list and their cost is tracked separately, never folded into "
+                    "WhollyFare Found Money. That distinction matters: your meal-plan savings "
+                    "are real savings, not padded with items you would have bought anyway."
                 ),
             },
         ],

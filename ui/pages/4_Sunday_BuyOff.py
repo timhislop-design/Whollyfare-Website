@@ -555,7 +555,10 @@ else:
         st.session_state["plan"] = _final_plan
 
         # approve_week_db() stamps session_state AND writes to DB (if authenticated).
-        # POC: silently degrades to session-only if Supabase is unavailable.
+        # Pilot: silently degrades to session-only if Supabase is unavailable.
         state.approve_week_db()
         state.log_activity("buyoff_approved", page="Sunday Buy-Off")
+        # Log pantry usage for every recipe-stable ingredient in the approved plan.
+        # Drives running-low alerts and opportunistic restock recommendations.
+        state.log_pantry_usage(_final_plan)
         st.rerun()

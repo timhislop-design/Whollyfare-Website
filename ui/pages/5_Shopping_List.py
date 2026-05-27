@@ -653,6 +653,69 @@ if pantry_check:
 
 
 # ==============================================================================
+# PANTRY RESTOCK INTELLIGENCE (Layer 3)
+# Show "good time to stock up" when a running-low pantry item is on sale
+# in this week's flyer. No paid placements — purely usage math + circular price.
+# Sincere Strategy: we say why. Usage count shown, sale price shown, no fluff.
+# ==============================================================================
+_running_low   = set(state.get_running_low())
+_flyer_data    = st.session_state.get("flyer_data", {})
+_restock_hits  = []  # [{name, store, price, uses}]
+
+if _running_low and _flyer_data:
+    _usage = st.session_state.get("pantry_usage") or {}
+    for store_key, candidates in _flyer_data.items():
+        store_label = store_key.replace("_", " ").title()
+        for c in candidates:
+            item_name = (
+                getattr(c, "name", "") if hasattr(c, "name")
+                else c.get("name", "") if isinstance(c, dict) else ""
+            ).lower().strip()
+            price = (
+                getattr(c, "sale_price_per_unit", 0.0) if hasattr(c, "sale_price_per_unit")
+                else c.get("sale_price", 0.0) if isinstance(c, dict) else 0.0
+            )
+            if not item_name or not price:
+                continue
+            for low_item in _running_low:
+                keywords = [w for w in low_item.split() if len(w) > 3]
+                if any(kw in item_name for kw in keywords):
+                    uses = _usage.get(low_item, 0)
+                    _restock_hits.append({
+                        "name":  low_item,
+                        "store": store_label,
+                        "price": price,
+                        "uses":  uses,
+                    })
+                    break
+
+if _restock_hits:
+    st.html(
+        "<div style='font-size:1rem;font-weight:700;color:#7A4500;margin-bottom:4px;'>"
+        "🔶 Good time to restock</div>"
+        "<div style='font-size:0.82rem;color:#9A6A30;margin-bottom:12px;'>"
+        "These pantry items are running low based on your cooking history — "
+        "and on sale at a store you shop this week. "
+        "No sponsored recommendations. Usage math + this week's circular, nothing else.</div>")
+    for hit in _restock_hits:
+        _threshold = state.PANTRY_DEPLETION_THRESHOLDS.get(
+            hit["name"], state.PANTRY_DEPLETION_DEFAULT)
+        _pct = min(int((hit["uses"] / max(_threshold, 1)) * 100), 100)
+        _price_str = "${:.2f}".format(hit["price"])
+        st.html(
+            "<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:8px;"
+            "padding:12px 16px;margin-bottom:8px;'>"
+            "<div style='font-weight:600;color:#7A4500;font-size:0.95rem;'>"
+            + hit["name"].title() +
+            " &nbsp;<span style='font-weight:400;font-size:0.85rem;color:#1E5C32;'>"
+            "on sale at " + hit["store"] + " — " + _price_str + "</span></div>"
+            "<div style='font-size:0.8rem;color:#9A6A30;margin-top:4px;'>"
+            "Used in " + str(hit["uses"]) + " meals since last restock "
+            "(" + str(_pct) + "% of typical container used up)"
+            "</div></div>")
+    st.divider()
+
+# ==============================================================================
 # SUMMARY FOOTER
 # Meal plan cost and Found Money -- weekly regulars shown as a separate estimate.
 # Sincere Strategy: never fold regulars into Found Money.

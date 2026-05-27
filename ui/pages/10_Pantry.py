@@ -43,6 +43,9 @@ else:
     current_pantry = set(raw)
     using_defaults = False
 
+# Running-low items — driven by meal-plan usage since last restock
+running_low = set(state.get_running_low())
+
 # -- Intro banner --------------------------------------------------------------
 st.html(
     "<div style='background:#E3F4E8;border:1px solid #5DAA6A;border-radius:10px;"
@@ -51,6 +54,18 @@ st.html(
     "Dry pantry and fridge staples excluded from your shopping list — cost $0 in meal estimates."
     + (" &nbsp;<span style='color:#5A7A62;font-size:0.82rem;'>(using defaults)</span>" if using_defaults else "")
     + "</div>")
+
+# Running-low alert bar
+if running_low:
+    _low_names = " &nbsp;·&nbsp; ".join(i.title() for i in sorted(running_low))
+    st.html(
+        "<div style='background:#FFF8F0;border:1px solid #FFCC80;border-radius:10px;"
+        "padding:12px 18px;margin-bottom:12px;font-size:0.88rem;color:#7A4500;'>"
+        "<strong>🔶 Running low (" + str(len(running_low)) + ")</strong> &nbsp;—&nbsp; "
+        + _low_names +
+        "<br><span style='font-size:0.8rem;color:#9A6A30;'>"
+        "Based on how often these appeared in your approved meal plans since you last restocked them. "
+        "Mark as restocked below when you restock.</span></div>")
 
 # -- Categorised pantry display ------------------------------------------------
 CATEGORIES = {
@@ -83,8 +98,10 @@ for category, items in CATEGORIES.items():
             col = cols[idx % 2]
             with col:
                 in_pantry = item in current_pantry
+                is_low = item in running_low
+                label_text = item.title() + (" 🔶" if is_low else "")
                 toggled = st.checkbox(
-                    label=item.title(),
+                    label=label_text,
                     value=in_pantry,
                     key="pantry_chk_" + item.replace(" ", "_"),
                 )
@@ -94,6 +111,12 @@ for category, items in CATEGORIES.items():
                     else:
                         current_pantry.discard(item)
                     changed = True
+                if is_low and in_pantry:
+                    if st.button("✓ Restocked", key="restock_" + item.replace(" ", "_"),
+                                 use_container_width=True):
+                        state.reset_pantry_item_usage(item)
+                        st.success(item.title() + " marked as restocked.")
+                        st.rerun()
 
 # -- Custom items section ------------------------------------------------------
 st.divider()
@@ -342,14 +365,20 @@ if reg_changed:
 with st.expander("How does the pantry work?", expanded=False):
     st.html(
         "<div style='font-size:0.88rem;color:#3A3A3A;line-height:1.6;'>"
-        "<strong>Pantry staples:</strong><br>"
-        "- Are excluded from your shopping list's 'buy this week' section<br>"
-        "- Cost $0 in per-serving meal estimates<br>"
-        "- Appear in the collapsed 'Pantry check' section on your shopping list "
-        "as a reminder to verify you have them before you shop<br><br>"
-        "<strong>Weekly Regulars:</strong><br>"
-        "- Shown as a separate section on your shopping list<br>"
-        "- Cost is tracked separately (not mixed into WhollyFare Found Money)<br>"
-        "- When a regular matches a store's sale this week, a hint appears above<br><br>"
-        "<strong>Keep it accurate</strong> — the more honest your pantry is, the more precise your shopping list becomes.</div>"
+        "<strong>Pantry staples</strong><br>"
+        "These are excluded from your shopping list and cost $0 in meal estimates — "
+        "we assume you have them. Uncheck anything you're out of and it moves to your shopping list automatically.<br><br>"
+        "<strong>Running low 🔶</strong><br>"
+        "WhollyFare tracks how often each pantry item appears in your approved meal plans. "
+        "When an item has been used enough times that a typical container would be running low, "
+        "it gets flagged. No sensors, no guessing — just math against your actual cooking history. "
+        "Hit <em>Restocked</em> when you pick it up and the counter resets.<br><br>"
+        "<strong>Weekly Regulars</strong><br>"
+        "Items you buy every week regardless of the meal plan. Shown separately on your shopping list — "
+        "their cost is never mixed into WhollyFare Found Money. Honest accounting is the standard here.<br><br>"
+        "<strong>Why we do it this way</strong><br>"
+        "There are no paid placements in WhollyFare. When we flag something as running low or "
+        "on sale, it is because your usage data and the store circular say so — not because "
+        "a vendor paid to be recommended. That is the Sincere Strategy, and it applies "
+        "to pantry intelligence the same as everything else.</div>"
     )

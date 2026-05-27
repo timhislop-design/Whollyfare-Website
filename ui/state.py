@@ -262,6 +262,83 @@ def pantry_has(item_name: str) -> bool:
     return item_name.lower().strip() in pantry_items()
 
 
+# ── Pantry depletion thresholds ───────────────────────────────────────────────
+# Approximate number of meal-plan uses before a pantry staple shows "running low".
+# Based on typical household pack sizes and per-recipe consumption.
+# Pilot: these are reasonable starting estimates — Tim can adjust based on real usage.
+# PROD: user-configurable per item, or learned from actual purchase history.
+PANTRY_DEPLETION_THRESHOLDS: dict[str, int] = {
+    # Oils & fats — bottles last 8–12 weeks of regular cooking
+    "olive oil": 12,   "vegetable oil": 10,  "sesame oil": 18,
+    "butter": 8,       "cooking spray": 20,
+    # Acids & sauces — bottles last months
+    "soy sauce": 15,   "fish sauce": 20,     "worcestershire sauce": 20,
+    "hot sauce": 25,   "apple cider vinegar": 20, "white vinegar": 20,
+    "balsamic vinegar": 20,
+    # Aromatics — fresh, go fast
+    "garlic": 6,       "onion": 5,           "shallot": 8,    "ginger": 8,
+    # Spices — jars last a long time
+    "salt": 30,        "black pepper": 30,   "red pepper flakes": 25,
+    "paprika": 25,     "smoked paprika": 25, "cumin": 25,     "chili powder": 25,
+    "oregano": 25,     "thyme": 25,          "basil": 25,     "bay leaves": 30,
+    "garlic powder": 25, "onion powder": 25, "italian seasoning": 25,
+    "coriander": 25,   "turmeric": 25,       "cinnamon": 20,  "cayenne": 25,
+    # Baking & staples
+    "flour": 10,       "cornstarch": 15,     "sugar": 12,     "brown sugar": 12,
+    "honey": 12,
+    # Broths — a carton lasts 2–3 uses
+    "chicken broth": 6, "beef broth": 6,     "vegetable broth": 6,
+    # Condiments
+    "tomato paste": 8, "dijon mustard": 15,  "lemon": 5,      "lime": 5,
+}
+PANTRY_DEPLETION_DEFAULT = 10  # fallback for items not in the lookup
+
+
+def log_pantry_usage(plan: dict) -> None:
+    """
+    Increment pantry usage counters for every pantry-stable ingredient used
+    in the approved plan. Called by approve_week_db() after Buy-Off.
+
+    Pilot: stored in session_state["pantry_usage"] — persists across pages,
+           resets on browser refresh.
+    PROD:  write to a pantry_usage table (household_id, item_name, meals_since_restock).
+    """
+    usage: dict[str, int] = dict(st.session_state.get("pantry_usage") or {})
+    pantry = pantry_items()
+
+    for meal in plan.get("meals", []):
+        for ing in meal.get("recipe_ingredients", []):
+            name = ing.get("name", "").lower().strip()
+            if not name:
+                continue
+            is_pantry = ing.get("pantry_stable", False) or name in pantry
+            if is_pantry:
+                usage[name] = usage.get(name, 0) + 1
+
+    st.session_state["pantry_usage"] = usage
+
+
+def reset_pantry_item_usage(item_name: str) -> None:
+    """Mark a pantry item as restocked — resets its usage counter to 0."""
+    usage: dict[str, int] = dict(st.session_state.get("pantry_usage") or {})
+    usage[item_name.lower().strip()] = 0
+    st.session_state["pantry_usage"] = usage
+
+
+def get_running_low() -> list[str]:
+    """
+    Return list of pantry item names whose usage >= their depletion threshold.
+    Used by Pantry page and Shopping List to surface restock recommendations.
+    """
+    usage: dict[str, int] = st.session_state.get("pantry_usage") or {}
+    low = []
+    for item, count in usage.items():
+        threshold = PANTRY_DEPLETION_THRESHOLDS.get(item, PANTRY_DEPLETION_DEFAULT)
+        if count >= threshold:
+            low.append(item)
+    return sorted(low)
+
+
 def init():
     """Ensure all session state keys exist with sensible defaults."""
     defaults = {
@@ -289,6 +366,9 @@ def init():
         "household_pantry": None,
         # Weekly regulars — None means "use WEEKLY_REGULARS_DEFAULTS"; a list means user-customised
         "weekly_regulars":   None,
+        # Pantry depletion tracking — {item_name_lower: meals_cooked_since_restock}
+        # Pilot: session only. PROD: Supabase pantry_usage table.
+        "pantry_usage":      {},
     }
     for key, val in defaults.items():
         if key not in st.session_state:
