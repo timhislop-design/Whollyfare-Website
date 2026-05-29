@@ -127,6 +127,30 @@ FAQ_SECTIONS = [
                 ),
             },
             {
+                "q": "What's the difference between dietary preferences and allergies?",
+                "a": (
+                    "Allergies (and clinical diagnoses) are absolute hard rules — an ingredient "
+                    "that conflicts with a member's allergy or medical condition will never "
+                    "appear in a plan, a suggestion, or a swap option, regardless of savings. "
+                    "Dietary preferences (vegan, vegetarian, pescatarian, halal, kosher, keto, "
+                    "paleo) work the same way — they set a hard boundary on what recipes and "
+                    "proteins are considered for your household. If any member in your household "
+                    "is vegan, the plan is built from vegan recipes and plant proteins only. "
+                    "The constraint always applies to everyone's meals, not just the individual "
+                    "member's, because WhollyFare builds a single shared weekly plan."
+                ),
+            },
+            {
+                "q": "Do I need a paid tier to use dietary preferences?",
+                "a": (
+                    "No. Dietary identity (vegan, vegetarian, pescatarian, etc.) is applied "
+                    "during meal plan generation, which is part of the Meal Planner tier. "
+                    "Clinical allergens and medical diagnoses are part of Health Guard (coming soon). "
+                    "The free Price Finder tier shows store prices and savings comparisons "
+                    "but does not generate a meal plan."
+                ),
+            },
+            {
                 "q": "What is the pantry tracker?",
                 "a": (
                     "The pantry tracker (My Pantry in the sidebar) lets you mark staples you "
@@ -228,12 +252,28 @@ FAQ_SECTIONS = [
                 "q": "How does WhollyFare choose my meals?",
                 "a": (
                     "Each week's plan is built fresh from the best-priced ingredients at your "
-                    "selected stores. WhollyFare selects a set of hero ingredients — proteins, "
-                    "produce, and pantry items — that are on sale that week, then builds meals "
-                    "around them. Flavor Plugins rotate the same core ingredients across cuisines "
-                    "so Monday might be Mexican chicken tacos and Wednesday is Asian stir-fry, "
-                    "using much of the same shopping basket. This reduces waste and keeps dinners "
-                    "interesting without blowing the budget."
+                    "selected stores. WhollyFare works in layers: first it filters available "
+                    "sale items through your household's dietary constraints, then identifies "
+                    "which proteins are on sale this week, then selects recipes from a "
+                    "183-recipe library ranked by sale affinity — how many of the recipe's "
+                    "non-pantry ingredients are already on sale. Flavor Plugins rotate the same "
+                    "core proteins across cuisines so Monday might be Mexican chicken tacos and "
+                    "Wednesday is Asian stir-fry, using much of the same shopping basket. "
+                    "This reduces waste and keeps dinners interesting without blowing the budget."
+                ),
+            },
+            {
+                "q": "How does my dietary identity affect recipe selection?",
+                "a": (
+                    "When you set a dietary preference (vegan, vegetarian, pescatarian) on any "
+                    "household member, WhollyFare applies that identity to the entire protein "
+                    "pool before building the plan. A vegan household only gets recipes from the "
+                    "vegan recipe collection — chickpeas, tofu, lentils, jackfruit. Vegetarian "
+                    "adds eggs and dairy-safe options. Pescatarian adds fish and seafood. "
+                    "If your selected stores have no on-sale plant proteins this week, WhollyFare "
+                    "falls back to pantry staples (canned chickpeas, tofu, lentils) so the plan "
+                    "is never empty. The most restrictive identity in the household applies to "
+                    "everyone's meals — if one member is vegan, the whole plan is vegan-safe."
                 ),
             },
             {

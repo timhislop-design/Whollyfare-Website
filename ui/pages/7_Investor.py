@@ -468,14 +468,18 @@ with col_s2:
     st.html("""<div class="step-card step-card-2">
   <div class="step-icon">🛡️</div><div class="step-title">2. Filter</div>
   <div class="step-body">Run every item through the household's hard constraints —
-  allergies, diagnoses (celiac, diabetes, CKD, IBS), lifestyle. Zero compromise.
+  allergies, diagnoses (celiac, diabetes, CKD, IBS), and dietary identity (vegan, vegetarian,
+  pescatarian, halal, kosher, keto, paleo). Identity sets the protein pool; diagnoses set the
+  exclusions. Safety layer runs before the budget optimizer. Zero compromise.
   Every rejection logged and shown to the user.</div>
 </div>""")
 with col_s3:
     st.html("""<div class="step-card step-card-3">
   <div class="step-icon">🍽️</div><div class="step-title">3. Plan → Approve → Shop</div>
-  <div class="step-body">Sale items matched to a 150-recipe library — cheap chicken thighs
-  become Tacos or Stir-Fry based on cuisine rotation and what you haven't had.
+  <div class="step-body">Sale items matched to a 183-recipe library across 5 cuisines and 3 dietary
+  identities (vegan, vegetarian, pescatarian). Recipes are ranked by sale affinity — how many
+  of the non-pantry ingredients are already on sale this week. Cheap chicken thighs become Tacos
+  or Stir-Fry based on cuisine rotation, dietary identity, and what you haven't had.
   Sunday Buy-Off: approve each dinner, swap to an alternate, or skip it.
   Skipped meals drop off the shopping list automatically. Lock in → list by store.</div>
 </div>""")
