@@ -375,16 +375,15 @@ DIAG_LABELS = {
 }
 
 LIFESTYLE_LABELS = {
-    "vegan":         "Vegan",
-    "vegetarian":    "Vegetarian",
+    "vegan":         "Vegan (no animal products)",
+    "vegetarian":    "Vegetarian (no meat/fish)",
+    "pescatarian":   "Pescatarian (fish/seafood, no land meat)",
+    "keto":          "Keto / Low-carb",
+    "paleo":         "Paleo",
     "halal":         "Halal",
     "kosher":        "Kosher",
-    "keto":          "Keto",
-    "paleo":         "Paleo",
     "whole30":       "Whole30",
-    "low_fodmap":    "Low FODMAP",
-    "gluten_free":   "Gluten-free (preference, not celiac)",
-    "dairy_free":    "Dairy-free",
+    "low-fodmap":    "Low FODMAP",
 }
 
 members_to_remove = []

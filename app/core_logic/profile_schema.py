@@ -13,6 +13,7 @@ from enum import Enum
 class LifestyleTag(str, Enum):
     VEGAN = "vegan"
     VEGETARIAN = "vegetarian"
+    PESCATARIAN = "pescatarian"   # fish/seafood ok, no land meat
     HALAL = "halal"
     KOSHER = "kosher"
     WHOLE30 = "whole30"
@@ -107,6 +108,10 @@ EXAMPLE_HOUSEHOLD = HouseholdProfile(
     grocer=GrocerPreference(
         chain_name="Kroger",
         store_id="01200441",
+        rewards_program_enrolled=True,
+    ),
+)
+re_id="01200441",
         rewards_program_enrolled=True,
     ),
 )

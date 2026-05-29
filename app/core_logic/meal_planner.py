@@ -84,6 +84,62 @@ FLAVOR_PLUGINS: dict[str, dict] = {
 }
 
 
+# ── Dietary Identity → Protein Pool ──────────────────────────────────────────
+# Maps lifestyle identity to the protein keyword families valid for that household.
+# Keywords matched against ingredient.name (lowercase) from the sale flyer.
+# Omnivore (no identity tag) is absent — all protein-category sale items are valid.
+#
+# Architecture note: the planner reads household.lifestyle_tags and filters the
+# protein pool BEFORE the round-robin. When a household is pescatarian, only
+# fish/seafood sale items become meal anchors. When vegan, plant proteins from
+# the flyer (rarely present) or pantry fallback are used.
+# Phase 2: USDA FDC category mapping replaces keyword matching.
+PROTEIN_POOL_FOR_IDENTITY: dict[str, set[str]] = {
+    "vegan": {
+        "tofu", "tempeh", "lentil", "chickpea", "bean", "edamame",
+        "legume", "seitan", "jackfruit", "falafel",
+    },
+    "vegetarian": {
+        "tofu", "tempeh", "lentil", "chickpea", "bean", "edamame",
+        "legume", "egg", "paneer", "cheese", "seitan", "halloumi",
+    },
+    "pescatarian": {
+        "salmon", "shrimp", "cod", "tilapia", "fish", "tuna",
+        "halibut", "scallop", "crab", "lobster", "trout", "mahi",
+        "prawn", "clam", "mussel", "anchovy",
+    },
+    "keto": {
+        "chicken", "beef", "pork", "salmon", "bacon", "egg",
+        "turkey", "lamb", "shrimp", "tuna",
+    },
+    "paleo": {
+        "chicken", "beef", "pork", "salmon", "shrimp", "turkey",
+        "lamb", "bison", "tuna", "cod",
+    },
+    # whole30 + low-fodmap: protein-agnostic (restrictions apply to produce/grains)
+    # halal/kosher: protein-agnostic here; constraint engine handles preparation rules
+}
+
+# Plant-based pantry fallback proteins injected when a vegan/vegetarian household
+# has no matching plant protein on sale this week. These are common staples.
+# Pilot: static list with median grocery prices. Phase 2: cross-reference
+# pantry_items() and current flyer for on-sale plant proteins first.
+PLANT_PROTEIN_PANTRY_FALLBACK: dict[str, list[dict]] = {
+    "vegan": [
+        {"name": "Canned Chickpeas",   "price": 1.29, "unit": "15oz can",   "category": "legumes"},
+        {"name": "Canned Black Beans", "price": 0.99, "unit": "15oz can",   "category": "legumes"},
+        {"name": "Firm Tofu",          "price": 2.49, "unit": "14oz block", "category": "protein"},
+        {"name": "Red Lentils",        "price": 1.79, "unit": "1 lb bag",   "category": "legumes"},
+    ],
+    "vegetarian": [
+        {"name": "Eggs",               "price": 3.99, "unit": "dozen",      "category": "protein"},
+        {"name": "Firm Tofu",          "price": 2.49, "unit": "14oz block", "category": "protein"},
+        {"name": "Canned Chickpeas",   "price": 1.29, "unit": "15oz can",   "category": "legumes"},
+        {"name": "Canned Black Beans", "price": 0.99, "unit": "15oz can",   "category": "legumes"},
+    ],
+}
+
+
 # ── Meal & WeeklyPlan dataclasses ─────────────────────────────────────────────
 
 
@@ -163,7 +219,7 @@ class MealPlanner:
         return compatible
 
     def _dietary_flags(self) -> dict:
-        """Translate household allergies/prefs to recipe_library dietary_flags format."""
+        """Translate household allergies/lifestyle_tags to recipe_library dietary_flags format."""
         flags: dict = {}
         for member in self.household.members:
             for allergy in getattr(member, "allergies", []):
@@ -174,11 +230,56 @@ class MealPlanner:
                     flags["dairy_free"] = True
                 if any(k in al for k in ["nut", "peanut"]):
                     flags["nut_free"] = True
-            for pref in getattr(member, "dietary_preferences", []):
-                pl = pref.lower()
-                if "vegetarian" in pl: flags["vegetarian"] = True
-                if "vegan"      in pl: flags["vegan"]      = True
+            # lifestyle_tags drives vegan/vegetarian recipe filtering
+            # (was incorrectly reading "dietary_preferences" which doesn't exist)
+            for tag in getattr(member, "lifestyle_tags", []):
+                tl = tag.value if hasattr(tag, "value") else str(tag)
+                if tl == "vegan":       flags["vegan"]      = True; flags["vegetarian"] = True
+                if tl == "vegetarian":  flags["vegetarian"] = True
+                if tl == "keto":        flags["low_carb"]   = True
         return flags
+
+    def _household_dietary_identity(self) -> Optional[str]:
+        """
+        Return the most restrictive dietary identity across all household members.
+
+        Priority (most → least restrictive): vegan > vegetarian > pescatarian
+        > keto > paleo > whole30 > None (omnivore).
+
+        If any member is vegan the whole plan becomes vegan — safety-first. This
+        matches the Sincere Strategy: the strictest valid constraint always wins.
+
+        Phase 2: per-member meal differentiation (different meals per member)
+        will support mixed-identity households. Pilot: one plan fits all.
+        """
+        PRIORITY = ["vegan", "vegetarian", "pescatarian", "keto", "paleo", "whole30"]
+        all_tags: set[str] = set()
+        for member in self.household.members:
+            for tag in getattr(member, "lifestyle_tags", []):
+                all_tags.add(tag.value if hasattr(tag, "value") else str(tag))
+        for identity in PRIORITY:
+            if identity in all_tags:
+                return identity
+        return None   # omnivore — all protein-category sale items are valid
+
+    def _sale_affinity_score(self, recipe: dict, sale_names_lower: set[str]) -> int:
+        """
+        Count how many non-pantry recipe ingredients are currently on sale.
+
+        Higher score = better alignment with this week's flyer = preferred choice.
+        Used as tiebreaker when multiple recipes pass protein + cuisine filters.
+
+        Pilot: substring matching (same heuristic as _build_cart).
+        Phase 2: USDA FDC ID matching for exact ingredient-to-sale-item alignment.
+        """
+        score = 0
+        for ing in recipe.get("ingredients", []):
+            if ing.get("pantry_stable"):
+                continue   # pantry items don't affect sale affinity
+            name = ing.get("name", "").lower()
+            if any(name in sn or sn in name for sn in sale_names_lower):
+                score += 1
+        return score
 
     def assemble_week(
         self,
@@ -255,6 +356,37 @@ class MealPlanner:
         proteins  = [s for s in sorted_heroes if s.ingredient.category == "protein"]
         supports  = [s for s in sorted_heroes if s.ingredient.category != "protein"]
 
+        # ── Dietary identity protein pool filter ──────────────────────────────
+        # For restricted identities (vegan, pescatarian, etc.) only sale proteins
+        # whose names match the allowed keyword set become meal anchors.
+        # Vegan/vegetarian households get a pantry fallback when no plant protein
+        # is on sale this week (common — most flyers skew animal protein).
+        identity = self._household_dietary_identity()
+        if identity and identity in PROTEIN_POOL_FOR_IDENTITY:
+            allowed_kws = PROTEIN_POOL_FOR_IDENTITY[identity]
+            proteins = [
+                s for s in proteins
+                if any(kw in s.ingredient.name.lower() for kw in allowed_kws)
+            ]
+            # Pantry fallback for vegan/vegetarian when no on-sale plant protein
+            if not proteins and identity in PLANT_PROTEIN_PANTRY_FALLBACK:
+                try:
+                    from .constraint_engine import IngredientCandidate
+                    for fb in PLANT_PROTEIN_PANTRY_FALLBACK[identity]:
+                        fake_ing = IngredientCandidate(
+                            name=fb["name"],
+                            sale_price_per_unit=fb["price"],
+                            unit=fb["unit"],
+                            category=fb["category"],
+                        )
+                        proteins.append(ScoredIngredient(
+                            ingredient=fake_ing,
+                            score=0.5,   # below real sale items — pantry, not flyer
+                            source="pantry_fallback",
+                        ))
+                except Exception:
+                    pass   # fallback silently skipped if import fails
+
         # Track used format indices per plugin to avoid repeating names
         _plugin_format_idx: dict[str, int] = {}
 
@@ -278,15 +410,25 @@ class MealPlanner:
             fmt_idx = _plugin_format_idx.get(plugin_key, 0)
             _plugin_format_idx[plugin_key] = fmt_idx + 1
 
-            # ── Recipe library match with cuisine rotation ─────────────────
-            # Priority: protein match + unused cuisine > protein match any cuisine
-            #           > any unused recipe. This prevents "Mexican every night"
-            #           when the library has many protein matches for one cuisine.
+            # ── Recipe library match — 4-pass selection ────────────────────
+            # Priority order:
+            #   Pass 1: protein match + preferred cuisine + unused cuisine rotation
+            #   Pass 2: protein match + unused cuisine (any cuisine)
+            #   Pass 3: protein match, any cuisine (all cuisines exhausted)
+            #   Pass 4: any unused recipe (highest sale affinity wins)
+            #
+            # Sale affinity (how many recipe ingredients are on sale this week)
+            # is used as a tiebreaker within each pass — same protein/cuisine
+            # match prefers the recipe that costs less to execute this week.
             recipe      = None
             recipe_ings: list = []
             used_ids      = {m.recipe_id for m in plan.meals if m.recipe_id}
             used_cuisines = {m.flavor_plugin for m in plan.meals}
             anchor_name   = anchor_ing.ingredient.name.lower()
+
+            # Pre-compute for cuisine preference and sale affinity checks
+            sale_names_lower    = {s.ingredient.name.lower() for s in hero_ingredients}
+            cuisine_prefs_lower = {c.lower() for c in (cuisine_prefs or [])}
 
             def _protein_match(r: dict) -> bool:
                 pp = r.get("primary_protein", "").lower()
@@ -294,30 +436,45 @@ class MealPlanner:
                     w in pp for w in anchor_name.split()
                 )
 
+            def _cuisine_preferred(r: dict) -> bool:
+                """True when the recipe's cuisine is in the household's preference list."""
+                if not cuisine_prefs_lower:
+                    return True   # no preference set → all cuisines are welcome
+                return r.get("cuisine", "").lower() in cuisine_prefs_lower
+
             if candidate_recipes:
-                # Pass 1: protein match + cuisine not yet used this week
-                for r in candidate_recipes:
-                    if r["id"] in used_ids:
-                        continue
-                    if _protein_match(r) and r.get("cuisine", "").lower() not in used_cuisines:
+                # Sort unused candidates by sale affinity descending so earlier
+                # passes automatically pick the most on-sale-aligned recipe first.
+                unused = [
+                    r for r in candidate_recipes if r["id"] not in used_ids
+                ]
+                unused.sort(
+                    key=lambda r: -self._sale_affinity_score(r, sale_names_lower)
+                )
+
+                # Pass 1: protein match + preferred cuisine + unused cuisine rotation
+                for r in unused:
+                    if _protein_match(r) and _cuisine_preferred(r)                             and r.get("cuisine", "").lower() not in used_cuisines:
                         recipe = r
                         break
 
-                # Pass 2: protein match, any cuisine (fallback when all cuisines used)
+                # Pass 2: protein match + unused cuisine (any cuisine)
                 if recipe is None:
-                    for r in candidate_recipes:
-                        if r["id"] in used_ids:
-                            continue
+                    for r in unused:
+                        if _protein_match(r)                                 and r.get("cuisine", "").lower() not in used_cuisines:
+                            recipe = r
+                            break
+
+                # Pass 3: protein match, any cuisine (all cuisine slots exhausted)
+                if recipe is None:
+                    for r in unused:
                         if _protein_match(r):
                             recipe = r
                             break
 
-                # Pass 3: any unused recipe
-                if recipe is None:
-                    for r in candidate_recipes:
-                        if r["id"] not in used_ids:
-                            recipe = r
-                            break
+                # Pass 4: any unused recipe — sale affinity already sorted highest first
+                if recipe is None and unused:
+                    recipe = unused[0]
 
             if recipe is not None:
                 meal_name   = recipe["name"]

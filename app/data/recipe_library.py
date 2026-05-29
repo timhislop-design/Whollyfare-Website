@@ -2188,12 +2188,15 @@ MEDITERRANEAN = [
 # MASTER INDEX
 # ─────────────────────────────────────────────────────────────────────────────
 
-ALL_RECIPES: list[dict] = MEXICAN + ITALIAN + ASIAN + AMERICAN + MEDITERRANEAN
+# ALL_RECIPES and plant-based collections are assembled at end of file.
+# _BY_ID is populated there too, after all lists are defined.
+# CUISINE_TYPES / PROTEIN_TYPES available immediately for imports.
 
-_BY_ID: dict[str, dict] = {r["id"]: r for r in ALL_RECIPES}
+_BY_ID: dict[str, dict] = {}   # populated at module end — do not use before then
 
 CUISINE_TYPES = ["mexican", "italian", "asian", "american", "mediterranean"]
-PROTEIN_TYPES = ["chicken", "beef", "pork", "turkey", "shrimp", "salmon", "lamb", "eggs"]
+PROTEIN_TYPES = ["chicken", "beef", "pork", "turkey", "shrimp", "salmon",
+                 "lamb", "eggs", "legumes", "tofu", "jackfruit"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2273,15 +2276,21 @@ def recipes_for_sale_items(
     name_blob = " ".join(sale_item_names).lower()
 
     protein_keywords = {
-        "chicken": ["chicken"],
-        "beef":    ["beef", "steak", "ground beef", "chuck", "brisket", "sirloin", "ribeye",
-                    "flank", "skirt", "short rib"],
-        "pork":    ["pork", "ham", "bacon", "sausage", "chorizo", "prosciutto", "tenderloin"],
-        "turkey":  ["turkey"],
-        "shrimp":  ["shrimp", "prawn"],
-        "salmon":  ["salmon", "cod", "tilapia", "halibut", "fish fillet", "fish"],
-        "lamb":    ["lamb"],
-        "eggs":    ["egg", "eggs"],
+        "chicken":  ["chicken"],
+        "beef":     ["beef", "steak", "ground beef", "chuck", "brisket", "sirloin", "ribeye",
+                     "flank", "skirt", "short rib"],
+        "pork":     ["pork", "ham", "bacon", "sausage", "chorizo", "prosciutto", "tenderloin"],
+        "turkey":   ["turkey"],
+        "shrimp":   ["shrimp", "prawn"],
+        "salmon":   ["salmon", "cod", "tilapia", "halibut", "fish fillet", "fish", "tuna",
+                     "trout", "mahi", "scallop", "crab"],
+        "lamb":     ["lamb"],
+        "eggs":     ["egg", "eggs"],
+        # Plant proteins — match vegan/vegetarian and pescatarian recipes
+        "legumes":  ["chickpea", "lentil", "black bean", "white bean", "kidney bean",
+                     "edamame", "bean"],
+        "tofu":     ["tofu", "tempeh", "seitan"],
+        "jackfruit":["jackfruit"],
     }
 
     for ptype, keywords in protein_keywords.items():
@@ -2294,3 +2303,429 @@ def recipes_for_sale_items(
         # If intersection is empty, fall back to sale matches only
         if not matched_proteins:
             pass  # fall back handled by returning all matched below
+
+
+# =============================================================================
+# VEGAN RECIPES  (VGN-MEX-* · VGN-ITA-* · VGN-ASN-* · VGN-AMR-* · VGN-MED-*)
+# primary_protein: "tofu" | "legumes" | "jackfruit" | "lentils"
+# All tagged vegan=True, veg=True, df=True
+# =============================================================================
+VEGAN = [
+    # ── Mexican Vegan ──────────────────────────────────────────────────────────
+    _r("VGN-MEX-001", "Black Bean Tacos with Avocado Crema", "mexican", "legumes", [
+        _i("canned black beans",  2,   "15oz cans", "legumes"),
+        _i("corn tortillas",      12,  "count",      "grain"),
+        _i("avocado",             2,   "medium",     "produce"),
+        _i("lime",                2,   "count",      "produce"),
+        _i("red onion",           1,   "medium",     "produce"),
+        _i("cilantro",            1,   "bunch",      "produce"),
+        _i("cumin",               1,   "tsp",        "spice",  True),
+        _i("chili powder",        1,   "tsp",        "spice",  True),
+        _i("olive oil",           1,   "tbsp",       "pantry", True),
+    ], 4, 20, "weeknight", gf=True, df=True, veg=True, vegan=True, tags=["quick", "plant-based"]),
+
+    _r("VGN-MEX-002", "Jackfruit Carnitas Bowls", "mexican", "jackfruit", [
+        _i("canned jackfruit",    2,   "20oz cans",  "protein"),
+        _i("brown rice",          2,   "cups",       "grain"),
+        _i("canned black beans",  1,   "15oz can",   "legumes"),
+        _i("bell pepper",         2,   "count",      "produce"),
+        _i("lime",                2,   "count",      "produce"),
+        _i("cumin",               2,   "tsp",        "spice",  True),
+        _i("smoked paprika",      1,   "tsp",        "spice",  True),
+        _i("olive oil",           2,   "tbsp",       "pantry", True),
+    ], 4, 35, "weeknight", gf=True, df=True, veg=True, vegan=True, tags=["plant-based", "meal-prep"]),
+
+    _r("VGN-MEX-003", "Lentil Taco Bowls", "mexican", "lentils", [
+        _i("green lentils",       1.5, "cups",       "legumes"),
+        _i("corn tortillas",      8,   "count",      "grain"),
+        _i("roma tomatoes",       3,   "count",      "produce"),
+        _i("red onion",           1,   "medium",     "produce"),
+        _i("jalapeño",            1,   "count",      "produce"),
+        _i("cilantro",            1,   "bunch",      "produce"),
+        _i("lime",                1,   "count",      "produce"),
+        _i("cumin",               1,   "tsp",        "spice",  True),
+        _i("chili powder",        1.5, "tsp",        "spice",  True),
+    ], 4, 30, "weeknight", gf=True, df=True, veg=True, vegan=True, tags=["high-protein", "plant-based"]),
+
+    # ── Italian Vegan ──────────────────────────────────────────────────────────
+    _r("VGN-ITA-001", "Chickpea and Tomato Pasta", "italian", "legumes", [
+        _i("canned chickpeas",    2,   "15oz cans",  "legumes"),
+        _i("pasta",               12,  "oz",         "grain"),
+        _i("canned crushed tomatoes", 1, "28oz can", "canned"),
+        _i("baby spinach",        3,   "oz",         "produce"),
+        _i("garlic",              4,   "cloves",     "produce", True),
+        _i("olive oil",           3,   "tbsp",       "pantry",  True),
+        _i("dried basil",         1,   "tsp",        "spice",   True),
+        _i("red pepper flakes",   0.5, "tsp",        "spice",   True),
+    ], 4, 25, "weeknight", df=True, veg=True, vegan=True, tags=["quick", "pantry-friendly"]),
+
+    _r("VGN-ITA-002", "Lentil Bolognese", "italian", "lentils", [
+        _i("red lentils",         1.5, "cups",       "legumes"),
+        _i("pasta",               12,  "oz",         "grain"),
+        _i("canned diced tomatoes",1,  "28oz can",   "canned"),
+        _i("carrots",             2,   "medium",     "produce"),
+        _i("celery",              2,   "stalks",     "produce"),
+        _i("yellow onion",        1,   "medium",     "produce"),
+        _i("garlic",              3,   "cloves",     "produce", True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+        _i("dried oregano",       1,   "tsp",        "spice",   True),
+        _i("bay leaf",            1,   "count",      "spice",   True),
+    ], 4, 40, "weeknight", df=True, veg=True, vegan=True, tags=["hearty", "plant-based"]),
+
+    # ── Asian Vegan ────────────────────────────────────────────────────────────
+    _r("VGN-ASN-001", "Crispy Tofu Stir-Fry", "asian", "tofu", [
+        _i("firm tofu",           14,  "oz",         "protein"),
+        _i("broccoli",            1,   "large head", "produce"),
+        _i("bell pepper",         2,   "count",      "produce"),
+        _i("snap peas",           6,   "oz",         "produce"),
+        _i("brown rice",          2,   "cups",       "grain"),
+        _i("soy sauce",           3,   "tbsp",       "pantry",  True),
+        _i("sesame oil",          1,   "tbsp",       "pantry",  True),
+        _i("cornstarch",          2,   "tbsp",       "pantry",  True),
+        _i("garlic",              3,   "cloves",     "produce", True),
+        _i("ginger",              1,   "tsp",        "spice",   True),
+    ], 4, 30, "weeknight", df=True, veg=True, vegan=True, tags=["high-protein", "quick"]),
+
+    _r("VGN-ASN-002", "Edamame Fried Rice", "asian", "legumes", [
+        _i("shelled edamame",     12,  "oz",         "legumes"),
+        _i("brown rice",          3,   "cups",       "grain"),
+        _i("carrots",             2,   "medium",     "produce"),
+        _i("green onions",        4,   "stalks",     "produce"),
+        _i("frozen corn",         1,   "cup",        "frozen"),
+        _i("soy sauce",           3,   "tbsp",       "pantry",  True),
+        _i("sesame oil",          2,   "tsp",        "pantry",  True),
+        _i("garlic",              2,   "cloves",     "produce", True),
+    ], 4, 25, "weeknight", df=True, veg=True, vegan=True, tags=["quick", "meal-prep"]),
+
+    _r("VGN-ASN-003", "Coconut Red Lentil Soup", "asian", "lentils", [
+        _i("red lentils",         1.5, "cups",       "legumes"),
+        _i("coconut milk",        1,   "13.5oz can", "canned"),
+        _i("baby spinach",        3,   "oz",         "produce"),
+        _i("yellow onion",        1,   "medium",     "produce"),
+        _i("garlic",              3,   "cloves",     "produce", True),
+        _i("fresh ginger",        1,   "tbsp",       "produce"),
+        _i("curry powder",        2,   "tsp",        "spice",   True),
+        _i("turmeric",            0.5, "tsp",        "spice",   True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+    ], 4, 30, "weeknight", gf=True, df=True, veg=True, vegan=True, tags=["cozy", "one-pot"]),
+
+    # ── American Vegan ─────────────────────────────────────────────────────────
+    _r("VGN-AMR-001", "White Bean and Kale Soup", "american_comfort", "legumes", [
+        _i("canned white beans",  2,   "15oz cans",  "legumes"),
+        _i("kale",                1,   "bunch",      "produce"),
+        _i("carrots",             3,   "medium",     "produce"),
+        _i("celery",              3,   "stalks",     "produce"),
+        _i("yellow onion",        1,   "medium",     "produce"),
+        _i("garlic",              4,   "cloves",     "produce", True),
+        _i("vegetable broth",     4,   "cups",       "canned",  True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+        _i("thyme",               1,   "tsp",        "spice",   True),
+    ], 4, 35, "weeknight", gf=True, df=True, veg=True, vegan=True, tags=["cozy", "one-pot"]),
+
+    _r("VGN-AMR-002", "BBQ Jackfruit Sandwiches", "american_comfort", "jackfruit", [
+        _i("canned jackfruit",    2,   "20oz cans",  "protein"),
+        _i("whole wheat buns",    4,   "count",      "grain"),
+        _i("coleslaw mix",        1,   "14oz bag",   "produce"),
+        _i("apple cider vinegar", 2,   "tbsp",       "pantry",  True),
+        _i("BBQ sauce",           0.5, "cup",        "pantry",  True),
+        _i("smoked paprika",      1,   "tsp",        "spice",   True),
+        _i("garlic powder",       0.5, "tsp",        "spice",   True),
+    ], 4, 30, "weeknight", df=True, veg=True, vegan=True, tags=["comfort", "family-friendly"]),
+
+    # ── Mediterranean Vegan ────────────────────────────────────────────────────
+    _r("VGN-MED-001", "Falafel and Tabbouleh Bowls", "mediterranean", "legumes", [
+        _i("canned chickpeas",    2,   "15oz cans",  "legumes"),
+        _i("bulgur wheat",        1,   "cup",        "grain"),
+        _i("parsley",             1,   "large bunch","produce"),
+        _i("roma tomatoes",       3,   "count",      "produce"),
+        _i("cucumber",            1,   "medium",     "produce"),
+        _i("lemon",               2,   "count",      "produce"),
+        _i("olive oil",           3,   "tbsp",       "pantry",  True),
+        _i("cumin",               1,   "tsp",        "spice",   True),
+        _i("coriander",           1,   "tsp",        "spice",   True),
+    ], 4, 40, "weeknight", df=True, veg=True, vegan=True, tags=["high-protein", "fresh"]),
+
+    _r("VGN-MED-002", "Shakshuka with Chickpeas", "mediterranean", "legumes", [
+        _i("canned chickpeas",    1,   "15oz can",   "legumes"),
+        _i("canned diced tomatoes",1,  "28oz can",   "canned"),
+        _i("bell pepper",         1,   "count",      "produce"),
+        _i("yellow onion",        1,   "medium",     "produce"),
+        _i("garlic",              3,   "cloves",     "produce", True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+        _i("smoked paprika",      1,   "tsp",        "spice",   True),
+        _i("cumin",               1,   "tsp",        "spice",   True),
+        _i("crusty bread",        1,   "loaf",       "grain"),
+    ], 4, 25, "weeknight", df=True, veg=True, vegan=True, tags=["one-pan", "cozy"]),
+]
+
+
+# =============================================================================
+# VEGETARIAN RECIPES  (VGT-*) — eggs and dairy allowed
+# primary_protein: "eggs" | "legumes" | "tofu" | "cheese"
+# All tagged veg=True (not necessarily vegan)
+# =============================================================================
+VEGETARIAN = [
+    # ── Mexican Vegetarian ─────────────────────────────────────────────────────
+    _r("VGT-MEX-001", "Egg and Black Bean Burritos", "mexican", "eggs", [
+        _i("eggs",                8,   "large",      "protein"),
+        _i("canned black beans",  1,   "15oz can",   "legumes"),
+        _i("flour tortillas",     4,   "large",      "grain"),
+        _i("shredded Mexican cheese", 1, "cup",      "dairy"),
+        _i("salsa",               0.5, "cup",        "canned",  True),
+        _i("cumin",               0.5, "tsp",        "spice",   True),
+        _i("olive oil",           1,   "tbsp",       "pantry",  True),
+    ], 4, 20, "weeknight", veg=True, tags=["quick", "breakfast-for-dinner"]),
+
+    _r("VGT-MEX-002", "Cheese Enchiladas with Red Sauce", "mexican", "cheese", [
+        _i("shredded cheese blend",2,  "cups",       "dairy"),
+        _i("corn tortillas",      8,   "count",      "grain"),
+        _i("enchilada sauce",     2,   "10oz cans",  "canned"),
+        _i("yellow onion",        1,   "medium",     "produce"),
+        _i("sour cream",          0.5, "cup",        "dairy"),
+        _i("cilantro",            1,   "bunch",      "produce"),
+        _i("olive oil",           1,   "tbsp",       "pantry",  True),
+    ], 4, 40, "weeknight", gf=True, veg=True, tags=["comfort", "family-friendly"]),
+
+    # ── Italian Vegetarian ─────────────────────────────────────────────────────
+    _r("VGT-ITA-001", "Pasta Primavera with Parmesan", "italian", "cheese", [
+        _i("pasta",               12,  "oz",         "grain"),
+        _i("zucchini",            2,   "medium",     "produce"),
+        _i("cherry tomatoes",     1,   "pint",       "produce"),
+        _i("bell pepper",         1,   "count",      "produce"),
+        _i("parmesan",            0.75,"cup",        "dairy"),
+        _i("garlic",              3,   "cloves",     "produce", True),
+        _i("olive oil",           3,   "tbsp",       "pantry",  True),
+        _i("dried basil",         1,   "tsp",        "spice",   True),
+    ], 4, 25, "weeknight", veg=True, tags=["quick", "fresh"]),
+
+    _r("VGT-ITA-002", "Margherita Flatbread Pizzas", "italian", "cheese", [
+        _i("flatbread or naan",   4,   "count",      "grain"),
+        _i("fresh mozzarella",    8,   "oz",         "dairy"),
+        _i("roma tomatoes",       3,   "medium",     "produce"),
+        _i("fresh basil",         1,   "bunch",      "produce"),
+        _i("pizza sauce",         0.5, "cup",        "canned",  True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+        _i("garlic powder",       0.5, "tsp",        "spice",   True),
+    ], 4, 20, "weeknight", veg=True, tags=["quick", "kid-friendly"]),
+
+    # ── Asian Vegetarian ───────────────────────────────────────────────────────
+    _r("VGT-ASN-001", "Tofu and Vegetable Fried Rice", "asian", "tofu", [
+        _i("firm tofu",           14,  "oz",         "protein"),
+        _i("brown rice",          3,   "cups",       "grain"),
+        _i("eggs",                3,   "large",      "protein"),
+        _i("frozen peas",         1,   "cup",        "frozen"),
+        _i("carrots",             2,   "medium",     "produce"),
+        _i("green onions",        4,   "stalks",     "produce"),
+        _i("soy sauce",           3,   "tbsp",       "pantry",  True),
+        _i("sesame oil",          1,   "tbsp",       "pantry",  True),
+    ], 4, 30, "weeknight", df=True, veg=True, tags=["quick", "high-protein"]),
+
+    _r("VGT-ASN-002", "Miso Soup with Tofu and Seaweed", "asian", "tofu", [
+        _i("silken tofu",         14,  "oz",         "protein"),
+        _i("miso paste",          0.25,"cup",        "pantry",  True),
+        _i("dried wakame",        0.25,"cup",        "pantry",  True),
+        _i("green onions",        3,   "stalks",     "produce"),
+        _i("brown rice",          2,   "cups",       "grain"),
+        _i("soy sauce",           1,   "tbsp",       "pantry",  True),
+        _i("sesame oil",          1,   "tsp",        "pantry",  True),
+    ], 4, 20, "weeknight", df=True, veg=True, tags=["light", "Japanese"]),
+
+    # ── American Vegetarian ────────────────────────────────────────────────────
+    _r("VGT-AMR-001", "Vegetarian Chili", "american_comfort", "legumes", [
+        _i("canned kidney beans", 2,   "15oz cans",  "legumes"),
+        _i("canned black beans",  1,   "15oz can",   "legumes"),
+        _i("canned diced tomatoes",1,  "28oz can",   "canned"),
+        _i("bell pepper",         2,   "count",      "produce"),
+        _i("yellow onion",        1,   "medium",     "produce"),
+        _i("shredded cheddar",    1,   "cup",        "dairy"),
+        _i("chili powder",        2,   "tbsp",       "spice",   True),
+        _i("cumin",               1,   "tsp",        "spice",   True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+    ], 4, 35, "weeknight", gf=True, veg=True, tags=["hearty", "meal-prep"]),
+
+    _r("VGT-AMR-002", "Caprese Egg Bake", "american_comfort", "eggs", [
+        _i("eggs",                8,   "large",      "protein"),
+        _i("fresh mozzarella",    6,   "oz",         "dairy"),
+        _i("cherry tomatoes",     1,   "pint",       "produce"),
+        _i("fresh basil",         1,   "bunch",      "produce"),
+        _i("crusty bread",        1,   "loaf",       "grain"),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+        _i("garlic",              2,   "cloves",     "produce", True),
+    ], 4, 30, "weeknight", gf=False, veg=True, tags=["breakfast-for-dinner", "fresh"]),
+
+    # ── Mediterranean Vegetarian ───────────────────────────────────────────────
+    _r("VGT-MED-001", "Greek Egg and Vegetable Skillet", "mediterranean", "eggs", [
+        _i("eggs",                8,   "large",      "protein"),
+        _i("feta cheese",         4,   "oz",         "dairy"),
+        _i("cherry tomatoes",     1,   "pint",       "produce"),
+        _i("baby spinach",        3,   "oz",         "produce"),
+        _i("kalamata olives",     0.5, "cup",        "pantry",  True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+        _i("oregano",             1,   "tsp",        "spice",   True),
+        _i("pita bread",          4,   "count",      "grain"),
+    ], 4, 20, "weeknight", gf=False, veg=True, tags=["quick", "fresh"]),
+
+    _r("VGT-MED-002", "Spanakopita-Style Pasta", "mediterranean", "cheese", [
+        _i("pasta",               12,  "oz",         "grain"),
+        _i("frozen spinach",      10,  "oz",         "frozen"),
+        _i("feta cheese",         6,   "oz",         "dairy"),
+        _i("ricotta",             1,   "cup",        "dairy"),
+        _i("yellow onion",        1,   "medium",     "produce"),
+        _i("garlic",              3,   "cloves",     "produce", True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+        _i("nutmeg",              0.25,"tsp",        "spice",   True),
+        _i("lemon",               1,   "count",      "produce"),
+    ], 4, 30, "weeknight", veg=True, tags=["cozy", "Greek-inspired"]),
+]
+
+
+# =============================================================================
+# PESCATARIAN RECIPES  (PSC-*) — fish/seafood, no land meat
+# primary_protein: "salmon" | "shrimp" | "cod" | "tuna" | "tilapia"
+# =============================================================================
+PESCATARIAN = [
+    # ── Mexican Pescatarian ────────────────────────────────────────────────────
+    _r("PSC-MEX-001", "Fish Tacos with Mango Salsa", "mexican", "cod", [
+        _i("cod fillets",         1.5, "lbs",        "protein"),
+        _i("corn tortillas",      12,  "count",      "grain"),
+        _i("mango",               1,   "large",      "produce"),
+        _i("red onion",           0.5, "medium",     "produce"),
+        _i("jalapeño",            1,   "count",      "produce"),
+        _i("cilantro",            1,   "bunch",      "produce"),
+        _i("lime",                3,   "count",      "produce"),
+        _i("cumin",               1,   "tsp",        "spice",   True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+    ], 4, 25, "weeknight", gf=True, df=True, tags=["fresh", "summer"]),
+
+    _r("PSC-MEX-002", "Shrimp Fajita Bowls", "mexican", "shrimp", [
+        _i("shrimp",              1.5, "lbs",        "protein"),
+        _i("bell peppers",        3,   "count",      "produce"),
+        _i("white onion",         1,   "large",      "produce"),
+        _i("brown rice",          2,   "cups",       "grain"),
+        _i("lime",                2,   "count",      "produce"),
+        _i("cilantro",            1,   "bunch",      "produce"),
+        _i("cumin",               1.5, "tsp",        "spice",   True),
+        _i("chili powder",        1,   "tsp",        "spice",   True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+    ], 4, 25, "weeknight", gf=True, df=True, tags=["quick", "high-protein"]),
+
+    # ── Italian Pescatarian ────────────────────────────────────────────────────
+    _r("PSC-ITA-001", "Shrimp Scampi", "italian", "shrimp", [
+        _i("shrimp",              1.5, "lbs",        "protein"),
+        _i("linguine",            12,  "oz",         "grain"),
+        _i("lemon",               2,   "count",      "produce"),
+        _i("parsley",             1,   "bunch",      "produce"),
+        _i("garlic",              6,   "cloves",     "produce", True),
+        _i("butter",              4,   "tbsp",       "dairy",   True),
+        _i("olive oil",           3,   "tbsp",       "pantry",  True),
+        _i("red pepper flakes",   0.5, "tsp",        "spice",   True),
+    ], 4, 20, "weeknight", tags=["elegant", "quick"]),
+
+    _r("PSC-ITA-002", "Salmon with Capers and Pasta", "italian", "salmon", [
+        _i("salmon fillets",      1.5, "lbs",        "protein"),
+        _i("pasta",               12,  "oz",         "grain"),
+        _i("capers",              3,   "tbsp",       "pantry",  True),
+        _i("cherry tomatoes",     1,   "pint",       "produce"),
+        _i("lemon",               1,   "count",      "produce"),
+        _i("garlic",              3,   "cloves",     "produce", True),
+        _i("olive oil",           3,   "tbsp",       "pantry",  True),
+        _i("parsley",             1,   "bunch",      "produce"),
+    ], 4, 25, "weeknight", df=True, tags=["elegant", "omega-3"]),
+
+    # ── Asian Pescatarian ──────────────────────────────────────────────────────
+    _r("PSC-ASN-001", "Teriyaki Salmon Bowls", "asian", "salmon", [
+        _i("salmon fillets",      1.5, "lbs",        "protein"),
+        _i("brown rice",          2,   "cups",       "grain"),
+        _i("broccoli",            1,   "large head", "produce"),
+        _i("edamame",             1,   "cup",        "legumes"),
+        _i("green onions",        3,   "stalks",     "produce"),
+        _i("soy sauce",           3,   "tbsp",       "pantry",  True),
+        _i("honey",               2,   "tbsp",       "pantry",  True),
+        _i("sesame oil",          1,   "tbsp",       "pantry",  True),
+        _i("ginger",              1,   "tsp",        "spice",   True),
+    ], 4, 25, "weeknight", df=True, tags=["omega-3", "meal-prep"]),
+
+    _r("PSC-ASN-002", "Shrimp Pad Thai", "asian", "shrimp", [
+        _i("shrimp",              1.5, "lbs",        "protein"),
+        _i("rice noodles",        8,   "oz",         "grain"),
+        _i("bean sprouts",        2,   "cups",       "produce"),
+        _i("green onions",        4,   "stalks",     "produce"),
+        _i("eggs",                2,   "large",      "protein"),
+        _i("peanuts",             0.25,"cup",        "pantry",  True),
+        _i("fish sauce",          2,   "tbsp",       "pantry",  True),
+        _i("lime",                2,   "count",      "produce"),
+        _i("sesame oil",          1,   "tbsp",       "pantry",  True),
+    ], 4, 30, "weeknight", gf=True, df=True, tags=["Thai", "takeout-at-home"]),
+
+    _r("PSC-ASN-003", "Miso-Glazed Cod with Bok Choy", "asian", "cod", [
+        _i("cod fillets",         1.5, "lbs",        "protein"),
+        _i("bok choy",            2,   "heads",      "produce"),
+        _i("brown rice",          2,   "cups",       "grain"),
+        _i("miso paste",          3,   "tbsp",       "pantry",  True),
+        _i("soy sauce",           2,   "tbsp",       "pantry",  True),
+        _i("honey",               1,   "tbsp",       "pantry",  True),
+        _i("sesame oil",          1,   "tbsp",       "pantry",  True),
+        _i("ginger",              1,   "tsp",        "spice",   True),
+    ], 4, 25, "weeknight", gf=True, df=True, tags=["light", "Japanese-inspired"]),
+
+    # ── American Pescatarian ───────────────────────────────────────────────────
+    _r("PSC-AMR-001", "Salmon Patties with Roasted Veg", "american_comfort", "salmon", [
+        _i("canned salmon",       2,   "14.75oz cans","protein"),
+        _i("breadcrumbs",         0.5, "cup",         "pantry",  True),
+        _i("eggs",                2,   "large",       "protein"),
+        _i("broccoli",            1,   "large head",  "produce"),
+        _i("sweet potato",        2,   "medium",      "produce"),
+        _i("lemon",               1,   "count",       "produce"),
+        _i("olive oil",           3,   "tbsp",        "pantry",  True),
+        _i("garlic powder",       0.5, "tsp",         "spice",   True),
+    ], 4, 35, "weeknight", df=True, tags=["budget-friendly", "omega-3"]),
+
+    _r("PSC-AMR-002", "Shrimp and Grits", "american_comfort", "shrimp", [
+        _i("shrimp",              1.5, "lbs",        "protein"),
+        _i("stone-ground grits",  1,   "cup",        "grain"),
+        _i("cheddar cheese",      1,   "cup",        "dairy"),
+        _i("cherry tomatoes",     1,   "pint",       "produce"),
+        _i("green onions",        4,   "stalks",     "produce"),
+        _i("garlic",              3,   "cloves",     "produce", True),
+        _i("butter",              2,   "tbsp",       "dairy",   True),
+        _i("Cajun seasoning",     1,   "tsp",        "spice",   True),
+    ], 4, 30, "weeknight", gf=True, tags=["Southern", "comfort"]),
+
+    # ── Mediterranean Pescatarian ──────────────────────────────────────────────
+    _r("PSC-MED-001", "Mediterranean Baked Salmon", "mediterranean", "salmon", [
+        _i("salmon fillets",      1.5, "lbs",        "protein"),
+        _i("cherry tomatoes",     1,   "pint",       "produce"),
+        _i("kalamata olives",     0.5, "cup",        "pantry",  True),
+        _i("lemon",               2,   "count",      "produce"),
+        _i("garlic",              4,   "cloves",     "produce", True),
+        _i("fresh dill",          1,   "bunch",      "produce"),
+        _i("olive oil",           3,   "tbsp",       "pantry",  True),
+        _i("oregano",             1,   "tsp",        "spice",   True),
+        _i("quinoa",              1.5, "cups",       "grain"),
+    ], 4, 30, "weeknight", gf=True, df=True, tags=["omega-3", "fresh"]),
+
+    _r("PSC-MED-002", "Shrimp Saganaki with Orzo", "mediterranean", "shrimp", [
+        _i("shrimp",              1.5, "lbs",        "protein"),
+        _i("orzo",                12,  "oz",         "grain"),
+        _i("feta cheese",         4,   "oz",         "dairy"),
+        _i("canned diced tomatoes",1,  "14oz can",   "canned"),
+        _i("bell pepper",         1,   "count",      "produce"),
+        _i("yellow onion",        1,   "medium",     "produce"),
+        _i("garlic",              3,   "cloves",     "produce", True),
+        _i("olive oil",           2,   "tbsp",       "pantry",  True),
+        _i("oregano",             1,   "tsp",        "spice",   True),
+    ], 4, 30, "weeknight", tags=["Greek-inspired", "elegant"]),
+]
+
+
+# ── Master recipe list — all cuisines + all dietary identities ────────────────
+# Order: original 150 first (stable IDs), then new dietary-identity collections.
+# Phase 3: replace with DB-backed recipe store once at 50+ households.
+ALL_RECIPES: list[dict] = (
+    MEXICAN + ITALIAN + ASIAN + AMERICAN + MEDITERRANEAN
+    + VEGAN + VEGETARIAN + PESCATARIAN
+)
+
+# Populate the ID lookup now that ALL_RECIPES is fully assembled.
+# get_recipe() and query_recipes() use _BY_ID at call time, not import time.
+_BY_ID.update({r["id"]: r for r in ALL_RECIPES})
