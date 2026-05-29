@@ -189,38 +189,35 @@ def _build_cart(plan, pantry, out_of_stock):
     """
     cart = {}  # {store: [CartItem]}
 
-    # 1. Sale items from plan (already assigned to a store by the meal planner)
-    sale_item_keys = set()  # track to avoid double-listing in recipe extras
-    for meal in plan.get("meals", []):
-        for ing in meal.get("ingredients", []):
-            sid       = ing.get("store", "")
-            store     = STORE_NAMES.get(sid, sid) or "Unassigned"
-            name      = ing.get("item", "")
-            qty_str   = str(ing.get("qty", ""))
-            cost      = float(ing.get("cost", 0.0))
-            key       = name.lower() + "|" + store
+    # 1. Sale items — use the pre-deduplicated weekly_shopping basket built by
+    # the plan page.  That basket allocates each ingredient once with its full
+    # purchase price and total qty, regardless of how many meals share it.
+    # Falling back to per-meal iteration (the old approach) caused chicken breast
+    # to appear once per meal even when the same sale item was shared across all
+    # chicken dishes.
+    #
+    # Pilot: category field not stored in weekly_shopping yet — defaults to "other".
+    # Phase 2: add category to basket items so store sections sort correctly.
+    sale_item_keys = set()
+    for ws in plan.get("weekly_shopping", []):
+        store_sid = ws.get("store", "")
+        store     = STORE_NAMES.get(store_sid, store_sid) or "Unassigned"
+        name      = ws.get("item", "")
+        qty_str   = str(ws.get("qty_total", ""))
+        cost      = float(ws.get("total_cost", 0.0))
+        meals_ct  = ws.get("meals", 1)
 
-            if key in sale_item_keys:
-                # Shared ingredient (used in multiple meals) -- accumulate cost + qty
-                for item in cart.get(store, []):
-                    if item["name"].lower() == name.lower() and item["source"] == "sale":
-                        item["cost"] = round(item["cost"] + cost, 2)
-                        item["qty"]  = _combine_qty(item["qty"], qty_str)
-                        if meal.get("day") and meal["day"] not in item.get("_meals", []):
-                            item.setdefault("_meals", []).append(meal["day"])
-                        break
-                continue
-
-            sale_item_keys.add(key)
-            cart.setdefault(store, []).append({
-                "name":     name,
-                "qty":      qty_str,
-                "cost":     cost,
-                "source":   "sale",
-                "category": ing.get("category", "other"),
-                "moveable": False,   # sale price is store-specific -- moving loses the deal
-                "_meals":   [meal.get("day", "")] if meal.get("day") else [],
-            })
+        key = name.lower() + "|" + store
+        sale_item_keys.add(key)
+        cart.setdefault(store, []).append({
+            "name":     name,
+            "qty":      qty_str,
+            "cost":     cost,
+            "source":   "sale",
+            "category": ws.get("category", "other"),
+            "moveable": False,   # sale price is store-specific — moving loses the deal
+            "_meals":   [f"{meals_ct} meals"] if meals_ct > 1 else [],
+        })
 
     # 2. Recipe extras -- non-pantry ingredients not in the sale list
     sale_names_lower = {n.lower() for n in (

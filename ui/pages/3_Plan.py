@@ -306,6 +306,26 @@ def _run_engine(prefs: dict) -> bool:
                     "used_in":  n_uses,
                 })
                 meal_cost += alloc_cost
+            # Align recipe protein ingredient name to the actual sale item.
+            # e.g. recipe says "chicken thighs" but we bought "Chicken Breast"
+            # on sale — override so the shopping list doesn't double-count.
+            # Phase 2: full ingredient DB mapping (USDA FDC IDs) replaces this.
+            sale_protein_name = next(
+                (item["item"] for item in ing_list if item.get("category") == "protein"),
+                None
+            )
+            raw_recipe_ings = getattr(meal, "recipe_ingredients", [])
+            if sale_protein_name and raw_recipe_ings:
+                aligned_ings = []
+                for _ri in raw_recipe_ings:
+                    if _ri.get("category") == "protein" and not _ri.get("pantry_stable", False):
+                        _ri = dict(_ri)
+                        _ri["name"] = sale_protein_name   # bind to actual sale item
+                    aligned_ings.append(_ri)
+                recipe_ings_aligned = aligned_ings
+            else:
+                recipe_ings_aligned = raw_recipe_ings
+
             plan_meals.append({
                 "day":               meal.day,
                 "name":              meal.name,
@@ -314,9 +334,11 @@ def _run_engine(prefs: dict) -> bool:
                 "best_store":        "—",
                 "ingredients":       ing_list,
                 "meal_cost":         round(meal_cost, 2),
-                # Recipe library data — populated when a library match was found
+                # Recipe library data — populated when a library match was found.
+                # recipe_ingredients has protein names normalised to the sale item
+                # so the shopping list doesn't create duplicate protein entries.
                 "recipe_id":         getattr(meal, "recipe_id", None),
-                "recipe_ingredients": getattr(meal, "recipe_ingredients", []),
+                "recipe_ingredients": recipe_ings_aligned,
             })
             plan_total += meal_cost
 

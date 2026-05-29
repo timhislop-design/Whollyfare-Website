@@ -195,49 +195,51 @@ hf_per     = hf_cost / num_servings_total
 found_money = totals["found_money"]
 vs_hf       = totals["vs_hellofresh"]
 
-st.html("**Your plan vs. the alternatives**")
-st.markdown(
-    f"""<table style='width:100%;border-collapse:collapse;font-size:0.9rem;
-                       font-family:Arial,sans-serif;margin-bottom:20px;'>
-      <thead>
-        <tr style='background:#D8EDD0;color:#1E5C32;'>
-          <th style='padding:10px 14px;text-align:left;border-radius:6px 0 0 0;'></th>
-          <th style='padding:10px 14px;text-align:right;'>Weekly cost</th>
-          <th style='padding:10px 14px;text-align:right;'>Per serving</th>
-          <th style='padding:10px 14px;text-align:right;border-radius:0 6px 0 0;'>You save</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr style='background:#FFFFFF;border-bottom:1px solid #D8EDD0;'>
-          <td style='padding:10px 14px;font-weight:700;color:#1E5C32;'>
-            🟢 WhollyFare plan
-          </td>
-          <td style='padding:10px 14px;text-align:right;font-weight:700;color:#1E5C32;'>
-            ${wf_cost:.2f}
-          </td>
-          <td style='padding:10px 14px;text-align:right;color:#3A8C4E;'>
-            ${wf_per:.2f}
-          </td>
-          <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>—</td>
-        </tr>
-        <tr style='background:#FAFAF7;border-bottom:1px solid #D8EDD0;'>
-          <td style='padding:10px 14px;color:#5A7A62;'>Best single store</td>
-          <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${single_cost:.2f}</td>
-          <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${single_per:.2f}</td>
-          <td style='padding:10px 14px;text-align:right;font-weight:700;color:#F28B30;'>
-            ${found_money:.2f}
-          </td>
-        </tr>
-        <tr style='background:#FFFFFF;'>
-          <td style='padding:10px 14px;color:#5A7A62;'>HelloFresh equivalent</td>
-          <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${hf_cost:.2f}</td>
-          <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${hf_per:.2f}</td>
-          <td style='padding:10px 14px;text-align:right;font-weight:700;color:#F28B30;'>
-            ${vs_hf:.2f}
-          </td>
-        </tr>
-      </tbody>
-    </table>""")
+st.html(f"""
+<strong style='font-size:1rem;color:#1E5C32;display:block;margin-bottom:8px;'>
+  Your plan vs. the alternatives
+</strong>
+<table style='width:100%;border-collapse:collapse;font-size:0.9rem;
+              font-family:Arial,sans-serif;margin-bottom:20px;'>
+  <thead>
+    <tr style='background:#D8EDD0;color:#1E5C32;'>
+      <th style='padding:10px 14px;text-align:left;border-radius:6px 0 0 0;'></th>
+      <th style='padding:10px 14px;text-align:right;'>Weekly cost</th>
+      <th style='padding:10px 14px;text-align:right;'>Per serving</th>
+      <th style='padding:10px 14px;text-align:right;border-radius:0 6px 0 0;'>You save</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style='background:#FFFFFF;border-bottom:1px solid #D8EDD0;'>
+      <td style='padding:10px 14px;font-weight:700;color:#1E5C32;'>
+        &#x1F7E2; WhollyFare plan
+      </td>
+      <td style='padding:10px 14px;text-align:right;font-weight:700;color:#1E5C32;'>
+        ${wf_cost:.2f}
+      </td>
+      <td style='padding:10px 14px;text-align:right;color:#3A8C4E;'>
+        ${wf_per:.2f}
+      </td>
+      <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>&mdash;</td>
+    </tr>
+    <tr style='background:#FAFAF7;border-bottom:1px solid #D8EDD0;'>
+      <td style='padding:10px 14px;color:#5A7A62;'>Best single store</td>
+      <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${single_cost:.2f}</td>
+      <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${single_per:.2f}</td>
+      <td style='padding:10px 14px;text-align:right;font-weight:700;color:#F28B30;'>
+        ${found_money:.2f}
+      </td>
+    </tr>
+    <tr style='background:#FFFFFF;'>
+      <td style='padding:10px 14px;color:#5A7A62;'>HelloFresh equivalent</td>
+      <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${hf_cost:.2f}</td>
+      <td style='padding:10px 14px;text-align:right;color:#5A7A62;'>${hf_per:.2f}</td>
+      <td style='padding:10px 14px;text-align:right;font-weight:700;color:#F28B30;'>
+        ${vs_hf:.2f}
+      </td>
+    </tr>
+  </tbody>
+</table>""")
 
 # ── Recipe library imports for swap feature ──────────────────────────────────
 try:

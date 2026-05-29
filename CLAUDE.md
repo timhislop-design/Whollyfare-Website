@@ -418,30 +418,46 @@ Expanders: 🏡 My Household (Household, My Stores, My Pantry, Recipes, Help & F
 
 ## What to Build Next
 
-Priority order (as of late May 2026 — pilot-ready baseline complete):
+Priority order (as of late May 2026 — strategic pivot to multi-market pilot):
 
-1. **End-to-end test + bug fixes** (first priority before any new features)
-   Full week loop: Admin circular upload → plan generation → Buy-Off approval →
-   Shopping List → Ledger. Must persist across browser refresh. Test on mobile.
+1. **End-to-end test + bug fixes** (Tim testing solo in New York — non-negotiable first)
+   Full week loop: Admin circular upload → plan → Buy-Off → Shopping List → Ledger.
+   Catch all bugs before expanding to pilot households. Fix before you add.
 
-2. **Verify Admin circular pipeline on Streamlit Cloud**
-   Food Lion + Harris Teeter PDFs must extract and appear in `platform_flyer_items`.
-   Kroger API pull must work from Grocer Hub.
+2. **Constraint engine expansion** — highest ROI unlock for pilot household pool
+   Add lifestyle dietary identities to the constraint engine and household profile:
+   vegan, vegetarian, pescatarian, gluten-free (lifestyle), low-carb/keto, paleo,
+   Mediterranean, kosher, halal. Each is new filter tags in the engine + profile options
+   in `1_Household.py` + tags on recipes in `recipe_library.py`. Architecture exists —
+   extend existing patterns. This opens the pilot to households without clinical conditions
+   and strengthens the Health Guard (Tier 3) TAM dramatically.
 
-3. **Contact form email** — add `CONTACT_EMAIL_USER` + `CONTACT_EMAIL_PASS`
-   (Gmail App Password) to Streamlit Cloud secrets to enable email from `13_Help.py`.
+3. **National pilot architecture** — enable multi-market pilot households
+   The acquisition story requires multi-market proof, not just Charlottesville.
+   What's needed: (a) make `store_directory.py` serve multiple metro areas with
+   Kroger location IDs by region; (b) Tim loads 2-3 extra PDFs per week for each
+   pilot market (Kroger API is already national — just different location IDs);
+   (c) Grocer Hub zip filtering already works — needs more regional chain data.
+   Kroger API + Aldi PDFs + one regional chain per metro = meaningful coverage
+   in most US markets. Same 3 integration patterns, different endpoints.
+   Goal: 2-3 pilot households in different metro areas with real receipt data.
 
-4. **Phase 2: Admin user management UI**
-   Tim grants/revokes pilot household access from within the app.
-   Currently done via Supabase SQL: `UPDATE profiles SET tier = 'meal_planner' WHERE email = '...'`
+4. **Admin user management UI** — Tim grants pilot access from within the app
+   Currently: `UPDATE profiles SET tier = 'meal_planner' WHERE email = '...'` in Supabase.
+   Build: simple admin tab to promote/demote pilot households by email.
 
-5. **Tonight's Dinner card polish** (`0_This_Week.py`)
-   This is the primary daily retention mechanic. Any UX improvement here compounds.
-   Consider: cook time display, quick ingredient count, "already cooked this?" toggle.
+5. **Contact form email** — Gmail App Password in Streamlit Cloud secrets
 
-6. **Supabase plan persistence**
-   Plan currently lost on browser refresh (session state only).
-   PROD path: save plan to `meal_plans` + `meal_plan_meals` tables on generation.
+6. **Tonight's Dinner card polish** (`0_This_Week.py`)
+   Primary daily retention mechanic. Cook time, ingredient count, "already made this?" toggle.
+
+7. **Supabase plan persistence** — plan lost on hard refresh (session-only today)
+   PROD path: save to `meal_plans` + `meal_plan_meals` on generation.
+
+8. **Coupons — Phase 2, after multi-market pilot data exists**
+   Correct direction but wrong timing now. The Flipp partnership conversation opens
+   when Tim walks in with pilot receipts from 3 cities, not before. Coupon Vault
+   is already in the Phase 2 roadmap — keep it there. Build the foundation first.
 
 Do not build new features before the existing flow works end-to-end. Fix before you add.
 
