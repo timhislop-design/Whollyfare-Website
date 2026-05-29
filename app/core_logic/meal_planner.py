@@ -375,17 +375,28 @@ class MealPlanner:
                     for fb in PLANT_PROTEIN_PANTRY_FALLBACK[identity]:
                         fake_ing = IngredientCandidate(
                             name=fb["name"],
+                            usda_fdc_id=None,
+                            allergens=[],
+                            nutrition={},
                             sale_price_per_unit=fb["price"],
                             unit=fb["unit"],
+                            standard_unit_weight_g=0.0,
                             category=fb["category"],
+                            tags=["pantry_fallback"],
                         )
                         proteins.append(ScoredIngredient(
                             ingredient=fake_ing,
-                            score=0.5,   # below real sale items — pantry, not flyer
-                            source="pantry_fallback",
+                            nutrition_score=0.0,
+                            value_score=0.5,     # lower than real sale items
+                            sale_savings_pct=0.0,
+                            score_breakdown={"source": "pantry_fallback"},
                         ))
                 except Exception:
                     pass   # fallback silently skipped if import fails
+
+        # Pre-compute once — these are plan-level constants, not per-meal
+        sale_names_lower    = {s.ingredient.name.lower() for s in hero_ingredients}
+        cuisine_prefs_lower = {c.lower() for c in (cuisine_prefs or [])}
 
         # Track used format indices per plugin to avoid repeating names
         _plugin_format_idx: dict[str, int] = {}
@@ -425,10 +436,6 @@ class MealPlanner:
             used_ids      = {m.recipe_id for m in plan.meals if m.recipe_id}
             used_cuisines = {m.flavor_plugin for m in plan.meals}
             anchor_name   = anchor_ing.ingredient.name.lower()
-
-            # Pre-compute for cuisine preference and sale affinity checks
-            sale_names_lower    = {s.ingredient.name.lower() for s in hero_ingredients}
-            cuisine_prefs_lower = {c.lower() for c in (cuisine_prefs or [])}
 
             def _protein_match(r: dict) -> bool:
                 pp = r.get("primary_protein", "").lower()

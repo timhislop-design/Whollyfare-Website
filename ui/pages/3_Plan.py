@@ -366,11 +366,12 @@ def _run_engine(prefs: dict) -> bool:
                 "meals":       n_uses,
                 "qty_total":   qty_str,
                 "store":       _store_from_ing(ing),
+                "category":    cat,   # passed through for shopping list section sorting
                 "_sort_key":   CATEGORY_PRIORITY.get(cat, 6),
             })
 
         basket_items.sort(key=lambda x: (x["_sort_key"], x["item"]))
-        # Remove internal sort key before storing
+        # Remove internal sort key before storing; category is kept for _build_cart()
         weekly_shopping = [
             {k: v for k, v in item.items() if k != "_sort_key"}
             for item in basket_items
