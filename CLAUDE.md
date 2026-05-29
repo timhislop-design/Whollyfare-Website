@@ -103,7 +103,7 @@ Amazon Fresh. Bulk-unit math, membership economics, hybrid trip planning.
   Connection via Streamlit secrets: `SUPABASE_URL`, `SUPABASE_KEY` (service_role).
 - **Claude API:** `ANTHROPIC_API_KEY` in Streamlit secrets. Used by Admin page
   for PDF circular extraction. Model: `claude-haiku-4-5-20251001`.
-- **Docs:** `PLAYBOOK.md` — full strategic spec. `CLAUDE.md` — this file.
+- **Docs:** `PLAYBOOK.md` — full strategic spec. `CLAUDE.md` — this file. `ARCHITECTURE.md` — living app map (pages, modules, data flow, Supabase schema, key functions). Update it when architecture changes.
 
 **Session state is the primary working store in the POC.** Supabase is the durable
 backup (degrades gracefully if not connected). Every file that touches persistence
@@ -171,7 +171,7 @@ Critical functions:
 - `PDF_STORES`, `WEDNESDAY_STORES`, `STORE_BY_CHAIN` convenience lookups
 
 ### app/data/recipe_library.py
-- 150 recipes across 5 cuisines (American, Mexican, Italian, Asian, Mediterranean)
+- 183 recipes across 8 collections: 5 cuisines (American, Mexican, Italian, Asian, Mediterranean) + Vegan (12), Vegetarian (10), Pescatarian (11)
 - Each recipe: name, ingredients (with qty/unit), servings, cuisine, proteins,
   category (weeknight/weekend), tags
 - Wired into meal_planner.py for plan generation
@@ -251,9 +251,10 @@ exact key names). Location ID for Kroger Barracks Rd: 01200441.
 
 These were learned the hard way. Every one has caused a lost session.
 
-### 1. NEVER use the Edit tool on files longer than ~300 lines
-Files known to exceed this: `ui/Home.py` (612), `ui/state.py` (1881),
-`ui/style.py` (377), `ui/pages/2_Grocer_Hub.py`, `ui/pages/5_Shopping_List.py`.
+### 1. NEVER use the Edit tool for file modifications
+The Edit tool silently truncates files — confirmed even on files as short as 113 lines (`profile_schema.py` was truncated in a prior session). The ">300 lines" rule was a floor, not the full rule. For any modification to an existing file, always use the Python bash string-replace pattern instead. Write tool is safe for creating new files from scratch.
+
+Files known to be large (extra caution): `ui/Home.py` (612), `ui/state.py` (1881), `ui/style.py` (377), `ui/pages/2_Grocer_Hub.py`, `ui/pages/5_Shopping_List.py`.
 
 Always use a Python string-replace script via bash:
 ```python
@@ -333,8 +334,12 @@ After every meaningful block of work, commit all changed files:
 ```bash
 cd C:\Users\timhi\Documents\GitHub\Whollyfare\Whollyfare-Website
 git add -A
-git commit -m "descriptive message covering what changed and why"
+git commit -m "2026-MM-DD: descriptive message covering what changed and why"
 ```
+
+Always start commit messages with the date (`2026-MM-DD:`). This prevents Tim from accidentally pasting multi-line commit messages into cmd and having subsequent lines executed as shell commands.
+
+If `git status` shows "You are currently rebasing" with no actual conflicts, run `git rebase --abort` to clear the stale state. Safe to run — does not undo committed work.
 
 Tim pushes to GitHub from his cmd prompt — the bash sandbox cannot reach GitHub.
 Claude commits (via bash); Tim pushes. No work is lost between sessions.
@@ -424,41 +429,34 @@ Priority order (as of late May 2026 — strategic pivot to multi-market pilot):
    Full week loop: Admin circular upload → plan → Buy-Off → Shopping List → Ledger.
    Catch all bugs before expanding to pilot households. Fix before you add.
 
-2. **Constraint engine expansion** — highest ROI unlock for pilot household pool
-   Add lifestyle dietary identities to the constraint engine and household profile:
-   vegan, vegetarian, pescatarian, gluten-free (lifestyle), low-carb/keto, paleo,
-   Mediterranean, kosher, halal. Each is new filter tags in the engine + profile options
-   in `1_Household.py` + tags on recipes in `recipe_library.py`. Architecture exists —
-   extend existing patterns. This opens the pilot to households without clinical conditions
-   and strengthens the Health Guard (Tier 3) TAM dramatically.
+✅ ~~Constraint engine expansion~~ — **DONE 2026-05-29.** Dietary identity layer fully wired:
+   vegan/vegetarian/pescatarian protein pools, 33 new identity-tagged recipes (183 total),
+   sale-affinity scoring, pantry fallbacks. See ARCHITECTURE.md.
 
-3. **National pilot architecture** — enable multi-market pilot households
+2. **National pilot architecture** — enable multi-market pilot households
    The acquisition story requires multi-market proof, not just Charlottesville.
    What's needed: (a) make `store_directory.py` serve multiple metro areas with
    Kroger location IDs by region; (b) Tim loads 2-3 extra PDFs per week for each
    pilot market (Kroger API is already national — just different location IDs);
    (c) Grocer Hub zip filtering already works — needs more regional chain data.
-   Kroger API + Aldi PDFs + one regional chain per metro = meaningful coverage
-   in most US markets. Same 3 integration patterns, different endpoints.
    Goal: 2-3 pilot households in different metro areas with real receipt data.
 
-4. **Admin user management UI** — Tim grants pilot access from within the app
-   Currently: `UPDATE profiles SET tier = 'meal_planner' WHERE email = '...'` in Supabase.
+3. **Admin user management UI** — Tim grants pilot access from within the app
+   Currently: `UPDATE profiles SET tier = 'meal_planner' WHERE email = '...';` in Supabase.
    Build: simple admin tab to promote/demote pilot households by email.
 
-5. **Contact form email** — Gmail App Password in Streamlit Cloud secrets
+4. **Contact form email** — Gmail App Password in Streamlit Cloud secrets
 
-6. **Tonight's Dinner card polish** (`0_This_Week.py`)
+5. **Tonight's Dinner card polish** (`0_This_Week.py`)
    Primary daily retention mechanic. Cook time, ingredient count, "already made this?" toggle.
 
-7. **Supabase plan persistence** — plan lost on hard refresh (session-only today)
+6. **Supabase plan persistence** — plan lost on hard refresh (session-only today)
    PROD path: save to `meal_plans` + `meal_plan_meals` on generation.
 
-8. **Coupons — Phase 2, after multi-market pilot data exists**
+7. **Coupons — Phase 2, after multi-market pilot data exists**
    Correct direction but wrong timing now. The Flipp partnership conversation opens
    when Tim walks in with pilot receipts from 3 cities, not before. Coupon Vault
    is already in the Phase 2 roadmap — keep it there. Build the foundation first.
-
 Do not build new features before the existing flow works end-to-end. Fix before you add.
 
 ---
