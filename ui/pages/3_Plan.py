@@ -894,6 +894,19 @@ st.divider()
 
 DAY_COLORS = ["#1E5C32", "#3A8C4E", "#5DAA6A", "#F28B30", "#BF5E00"]
 
+# Per-meal approval and swap state — survives reruns within the session
+_approvals = st.session_state.setdefault("meal_approvals", {})
+_swapped   = st.session_state.setdefault("meal_swaps", {})
+_n_approved = sum(1 for v in _approvals.values() if v)
+_prog_text = (
+    str(_n_approved) + " of " + str(len(meals)) + " meals approved"
+    " — lock in below when ready"
+    if _n_approved > 0 else
+    "Approve each meal below, swap anything that doesn't work, then lock in your week"
+)
+st.progress((_n_approved / len(meals)) if meals else 0.0, text=_prog_text)
+st.html("<div style='height:8px;'></div>")
+
 for idx, meal in enumerate(meals):
     color       = DAY_COLORS[idx % len(DAY_COLORS)]
     cost        = meal["meal_cost"]
@@ -1085,20 +1098,159 @@ for idx, meal in enumerate(meals):
             "Meal total: $" + str(round(meal['meal_cost'], 2)) + "</div>"
         )
 
-    st.html("<div style='margin-bottom:8px;'></div>")
 
-# ── Review & Approve CTA ──────────────────────────────────────────────────────
-st.html(
-    "<div style='background:#1E5C32;border-radius:10px;padding:16px 20px;margin:16px 0 8px;'>"
-    "<div style='color:#fff;font-size:1rem;font-weight:700;margin-bottom:4px;'>"
-    "Happy with this plan?</div>"
-    "<div style='color:#9FD9A8;font-size:0.85rem;'>"
-    "Review each meal, swap anything that doesn't work, and lock in your shopping list.</div>"
-    "</div>"
-)
-if st.button("→ Review & Approve meals", type="primary", use_container_width=True,
-             key="plan_to_buyoff"):
-    st.switch_page("pages/4_Sunday_BuyOff.py")
+    # ── Per-meal approve toggle ─────────────────────────────────────
+    _was_approved = _approvals.get(idx, False)
+    _a_col, _s_col = st.columns([2, 3])
+    with _a_col:
+        _approve_label = ("✅  Approved" if _was_approved else "☑️  Approve this meal")
+        _now_approved = st.checkbox(
+            _approve_label, key="approve_" + str(idx), value=_was_approved
+        )
+        if _now_approved != _was_approved:
+            _approvals[idx] = _now_approved
+            st.rerun()
+
+    # ── Swap recipe options ──────────────────────────────────────────
+    # Shows alternatives using the same hero protein — same economics,
+    # just a different recipe. Cuisine outside preference is flagged.
+    with st.expander("↕  See other recipe options for this meal", expanded=False):
+        try:
+            from app.data.recipe_library import query_recipes, get_recipe_shopping_items
+            # Determine hero protein from sale heroes for this meal
+            _hero_protein = None
+            for _hi in meal.get("ingredients", []):
+                if _hi.get("category") == "protein":
+                    # Extract first word as protein key ("chicken breast" -> "chicken")
+                    _hero_protein = _hi["item"].lower().split()[0]
+                    break
+
+            # IDs already in the plan (to avoid showing current meals as alternatives)
+            _used_ids = [m.get("recipe_id") for m in meals if m.get("recipe_id")]
+            _cuisine_prefs_lower = [
+                c.lower() for c in
+                st.session_state.get("plan_prefs", {}).get("cuisines", [])
+            ]
+
+            _alts = []
+            if _hero_protein:
+                _candidates = query_recipes(
+                    proteins=[_hero_protein],
+                    exclude_ids=_used_ids,
+                    max_results=30,
+                )
+                # Score by sale affinity
+                _sale_lower = {
+                    c.name.lower()
+                    for cands in st.session_state.get("flyer_data", {}).values()
+                    for c in cands
+                }
+                def _affinity(r):
+                    return sum(
+                        1 for i in r.get("ingredients", [])
+                        if not i.get("pantry_stable")
+                        and any(i["name"].lower() in sn or sn in i["name"].lower()
+                                for sn in _sale_lower)
+                    )
+                _candidates.sort(key=lambda r: -_affinity(r))
+                _alts = _candidates[:4]
+
+            if _alts:
+                st.html(
+                    "<div style='font-size:0.78rem;color:#5A7A62;margin-bottom:8px;'>"
+                    "These recipes use the same sale ingredients — swapping won't change your savings."
+                    "</div>"
+                )
+                for _alt in _alts:
+                    _aff  = _affinity(_alt)
+                    _cui  = _alt.get("cuisine", "").title()
+                    _in_pref = not _cuisine_prefs_lower or _alt["cuisine"].lower() in _cuisine_prefs_lower
+                    _cui_note = (""
+                                 if _in_pref else
+                                 " · outside your cuisine preference")
+                    _cui_color = "#1E5C32" if _in_pref else "#A05C00"
+                    _sale_note = (str(_aff) + " ingredient" + ("s" if _aff != 1 else "") + " on sale"
+                                  if _aff > 0 else "pantry + buy")
+                    _ac1, _ac2 = st.columns([4, 1])
+                    with _ac1:
+                        st.html(
+                            "<div style='padding:6px 0 4px;'>"
+                            "<div style='font-size:0.9rem;font-weight:600;color:#1A2E1D;'>"
+                            + _alt["name"] + "</div>"
+                            "<div style='font-size:0.75rem;margin-top:2px;'>"
+                            "<span style='color:" + _cui_color + ";font-weight:600;'>"
+                            + _cui + _cui_note + "</span>"
+                            "<span style='color:#888;'>&nbsp;·&nbsp;" + _sale_note + "</span>"
+                            "</div></div>"
+                        )
+                    with _ac2:
+                        if st.button("Choose", key="swap_" + str(idx) + "_" + _alt["id"],
+                                     use_container_width=True):
+                            # Swap recipe data in-place — sale heroes stay the same
+                            _new_ings = get_recipe_shopping_items(_alt)
+                            meals[idx]["name"]              = _alt["name"]
+                            meals[idx]["recipe_id"]         = _alt["id"]
+                            meals[idx]["recipe_ingredients"] = _new_ings
+                            _swapped[idx] = _alt["id"]
+                            plan["meals"] = meals
+                            st.session_state["plan"] = plan
+                            st.rerun()
+            else:
+                st.caption(
+                    "No other recipes found for this protein this week. "
+                    "Regenerate the plan to try different anchors."
+                )
+        except Exception as _swap_err:
+            st.caption("Could not load alternatives: " + str(_swap_err))
+
+    st.html("<div style='margin-bottom:12px;'></div>")
+
+# Lock in CTA — replaces old Review & Approve button
+_n_approved = sum(1 for v in _approvals.values() if v)
+
+if _n_approved > 0:
+    _all_done = _n_approved == len(meals)
+    _hdr = ("All " + str(len(meals)) + " meals approved"
+            if _all_done else
+            str(_n_approved) + " of " + str(len(meals)) + " meals approved")
+    _sub = ("Shopping list is ready."
+            if _all_done else
+            "Unapproved meals will be skipped.")
+    st.html(
+        "<div style='background:#1E5C32;border-radius:10px;"
+        "padding:14px 18px;margin:8px 0 6px;'>"
+        "<div style='color:#fff;font-size:0.95rem;font-weight:700;margin-bottom:3px;'>"
+        + _hdr + "</div>"
+        "<div style='color:#9FD9A8;font-size:0.82rem;'>" + _sub + "</div>"
+        "</div>"
+    )
+    _lock_label = (
+        "Lock in all " + str(len(meals)) + " meals → Build Shopping List"
+        if _all_done else
+        "Lock in " + str(_n_approved) + " of " + str(len(meals)) + " meals → Build Shopping List"
+    )
+    if st.button(_lock_label, type="primary", use_container_width=True,
+                 key="lock_in_plan"):
+        _statuses = []
+        _skipped  = []
+        for _li in range(len(meals)):
+            if _approvals.get(_li, False):
+                _statuses.append("approved")
+            else:
+                _statuses.append("skipped")
+                _skipped.append(_li)
+        plan["_meal_status"]     = _statuses
+        plan["_skipped_indices"] = _skipped
+        st.session_state["plan"] = plan
+        state.approve_week_db()
+        state.log_activity("plan_locked", page="Plan")
+        state.log_pantry_usage(plan)
+        st.switch_page("pages/5_Shopping_List.py")
+else:
+    st.info(
+        "Approve at least one meal above to lock in your week.",
+        icon="☑️",
+    )
 
 st.divider()
 
