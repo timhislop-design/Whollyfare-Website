@@ -306,10 +306,45 @@ def _parse_json_response(text: str, page_num: int, result: ExtractionResult) -> 
                 if isinstance(data.get(key), list):
                     return data[key]
     except json.JSONDecodeError as exc:
+        # Claude's response may be truncated mid-JSON (token limit on dense pages).
+        # Attempt partial recovery: find the last complete item and close the array.
+        recovered = _recover_partial_json(text)
+        if recovered:
+            logger.warning(
+                f"JSON parse error on page {page_num}: {exc} — "
+                f"recovered {len(recovered)} items from partial response"
+            )
+            result.errors.append(
+                f"Parser note: JSON parse error on page {page_num}: {exc}"
+            )
+            return recovered
         err = f"JSON parse error on page {page_num}: {exc}"
         logger.warning(err)
         result.errors.append(err)
 
+    return []
+
+
+def _recover_partial_json(text: str) -> list[dict]:
+    """
+    Attempt to salvage items from a truncated JSON array.
+    Finds the last complete closing brace, appends ']', and re-parses.
+    Returns a list of valid dicts, or [] if recovery fails.
+    """
+    # Walk backwards to find the last '}' that closes a complete object
+    last_brace = text.rfind('}')
+    if last_brace == -1:
+        return []
+    truncated = text[:last_brace + 1].rstrip().rstrip(',') + ']'
+    # Make sure it starts with '['
+    if not truncated.lstrip().startswith('['):
+        truncated = '[' + truncated
+    try:
+        data = json.loads(truncated)
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+    except json.JSONDecodeError:
+        pass
     return []
 
 
