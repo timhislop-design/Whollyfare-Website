@@ -309,6 +309,12 @@ def _run_engine(prefs: dict) -> bool:
                 return False
             if any(kw in n for kw in _VAGUE_KW):
                 return False
+            # Skip zero-price items — BOGO without a visible shelf price.
+            # Showing them as free violates the Sincere Strategy. The real
+            # cost is shelf_price / 2, which we don't have without a price DB.
+            # POC: skip. PROD: cross-reference historical price data.
+            if (s.ingredient.sale_price_per_unit or 0.0) <= 0.0:
+                return False
             return True
         selected = [s for s in selected if _is_hero_eligible(s)]
 

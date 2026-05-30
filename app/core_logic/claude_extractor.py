@@ -68,7 +68,9 @@ Return a JSON array. Each element must have these exact keys:
   "name"       – item name as printed (e.g. "Boneless Skinless Chicken Breast")
   "price"      – sale price as a float (e.g. 2.99). For multi-buy deals like
                  "2/$5" compute per-unit price (2.50). For BOGO, use half the
-                 regular price if shown, otherwise use 0.
+                 regular price if shown. If the regular price is NOT visible,
+                 set price to null — do NOT use 0. Zero is reserved for
+                 genuinely free items (rare). Null means "price unknown".
   "unit"       – unit string: "lb", "oz", "each", "dozen", "gallon", "pkg", etc.
   "multi_buy"  – integer quantity if this is a multi-buy deal (e.g. 2 for "2/$5"),
                  otherwise 1.
@@ -355,10 +357,36 @@ def _dict_to_candidate(item: dict, store_chain: str) -> Optional[IngredientCandi
         if not name:
             return None
 
-        price = float(item.get("price", 0.0) or 0.0)
+        raw_price = item.get("price")  # may be None (null) for unknown BOGO
         unit  = str(item.get("unit", "each")).strip() or "each"
         cat   = str(item.get("category", "other")).strip()
         multi = int(item.get("multi_buy", 1) or 1)
+        raw_text = str(item.get("raw_text", "")).strip()
+
+        # Skip items with unknown price (null BOGO, missing price).
+        # $0 items are not plannable and showing them as 'free' violates the
+        # Sincere Strategy — the real cost is the shelf price / 2, which we
+        # don't have without a price database.
+        # POC: skip. PROD: cross-reference price history DB for BOGO shelf price.
+        if raw_price is None:
+            logger.info(
+                "Skipping BOGO/unknown-price item '%s' (raw: '%s') — "
+                "price null in circular. PROD: look up shelf price.",
+                name, raw_text,
+            )
+            return None
+
+        price = float(raw_price or 0.0)
+
+        # Also skip explicitly zero-priced items — these are usually BOGO
+        # items where the extractor hallucinated 0 from a prior prompt.
+        if price == 0.0:
+            logger.info(
+                "Skipping zero-price item '%s' (raw: '%s') — "
+                "likely BOGO without visible shelf price.",
+                name, raw_text,
+            )
+            return None
 
         # For multi-buy, Claude should already have computed per-unit, but double-check
         if multi > 1 and price > 0:
