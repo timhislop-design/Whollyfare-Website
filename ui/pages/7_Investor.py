@@ -512,8 +512,7 @@ for i, (title, desc) in enumerate(sincere):
   <div class="sc-body">{desc}</div>
 </div>""")
 st.html("""<div class="moat-callout">
-  <strong>Consumer moat:</strong> Competitors cannot copy the Sincere Strategy&#174; without dismantling their own revenue model.
-  That asymmetry gets stronger the longer WhollyFare builds trust.<br><br>
+  <strong>Consumer moat:</strong> Competitors cannot copy the Sincere Strategy&#174; without dismantling their own revenue model. That asymmetry gets stronger the longer WhollyFare builds trust.<br><br>  <strong>API infrastructure moat:</strong> Kroger is the only major U.S. grocery holding company with a public developer API. One set of credentials covers all 15 Kroger banners &#8212; Kroger, Harris Teeter, King Soopers, Ralphs, Fred Meyer, Smith's, Fry's, Mariano's, and more. WhollyFare is already live on it. Albertsons, Ahold Delhaize, Publix, H-E-B, Walmart, Aldi, and Lidl have no equivalent. Grocery IT is slow. That gap does not close in 18 months. Every week WhollyFare runs, the data advantage compounds.
   <strong>Operational moat:</strong> AI-agent automation for weekly circular data means WhollyFare scales to 50 markets
   without proportionally scaling a data ops team. Competitors relying on manual workflows cannot match the
   data freshness WhollyFare delivers as a baseline. Both moats widen with time.<br><br>
@@ -561,6 +560,159 @@ st.divider()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6b. GROCERY INFRASTRUCTURE GAP
+# ══════════════════════════════════════════════════════════════════════════════
+st.html('<div class="inv-section-label">The Grocery Infrastructure Gap</div>')
+st.html("### Kroger opened the door. No one else has.")
+st.markdown("""
+The U.S. grocery industry is controlled by roughly 13 major holding companies covering
+thousands of banners and tens of thousands of stores. **Only one of them — Kroger — has built
+a public developer API that exposes live sale pricing across its entire store network.**
+That decision, made in 2019, created the infrastructure WhollyFare is built on today.
+
+WhollyFare is not just a beneficiary of that openness. It is the product that validates
+the choice — by delivering measurable, honest savings to households who need it most,
+and routing more grocery volume to stores that earned that household's trust that week.
+""")
+
+st.html("""
+<style>
+.infra-table { width:100%; border-collapse:collapse; font-size:0.87rem; margin-bottom:24px; }
+.infra-table th { background:#0F1F14; color:#5DAA6A; font-size:0.72rem; font-weight:700;
+                  letter-spacing:.08em; text-transform:uppercase; padding:10px 14px;
+                  text-align:left; border-bottom:2px solid #3A8C4E; }
+.infra-table td { padding:10px 14px; border-bottom:1px solid #EEF0EE; vertical-align:top; color:#1A2E1D; }
+.infra-table tr:hover td { background:#F7FBF8; }
+.infra-table tr.infra-kr td { background:#F0F9F2; }
+.infra-banner { font-size:0.76rem; color:#888; line-height:1.5; }
+.infra-pill-open    { display:inline-block; background:#D4EDDA; color:#1E5C32; border-radius:20px;
+                      padding:2px 10px; font-size:0.73rem; font-weight:700; white-space:nowrap; }
+.infra-pill-closed  { display:inline-block; background:#F5F5F5; color:#888; border-radius:20px;
+                      padding:2px 10px; font-size:0.73rem; font-weight:600; white-space:nowrap; }
+.infra-pill-partial { display:inline-block; background:#FFF3CD; color:#7A4A00; border-radius:20px;
+                      padding:2px 10px; font-size:0.73rem; font-weight:700; white-space:nowrap; }
+.infra-access-live   { color:#1E5C32; font-weight:600; }
+.infra-access-pdf    { color:#888; }
+</style>
+
+<table class="infra-table">
+  <thead>
+    <tr>
+      <th>Holding Company</th>
+      <th>Key Banners</th>
+      <th>Public Developer API</th>
+      <th>WhollyFare Access</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="infra-kr">
+      <td><strong style="color:#1E5C32;">Kroger</strong></td>
+      <td class="infra-banner">Kroger &middot; Harris Teeter &middot; King Soopers &middot; Ralphs &middot; Fred Meyer &middot; Smith's &middot; Fry's &middot; Mariano's &middot; QFC &middot; City Market &middot; Dillons &middot; Pick 'n Save &middot; Baker's &middot; Jay C &middot; Ruler Foods</td>
+      <td><span class="infra-pill-open">&#10003; Live since 2019</span></td>
+      <td class="infra-access-live">Live &mdash; 2,800+ stores, live sale pricing + Phase 3 delivery cart</td>
+    </tr>
+    <tr>
+      <td><strong>Albertsons Cos.</strong></td>
+      <td class="infra-banner">Safeway &middot; Vons &middot; Jewel-Osco &middot; Shaw's &middot; Randalls &middot; Tom Thumb &middot; ACME &middot; Haggen &middot; United Supermarkets &middot; +4</td>
+      <td><span class="infra-pill-closed">&#10007; No public API</span></td>
+      <td class="infra-access-pdf">PDF circulars only</td>
+    </tr>
+    <tr>
+      <td><strong>Ahold Delhaize</strong></td>
+      <td class="infra-banner">Giant Food &middot; Stop &amp; Shop &middot; Food Lion &middot; Hannaford &middot; Martin's Food Markets</td>
+      <td><span class="infra-pill-closed">&#10007; No public API</span></td>
+      <td class="infra-access-pdf">PDF circulars only</td>
+    </tr>
+    <tr>
+      <td><strong>Publix</strong></td>
+      <td class="infra-banner">Publix &middot; Publix GreenWise Market</td>
+      <td><span class="infra-pill-closed">&#10007; No public API</span></td>
+      <td class="infra-access-pdf">PDF circulars only</td>
+    </tr>
+    <tr>
+      <td><strong>H-E-B</strong></td>
+      <td class="infra-banner">H-E-B &middot; Central Market &middot; Joe V's Smart Shop &middot; Mi Tienda</td>
+      <td><span class="infra-pill-closed">&#10007; No public API</span></td>
+      <td class="infra-access-pdf">Regional PDF only (Texas)</td>
+    </tr>
+    <tr>
+      <td><strong>Walmart</strong></td>
+      <td class="infra-banner">Walmart &middot; Sam's Club &middot; Walmart Neighborhood Market</td>
+      <td><span class="infra-pill-partial">~ Seller / ads API only</span></td>
+      <td class="infra-access-pdf">PDF rollback ads only &mdash; no pricing API</td>
+    </tr>
+    <tr>
+      <td><strong>Aldi</strong></td>
+      <td class="infra-banner">Aldi US</td>
+      <td><span class="infra-pill-closed">&#10007; No public API</span></td>
+      <td class="infra-access-pdf">PDF circulars only</td>
+    </tr>
+    <tr>
+      <td><strong>Lidl</strong></td>
+      <td class="infra-banner">Lidl US</td>
+      <td><span class="infra-pill-closed">&#10007; No public API</span></td>
+      <td class="infra-access-pdf">PDF circulars only</td>
+    </tr>
+    <tr>
+      <td><strong>Amazon / Whole Foods</strong></td>
+      <td class="infra-banner">Whole Foods Market &middot; Amazon Fresh</td>
+      <td><span class="infra-pill-partial">~ Internal / Prime only</span></td>
+      <td class="infra-access-pdf">PDF / manual</td>
+    </tr>
+    <tr>
+      <td><strong>Wakefern (ShopRite)</strong></td>
+      <td class="infra-banner">ShopRite &middot; The Fresh Grocer &middot; Price Rite Marketplace</td>
+      <td><span class="infra-pill-closed">&#10007; No public API</span></td>
+      <td class="infra-access-pdf">PDF circulars only</td>
+    </tr>
+    <tr>
+      <td><strong>SpartanNash</strong></td>
+      <td class="infra-banner">Family Fare &middot; Martin's Super Markets &middot; D&amp;W Fresh Market</td>
+      <td><span class="infra-pill-closed">&#10007; No public API</span></td>
+      <td class="infra-access-pdf">Regional PDF only</td>
+    </tr>
+    <tr>
+      <td><strong>Meijer</strong></td>
+      <td class="infra-banner">Meijer &middot; Bridge Street Market</td>
+      <td><span class="infra-pill-closed">&#10007; No public API</span></td>
+      <td class="infra-access-pdf">Midwest PDF only</td>
+    </tr>
+    <tr>
+      <td><strong>Weis Markets</strong></td>
+      <td class="infra-banner">Weis Markets</td>
+      <td><span class="infra-pill-closed">&#10007; No public API</span></td>
+      <td class="infra-access-pdf">Regional PDF only</td>
+    </tr>
+  </tbody>
+</table>
+""")
+
+st.html("""<div class="moat-callout" style="margin-bottom:24px;">
+  <strong>What this means strategically:</strong>
+  Kroger chose to open their pricing infrastructure to the developer ecosystem &mdash; not because
+  it was required, but because transparent pricing builds lasting consumer loyalty.
+  WhollyFare operates from exactly the same premise: the household that trusts you spends more with you,
+  not less. That philosophical alignment between Kroger and the Sincere Strategy&#174; is not accidental,
+  and it is not temporary.<br><br>
+  <strong>Phase 3 &mdash; the delivery lock-in:</strong>
+  The same Kroger API that provides live sale pricing also exposes a Cart endpoint. In Phase 3,
+  a household approves their WhollyFare weekly plan and their Kroger items go directly into their
+  Kroger cart for delivery &mdash; no re-entry, no friction. WhollyFare drives cart volume
+  <em>to</em> Kroger, not away from it. That makes WhollyFare a distribution amplifier for the
+  grocer who already chose openness. No other holding company can offer this today.<br><br>
+  <strong>The honest advantage that compounds:</strong>
+  WhollyFare will always show a household where an ingredient is cheapest &mdash; even if that
+  means routing them to a competitor that week. That honesty is what builds the household's trust.
+  And a trusted household who chooses Kroger because WhollyFare said it was the better value
+  that week &mdash; that is earned loyalty. It is the most durable loyalty a grocer can have.
+  Competitors who cannot show honest comparison cannot earn it.
+</div>""")
+st.html("<br>")
+st.divider()
+
 # 7. GO-TO-MARKET
 # ══════════════════════════════════════════════════════════════════════════════
 st.html('<div class="inv-section-label">Go-To-Market</div>')
@@ -701,7 +853,7 @@ st.html("### Three forces converging. The window is open.")
 col_w1, col_w2, col_w3 = st.columns(3)
 for col, icon, title, body in [
     (col_w1, "📈", "Grocery inflation",     "U.S. grocery prices rose 25%+ between 2020–2024. Demand for savings tools is unprecedented and still climbing."),
-    (col_w2, "🔗", "Grocer APIs opening",   "Kroger's Developer API launched in 2019 and continues expanding. Other major chains are following. The manual PDF path becomes automated within 24 months."),
+    (col_w2, "🔗", "Kroger opened the door", "In 2019, Kroger launched the only public developer API in major U.S. grocery. One key, 15 banner brands, 2,800+ stores. Albertsons, Ahold, Publix, H-E-B, Aldi, and Lidl have no equivalent. That gap is structural and slow to close. WhollyFare is already live on it."),
     (col_w3, "🤖", "AI makes it tractable", "LLM-assisted PDF parsing, constraint reasoning, and recipe generation have crossed the threshold of production reliability. This is buildable by a small team right now."),
 ]:
     with col:
