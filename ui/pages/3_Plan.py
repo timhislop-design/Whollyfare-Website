@@ -285,6 +285,33 @@ def _run_engine(prefs: dict) -> bool:
 
             selected = optimizer.select_ingredients(filtered_pool)
 
+        # ── Filter prepared meals + vague items before sending to planner ──
+        # Chimichangas, burritos, hot pockets, etc. are complete prepared meals
+        # that score well in the budget optimizer (high-value protein category)
+        # but don't belong as recipe heroes. Likewise, vague extraction names
+        # like 'assorted items' or 'various' confuse the recipe matcher.
+        # POC: keyword blocklist. PROD: USDA 'prepared meal' FDC category tag.
+        _PREPARED_MEAL_KW = {
+            "chimichanga", "burrito", "enchilada", "lasagna", "pizza",
+            "hot pocket", "pot pie", "egg roll", "spring roll", "lumpia",
+            "tamale", "empanada", "stromboli", "calzone", "taquito",
+            "chimichanga", "tostada", "flautas", "chalupa",
+            "macaroni and cheese", "mac and cheese", "ramen cup",
+            "hot roll", "dinner roll",
+        }
+        _VAGUE_KW = {
+            "assorted", "various", "other items", "misc", "variety",
+            "seasonal items", "select items",
+        }
+        def _is_hero_eligible(s) -> bool:
+            n = s.ingredient.name.lower()
+            if any(kw in n for kw in _PREPARED_MEAL_KW):
+                return False
+            if any(kw in n for kw in _VAGUE_KW):
+                return False
+            return True
+        selected = [s for s in selected if _is_hero_eligible(s)]
+
         with st.spinner("Assembling your meal plan…"):
             from app.core_logic.meal_planner import MealPlanner
             # Pass cuisine + protein preferences so the recipe library
@@ -909,55 +936,153 @@ for idx, meal in enumerate(meals):
         f"</div>"
     )
 
-    # Detail expander directly below the card — no scrolling to connect them
-    with st.expander("See ingredients & details", expanded=False):
+    # ── Recipe-centric detail expander ─────────────────────────────────────
+    # Three buckets per recipe ingredient:
+    #   🏷️ ON SALE — matched against this week's flyer (substring match)
+    #   🏠 IN YOUR PANTRY — pantry_stable=True in recipe library
+    #   🛒 NEED TO BUY — not on sale, not pantry; checkbox to add to list
+    # POC: substring match. PROD: USDA FDC ID exact match.
+    with st.expander("See full recipe & ingredients", expanded=False):
         if meal.get("allergen_notes"):
-            st.info(f"⚠️ {meal['allergen_notes']}", icon="🛡️")
+            st.info("⚠️ " + meal["allergen_notes"], icon="🛡️")
 
-        # Recipe ingredients from library
         recipe_ings = meal.get("recipe_ingredients", [])
-        if recipe_ings:
-            st.html("<div style='font-size:11px;font-weight:700;color:#3A8C4E;"
-                    "letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;'>"
-                    "What you need</div>")
-            to_buy    = [i for i in recipe_ings if not i.get("pantry_stable", False)]
-            pantry_ok = [i for i in recipe_ings if i.get("pantry_stable", False)]
-            for ri in to_buy:
-                qty_str = f"{ri['qty']} {ri['unit']}".strip()
-                st.html(
-                    f"<div style='display:flex;justify-content:space-between;"
-                    f"padding:5px 0;border-bottom:1px solid #F0F9F2;font-size:0.88rem;'>"
-                    f"<span style='color:#1A2E1D;'>🛒 {ri['name']}</span>"
-                    f"<span style='color:#5A7A62;'>{qty_str}</span></div>"
-                )
-            if pantry_ok:
-                st.html(f"<div style='font-size:0.75rem;color:#999;margin-top:6px;"
-                        f"font-style:italic;'>On hand: "
-                        + ", ".join(i["name"] for i in pantry_ok) + "</div>")
-            st.html("<div style='height:8px;'></div>")
+        sale_heroes = meal.get("ingredients", [])  # sale items from optimizer
 
-        # Sale items — 2-column mobile-friendly table
-        ings = meal.get("ingredients", [])
-        if ings:
-            st.html("<div style='font-size:11px;font-weight:700;color:#F28B30;"
-                    "letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;'>"
-                    "On sale this week</div>")
-            for ing in ings:
-                sname       = STORE_NAMES.get(ing.get("store",""), ing.get("store","")) or "—"
-                shared_note = f" · shared ×{ing['used_in']}" if ing.get("shared") else ""
+        # Build a fast lookup: lowercased sale-item names → {store, cost, qty}
+        _all_flyer = st.session_state.get("flyer_data", {})
+        _flyer_names: dict = {}  # name_lower → {store, price, unit}
+        for _chain_key, _cands in _all_flyer.items():
+            _chain_label = _chain_key.replace("_", " ").title()
+            for _c in _cands:
+                _flyer_names[_c.name.lower()] = {
+                    "store": _chain_label,
+                    "price": _c.sale_price_per_unit,
+                    "unit":  _c.unit or "ea",
+                }
+
+        def _find_flyer_match(ing_name: str):
+            """Substring match: recipe ingredient → best flyer item."""
+            n = ing_name.lower().strip()
+            # Exact match first
+            if n in _flyer_names:
+                return _flyer_names[n]
+            # Substring: flyer item name contains the recipe ingredient
+            for fname, fdata in _flyer_names.items():
+                if n in fname or fname in n:
+                    return fdata
+            # Word overlap: any word in recipe ingredient matches start of flyer name
+            words = [w for w in n.split() if len(w) > 3]
+            for w in words:
+                for fname, fdata in _flyer_names.items():
+                    if fname.startswith(w) or w in fname.split():
+                        return fdata
+            return None
+
+        if recipe_ings:
+            on_sale   = []
+            in_pantry = []
+            need_buy  = []
+
+            for ri in recipe_ings:
+                if ri.get("pantry_stable", False):
+                    in_pantry.append(ri)
+                else:
+                    match = _find_flyer_match(ri["name"])
+                    if match:
+                        on_sale.append((ri, match))
+                    else:
+                        need_buy.append(ri)
+
+            # Section: On sale
+            if on_sale:
+                st.html("<div style='font-size:11px;font-weight:700;color:#1E5C32;"
+                        "letter-spacing:0.08em;text-transform:uppercase;margin:0 0 4px;'>"
+                        "🏷️ On sale this week</div>")
+                for ri, match in on_sale:
+                    qty_str = (str(ri["qty"]) + " " + ri["unit"]).strip()
+                    price_str = "$" + str(round(match["price"], 2))
+                    st.html(
+                        "<div style='display:flex;justify-content:space-between;"
+                        "align-items:center;padding:5px 0;"
+                        "border-bottom:1px solid #F0F9F2;font-size:0.88rem;'>"
+                        "<span style='color:#1A2E1D;font-weight:500;'>" + ri["name"] + "</span>"
+                        "<span style='display:flex;align-items:center;gap:6px;'>"
+                        "<span style='color:#888;font-size:0.78rem;'>" + qty_str + "</span>"
+                        "<span style='background:#E8F5E9;color:#1E5C32;border-radius:6px;"
+                        "padding:1px 6px;font-size:0.75rem;font-weight:700;'>"
+                        + match["store"] + " · " + price_str + "</span>"
+                        "</span></div>"
+                    )
+
+            # Section: Pantry
+            if in_pantry:
+                st.html("<div style='font-size:11px;font-weight:700;color:#888;"
+                        "letter-spacing:0.08em;text-transform:uppercase;"
+                        "margin:10px 0 4px;'>🏠 In your pantry</div>")
+                pantry_names = ", ".join(i["name"] for i in in_pantry)
                 st.html(
-                    f"<div style='display:flex;justify-content:space-between;"
-                    f"padding:5px 0;border-bottom:1px solid #FFF3E0;font-size:0.88rem;'>"
-                    f"<span style='color:#1A2E1D;'>{ing['item']}"
-                    f"<span style='color:#aaa;font-size:0.75rem;'>{shared_note}</span></span>"
-                    f"<span style='color:#5A7A62;'>{ing['qty']} · {sname} · "
-                    f"<strong style='color:#1E5C32;'>${ing['cost']:.2f}</strong></span></div>"
+                    "<div style='font-size:0.82rem;color:#999;font-style:italic;'"
+                    ">" + pantry_names + "</div>"
                 )
+
+            # Section: Need to buy — with checkboxes
+            if need_buy:
+                st.html("<div style='font-size:11px;font-weight:700;color:#F28B30;"
+                        "letter-spacing:0.08em;text-transform:uppercase;"
+                        "margin:10px 0 4px;'>🛒 Need to buy (not on sale this week)</div>")
+                _cart_adds = st.session_state.setdefault("_pending_cart", {})
+                _any_checked = False
+                for ri in need_buy:
+                    qty_str = (str(ri["qty"]) + " " + ri["unit"]).strip()
+                    _key = "cart_" + str(idx) + "_" + ri["name"].replace(" ", "_")[:30]
+                    _checked = st.checkbox(
+                        ri["name"] + "  " + qty_str,
+                        key=_key,
+                        value=_cart_adds.get(_key, False),
+                    )
+                    _cart_adds[_key] = _checked
+                    if _checked:
+                        _any_checked = True
+                if _any_checked:
+                    if st.button(
+                        "Add checked items to Shopping List",
+                        key="add_cart_" + str(idx),
+                        type="secondary",
+                    ):
+                        _extras = st.session_state.setdefault("extra_shopping_items", [])
+                        for ri in need_buy:
+                            _key = "cart_" + str(idx) + "_" + ri["name"].replace(" ", "_")[:30]
+                            if _cart_adds.get(_key):
+                                _extras.append({
+                                    "item": ri["name"],
+                                    "qty": str(ri["qty"]) + " " + ri["unit"],
+                                    "store": "best price",
+                                    "note": "added from recipe · find best price",
+                                })
+                        st.success("Added to your Shopping List!")
+                        st.rerun()
+        else:
+            # No recipe match — show sale heroes directly (plugin/heuristic meal)
+            sale_heroes = meal.get("ingredients", [])
+            if sale_heroes:
+                st.html("<div style='font-size:11px;font-weight:700;color:#F28B30;"
+                        "letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;'>"
+                        "On sale this week</div>")
+                for ing in sale_heroes:
+                    sname = STORE_NAMES.get(ing.get("store",""), ing.get("store","")) or "—"
+                    st.html(
+                        "<div style='display:flex;justify-content:space-between;"
+                        "padding:5px 0;border-bottom:1px solid #FFF3E0;font-size:0.88rem;'>"
+                        "<span style='color:#1A2E1D;'>" + ing["item"] + "</span>"
+                        "<span style='color:#5A7A62;'>" + str(ing["qty"]) + " · " + sname +
+                        " · <strong style='color:#1E5C32;'>$" + str(round(ing["cost"], 2)) + "</strong></span></div>"
+                    )
 
         st.html(
-            f"<div style='text-align:right;font-size:0.88rem;font-weight:700;"
-            f"color:#1E5C32;margin-top:8px;padding-top:6px;border-top:1px solid #D8EDD0;'>"
-            f"Meal total: ${meal['meal_cost']:.2f}</div>"
+            "<div style='text-align:right;font-size:0.88rem;font-weight:700;"
+            "color:#1E5C32;margin-top:8px;padding-top:6px;border-top:1px solid #D8EDD0;'>"
+            "Meal total: $" + str(round(meal['meal_cost'], 2)) + "</div>"
         )
 
     st.html("<div style='margin-bottom:8px;'></div>")

@@ -426,7 +426,12 @@ class MealPlanner:
             #   Pass 1: protein match + preferred cuisine + unused cuisine rotation
             #   Pass 2: protein match + unused cuisine (any cuisine)
             #   Pass 3: protein match, any cuisine (all cuisines exhausted)
-            #   Pass 4: any unused recipe (highest sale affinity wins)
+            #   Pass 4 REMOVED: no longer fall back to arbitrary recipe match.
+            #     If no protein match exists, use plugin/heuristic name instead.
+            #     Reason: Pass 4 paired unrelated items (chimichangas → Mediterranean
+            #     Chicken) which erodes user trust. Better to show a heuristic
+            #     meal name than a wrong recipe match.
+            #     POC. PROD: expand protein synonym table to catch edge cases.
             #
             # Sale affinity (how many recipe ingredients are on sale this week)
             # is used as a tiebreaker within each pass — same protein/cuisine
@@ -479,9 +484,8 @@ class MealPlanner:
                             recipe = r
                             break
 
-                # Pass 4: any unused recipe — sale affinity already sorted highest first
-                if recipe is None and unused:
-                    recipe = unused[0]
+                # Pass 4 removed — if no protein match, fall through to plugin heuristic
+                # if recipe is None and unused: recipe = unused[0]  # REMOVED
 
             if recipe is not None:
                 meal_name   = recipe["name"]
