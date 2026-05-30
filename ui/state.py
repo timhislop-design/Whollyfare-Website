@@ -2308,13 +2308,14 @@ def _load_flyer_items_from_db():
         for chain in chains:
             fw_rows = _sb_select(
                 "platform_flyer_weeks",
-                select="id",
+                select="id,loaded_at,week_start_date,load_method,item_count",
                 filters={"chain_name": chain},
                 order="loaded_at.desc",
             )
             if not fw_rows:
                 continue
-            platform_week_id = fw_rows[0]["id"]
+            fw_row = fw_rows[0]
+            platform_week_id = fw_row["id"]
 
             items = _sb_select(
                 "platform_flyer_items",
@@ -2348,6 +2349,15 @@ def _load_flyer_items_from_db():
                 flyer_data[key] = candidates
                 total += len(candidates)
 
+                # Record freshness metadata for UI display in Grocer Hub / Plan page
+                flyer_meta = st.session_state.setdefault("flyer_meta", {})
+                flyer_meta[chain] = {
+                    "loaded_at":      fw_row.get("loaded_at"),
+                    "week_start_date": fw_row.get("week_start_date"),
+                    "load_method":    fw_row.get("load_method"),
+                    "item_count":     len(candidates),
+                }
+
         st.session_state["flyer_data"] = flyer_data
         if total:
             _log.info("_load_flyer_items_from_db: loaded %d platform items (most-recent-per-chain)", total)
@@ -2355,3 +2365,96 @@ def _load_flyer_items_from_db():
     except Exception as e:
         _log.error("_load_flyer_items_from_db: %s", e)
         # DB unavailable — session state unchanged
+
+
+def get_store_freshness(chain_name: str) -> dict:
+    """
+    Return freshness status for a chain based on flyer_meta + store_directory.
+
+    Returns a dict with:
+      is_current   (bool)   — True if data loaded after last expected circular refresh
+      loaded_at    (datetime | None)
+      item_count   (int)
+      refresh_day  (str | None)  — "Wednesday", "Friday", "Sunday", None (API/manual)
+      next_refresh (str)   — human label, e.g. "Wednesday" or "on-demand"
+      age_label    (str)   — e.g. "Updated Wed May 28" or "Not loaded"
+
+    POC: freshness computed locally from flyer_meta populated at sign-in.
+    PROD: push staleness flag to DB so it survives sessions.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    meta = st.session_state.get("flyer_meta", {}).get(chain_name, {})
+    try:
+        from app.data.store_directory import STORE_BY_CHAIN
+        store = STORE_BY_CHAIN.get(chain_name, {})
+    except Exception:
+        store = {}
+
+    refresh_day = store.get("flyer_day")   # "Wednesday" | "Friday" | "Sunday" | None
+    method      = store.get("method", "manual")
+
+    loaded_at_raw = meta.get("loaded_at")
+    item_count    = meta.get("item_count", 0)
+
+    DAY_MAP = {"Monday": 0, "Tuesday": 1, "Wednesday": 2,
+               "Thursday": 3, "Friday": 4, "Saturday": 5, "Sunday": 6}
+
+    if not loaded_at_raw:
+        return {
+            "is_current":  False,
+            "loaded_at":   None,
+            "item_count":  0,
+            "refresh_day": refresh_day,
+            "next_refresh": refresh_day or ("on-demand" if method == "kroger_api" else "manual"),
+            "age_label":   "Not loaded",
+        }
+
+    try:
+        loaded_dt = datetime.fromisoformat(str(loaded_at_raw).replace("Z", "+00:00"))
+        if loaded_dt.tzinfo is None:
+            loaded_dt = loaded_dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        loaded_dt = None
+
+    # Determine is_current
+    is_current = False
+    if loaded_dt:
+        now = datetime.now(timezone.utc)
+        age_days = (now - loaded_dt).total_seconds() / 86400
+
+        if method == "kroger_api" or refresh_day is None:
+            # API store: current if pulled within 7 days
+            is_current = age_days < 7
+        else:
+            # PDF store: current if loaded on or after the most recent refresh day
+            target_wd = DAY_MAP.get(refresh_day, 2)
+            days_since_refresh = (now.weekday() - target_wd) % 7
+            # If today IS the refresh day, last refresh was today (0 days ago)
+            last_refresh_dt = (now - timedelta(days=days_since_refresh)).replace(
+                hour=0, minute=0, second=0, microsecond=0)
+            is_current = loaded_dt >= last_refresh_dt
+
+    # Human-readable age label
+    if loaded_dt:
+        now = datetime.now(timezone.utc)
+        days_ago = (now - loaded_dt).days
+        if days_ago == 0:
+            age_label = f"Updated today ({loaded_dt.strftime('%b %-d')})"
+        elif days_ago == 1:
+            age_label = f"Updated yesterday ({loaded_dt.strftime('%b %-d')})"
+        else:
+            age_label = f"Updated {loaded_dt.strftime('%a %b %-d')}"
+    else:
+        age_label = "Not loaded"
+
+    next_refresh = refresh_day or ("on-demand" if method == "kroger_api" else "manual")
+
+    return {
+        "is_current":  is_current,
+        "loaded_at":   loaded_dt,
+        "item_count":  item_count,
+        "refresh_day": refresh_day,
+        "next_refresh": next_refresh,
+        "age_label":   age_label,
+    }

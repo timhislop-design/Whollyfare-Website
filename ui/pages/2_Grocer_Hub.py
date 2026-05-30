@@ -968,16 +968,38 @@ if grocers:
 
         ra, rb, rc, rd = st.columns([4, 1.5, 1.2, 0.7])
         with ra:
-            # Flyer item count from platform data (normalized key)
+            # Flyer item count + freshness from platform data
             _ckey  = g["chain"].lower().replace(" ", "_")
             _fd    = st.session_state.get("flyer_data", {})
             _count = len(_fd.get(_ckey, _fd.get(g["chain"], [])))
-            _items_html = (
-                f" &nbsp;<span style='font-size:0.72rem;background:#E8F5E9;color:#1E5C32;"
-                f"border-radius:8px;padding:1px 7px;font-weight:600;'>{_count} items this week</span>"
-                if _count > 0 else
-                " &nbsp;<span style='font-size:0.72rem;color:#BDC9C2;'>no prices yet</span>"
-            )
+            _fresh = state.get_store_freshness(g["chain"]) if g["chain"].lower() in _MANAGED_CHAINS else None
+
+            if _fresh and _count > 0:
+                if _fresh["is_current"]:
+                    _badge_bg    = "#E8F5E9"
+                    _badge_color = "#1E5C32"
+                    _status_icon = "✅"
+                    _status_txt  = _fresh["age_label"]
+                else:
+                    _badge_bg    = "#FFF8E1"
+                    _badge_color = "#7B5B00"
+                    _status_icon = "⚠️"
+                    _nxt = _fresh["next_refresh"]
+                    _status_txt  = f"Stale · refreshes {_nxt}"
+                _items_html = (
+                    f" &nbsp;<span style='font-size:0.72rem;background:{_badge_bg};color:{_badge_color};"
+                    f"border-radius:8px;padding:1px 7px;font-weight:600;'>"
+                    f"{_count} items · {_status_icon} {_status_txt}</span>"
+                )
+            elif _count > 0:
+                _items_html = (
+                    f" &nbsp;<span style='font-size:0.72rem;background:#E8F5E9;color:#1E5C32;"
+                    f"border-radius:8px;padding:1px 7px;font-weight:600;'>{_count} items this week</span>"
+                )
+            else:
+                _nxt = (_fresh["next_refresh"] if _fresh else None)
+                _no_data_txt = (f"no prices yet · loads {_nxt}" if _nxt else "no prices yet")
+                _items_html = f" &nbsp;<span style='font-size:0.72rem;color:#BDC9C2;'>{_no_data_txt}</span>"
             st.html(
                 f"<div style='padding:5px 0;'>"
                 f"<span style='font-size:0.88rem;font-weight:700;color:#1E5C32;'>"

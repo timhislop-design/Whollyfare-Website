@@ -107,6 +107,47 @@ if not all_candidates and not plan:
     st.stop()
 
 
+# ── Stale circular warning ───────────────────────────────────────────────────
+# Show a banner if any of the user's selected stores have outdated prices.
+# "Stale" = data is from before the store's last expected circular refresh day.
+# This runs on every page load — flyer_meta is populated at sign-in from DB.
+def _stale_stores_warning() -> None:
+    """Render a warning banner listing stores with outdated circular data."""
+    grocers = st.session_state.get("grocers", [])
+    if not grocers:
+        return
+    try:
+        from app.data.store_directory import STORE_BY_CHAIN
+        _MANAGED = {c.lower() for c in STORE_BY_CHAIN.keys()}
+    except Exception:
+        _MANAGED = set()
+
+    stale = []
+    for g in grocers:
+        chain = g.get("chain", "")
+        if chain.lower() not in _MANAGED:
+            continue
+        fresh = state.get_store_freshness(chain)
+        if not fresh["is_current"]:
+            nxt = fresh["next_refresh"] or "soon"
+            if fresh["loaded_at"] is None:
+                stale.append(chain + " — no prices loaded yet")
+            else:
+                age = fresh["age_label"]
+                stale.append(chain + " — " + age + ", refreshes " + nxt)
+
+    if stale:
+        lines = "\n".join("- " + s for s in stale)
+        msg = (
+            "**Some store prices may be outdated.** "
+            "Your plan will still generate — just know these stores reflect last week's circular:\n\n"
+            + lines
+            + "\n\nTim uploads fresh circulars each Wednesday on the Admin page."
+        )
+        st.warning(msg, icon="⚠️")
+
+_stale_stores_warning()
+
 # ══════════════════════════════════════════════════════════════════════════════
 # ENGINE — shared helper, called from preferences form and Regenerate button
 # POC: synchronous, single-household. PROD: async Celery worker.
