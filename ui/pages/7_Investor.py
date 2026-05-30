@@ -710,6 +710,63 @@ st.html("""<div class="moat-callout" style="margin-bottom:24px;">
   that week &mdash; that is earned loyalty. It is the most durable loyalty a grocer can have.
   Competitors who cannot show honest comparison cannot earn it.
 </div>""")
+
+# Live pilot observation + neutral arbiter callout
+st.html("""
+<style>
+.pilot-obs {
+    background:linear-gradient(135deg,#0A0F0D 0%,#0F1F14 100%);
+    border-radius:14px; padding:36px 40px; color:white; margin:24px 0;
+}
+.pilot-obs .po-eyebrow {
+    font-size:.68rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+    color:#F28B30; margin-bottom:10px;
+}
+.pilot-obs h3 { color:#fff; font-size:1.55rem; font-weight:800; margin:0 0 20px; line-height:1.2; }
+.pilot-obs .po-body { color:rgba(255,255,255,.75); font-size:.93rem; line-height:1.7; }
+.pilot-obs .po-body strong { color:#5DAA6A; }
+.po-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:24px; }
+.po-tile {
+    background:rgba(255,255,255,.06); border:1px solid rgba(93,170,106,.2);
+    border-radius:10px; padding:18px 20px;
+}
+.po-tile .pt-label { font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#5DAA6A; margin-bottom:6px; }
+.po-tile .pt-body  { font-size:.87rem; color:rgba(255,255,255,.8); line-height:1.55; }
+</style>
+
+<div class="pilot-obs">
+  <div class="po-eyebrow">&#128202; Live Pilot Observation &nbsp;&middot;&nbsp; Charlottesville, VA &nbsp;&middot;&nbsp; May 2026</div>
+  <h3>The optimizer chose Food Lion.<br>That is exactly the point.</h3>
+  <div class="po-body">
+    In current pilot testing, the WhollyFare meal optimizer &mdash; running on Kroger's live API data
+    alongside Food Lion's weekly circular &mdash; <strong>consistently selects Food Lion items</strong>
+    for the highest-value meals. No human made that choice. No grocer paid for placement.
+    The algorithm found the best price and routed the household there.<br><br>
+    Food Lion is an Ahold Delhaize brand. They have no developer API. WhollyFare loads their circular
+    as a PDF. And they win on merit &mdash; week after week, category by category &mdash; against
+    Kroger's live, structured data feed. That is the honest answer the household deserves.
+    That is the Sincere Strategy&#174; in production.
+  </div>
+  <div class="po-grid">
+    <div class="po-tile">
+      <div class="pt-label">What this proves</div>
+      <div class="pt-body">WhollyFare has no algorithmic bias toward Kroger, Ahold, or any holding company. The optimizer does not know whose circular it is reading &mdash; only what the price is. Every grocer competes on merit.</div>
+    </div>
+    <div class="po-tile">
+      <div class="pt-label">What this means for every grocer</div>
+      <div class="pt-body">Not being on WhollyFare means your competitor is winning your households while you are not in the room. The grocers who are confident in their pricing want to be here. The ones who are not competitive want to be here even more &mdash; to see why they are losing.</div>
+    </div>
+    <div class="po-tile">
+      <div class="pt-label">What this means for Kroger</div>
+      <div class="pt-body">WhollyFare shows Kroger exactly which categories Food Lion is winning, in which markets, at what price gap &mdash; every week. That is market intelligence no internal team can generate without a platform that households actually trust to be honest.</div>
+    </div>
+    <div class="po-tile">
+      <div class="pt-label">What this means for Ahold Delhaize</div>
+      <div class="pt-body">Food Lion is winning on WhollyFare without an API, without a partnership, without any relationship. Imagine what a direct integration would do. The same conversation is waiting at every holding company's digital strategy table.</div>
+    </div>
+  </div>
+</div>
+""")
 st.html("<br>")
 st.divider()
 

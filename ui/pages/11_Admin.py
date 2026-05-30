@@ -64,8 +64,8 @@ style.page_header(
     "Circulars \u00b7 Users \u00b7 Dashboard \u00b7 Feedback",
 )
 
-tab_circ, tab_users, tab_dash, tab_fb = st.tabs([
-    "\U0001f4c4 Circulars", "\U0001f465 Users", "\U0001f4ca Dashboard", "\U0001f4ac Feedback"
+tab_circ, tab_users, tab_dash, tab_intel, tab_fb = st.tabs([
+    "\U0001f4c4 Circulars", "\U0001f465 Users", "\U0001f4ca Dashboard", "\U0001f4e1 Price Intelligence", "\U0001f4ac Feedback"
 ])
 
 
@@ -833,6 +833,158 @@ with tab_dash:
 # \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 # TAB 4 \u2014 FEEDBACK
 # \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+with tab_intel:
+    st.html(
+        "<div style='font-size:0.85rem;color:#5A7A62;margin-bottom:16px;'>"
+        "Which chains are winning each ingredient category this week &mdash; "
+        "based on average sale price across all loaded circulars. "
+        "No household data. Pure price signal. Foundation for the public Market Intelligence feed.</div>"
+    )
+
+    from datetime import date as _date, timedelta as _td
+    _pi_today = _date.today()
+    _pi_weeks = [
+        (_pi_today - _td(days=_pi_today.weekday()) - _td(weeks=i)).isoformat()
+        for i in range(8)
+    ]
+    _pi_week = st.selectbox(
+        "Week",
+        _pi_weeks,
+        format_func=lambda w: "This week (" + w + ")" if w == _pi_weeks[0] else w,
+        key="pi_week_select",
+    )
+
+    if st.button("Load price intelligence", key="pi_load_btn"):
+        with st.spinner("Querying Supabase..."):
+            try:
+                _pi_rows = state._sb_select(
+                    "platform_flyer_items",
+                    select="chain,category,sale_price_per_unit,name",
+                    limit=5000,
+                )
+                st.session_state["pi_raw_rows"] = _pi_rows
+                st.session_state["pi_week_loaded"] = _pi_week
+            except Exception as _pe:
+                st.error("Failed to load: " + str(_pe))
+                st.session_state["pi_raw_rows"] = []
+
+    _pi_data   = st.session_state.get("pi_raw_rows", None)
+    _pi_loaded = st.session_state.get("pi_week_loaded", "")
+
+    if _pi_data is not None and len(_pi_data) > 0:
+        st.html(
+            "<div style='font-size:0.8rem;color:#5A7A62;margin-bottom:12px;'>"
+            + str(len(_pi_data)) + " items loaded</div>"
+        )
+
+        from collections import defaultdict as _dd
+        _CLABELS = {
+            "protein": "\U0001f969 Protein",   "produce": "\U0001f966 Produce",
+            "dairy":   "\U0001f9c0 Dairy & Eggs", "pantry": "\U0001f9c4 Pantry",
+            "seafood": "\U0001f41f Seafood",    "bakery":  "\U0001f35e Bakery",
+            "frozen":  "\U0001f9ca Frozen",     "snacks":  "\U0001f36a Snacks",
+            "other":   "\U0001f4e6 Other",
+        }
+        _CORDER = ["protein","produce","dairy","pantry","seafood","bakery","frozen","snacks","other"]
+
+        _cc = _dd(lambda: _dd(list))
+        _chains = set()
+        for _r in _pi_data:
+            _ch = _r.get("chain") or "Unknown"
+            _cat = _r.get("category") or "other"
+            _px = _r.get("sale_price_per_unit")
+            if _px and float(_px) > 0:
+                _cc[_cat][_ch].append(float(_px))
+                _chains.add(_ch)
+
+        _chains_list = sorted(_chains)
+        _winners = {}
+
+        # Build header
+        _th = "<table style=\'width:100%;border-collapse:collapse;font-size:0.83rem;\'><thead><tr>"
+        _th += "<th style=\'background:#0F1F14;color:#5DAA6A;padding:8px 12px;text-align:left;font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;\'>Category</th>"
+        for _ch in _chains_list:
+            _th += "<th style=\'background:#0F1F14;color:#5DAA6A;padding:8px 12px;text-align:center;font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;\'>" + _ch + "</th>"
+        _th += "<th style=\'background:#0F1F14;color:#F28B30;padding:8px 12px;text-align:center;font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;\'>Winner \U0001f3c6</th>"
+        _th += "</tr></thead><tbody>"
+
+        _tbody = ""
+        for _cat in _CORDER:
+            _cdata = _cc.get(_cat, {})
+            if not _cdata:
+                continue
+            _avgs = {_ch: round(sum(_v)/len(_v), 2) for _ch, _v in _cdata.items() if _v}
+            if not _avgs:
+                continue
+            _win = min(_avgs, key=_avgs.get)
+            _winners[_cat] = _win
+            _label = _CLABELS.get(_cat, _cat)
+            _row = "<tr><td style=\'padding:8px 12px;border-bottom:1px solid #EEF0EE;font-weight:600;color:#1A2E1D;\'>" + _label + "</td>"
+            for _ch in _chains_list:
+                if _ch in _avgs:
+                    _iw = (_ch == _win)
+                    _bg  = "#D4EDDA" if _iw else "#fff"
+                    _fw  = "700"     if _iw else "400"
+                    _col = "#1E5C32" if _iw else "#555"
+                    _cnt = len(_cdata.get(_ch, []))
+                    _row += (
+                        "<td style=\'padding:8px 12px;border-bottom:1px solid #EEF0EE;"
+                        "text-align:center;background:" + _bg + ";color:" + _col + ";font-weight:" + _fw + ";\'>"
+                        "$" + str(_avgs[_ch]) + "<br>"
+                        "<span style=\'font-size:0.68rem;color:#888;\'>" + str(_cnt) + " items</span></td>"
+                    )
+                else:
+                    _row += "<td style=\'padding:8px 12px;border-bottom:1px solid #EEF0EE;text-align:center;color:#ccc;\'>\u2014</td>"
+            _row += (
+                "<td style=\'padding:8px 12px;border-bottom:1px solid #EEF0EE;text-align:center;background:#FFF8EE;\'>"
+                "<span style=\'background:#F28B30;color:white;border-radius:12px;"
+                "padding:2px 10px;font-size:0.73rem;font-weight:700;\'>" + _win + "</span></td>"
+            )
+            _row += "</tr>"
+            _tbody += _row
+
+        st.html(_th + _tbody + "</tbody></table>")
+
+        # Winner summary callout
+        if _winners:
+            _wcount = _dd(int)
+            for _cat, _w in _winners.items():
+                _wcount[_w] += 1
+            _parts = []
+            for _w, _n in sorted(_wcount.items(), key=lambda x: -x[1]):
+                _cats_won = [_CLABELS.get(_c, _c) for _c, _ww in _winners.items() if _ww == _w]
+                _parts.append(
+                    "<strong>" + _w + "</strong>: " + str(_n) +
+                    " categor" + ("y" if _n == 1 else "ies") +
+                    " &mdash; " + ", ".join(_cats_won)
+                )
+            st.html(
+                "<div style=\'background:#F0F9F2;border:1px solid #A8D5B0;border-radius:10px;"
+                "padding:14px 18px;margin-top:16px;font-size:0.87rem;color:#1A2E1D;line-height:1.7;\'>"
+                "<strong style=\'color:#1E5C32;\'>This week&rsquo;s category winners:</strong><br>"
+                + "<br>".join(_parts) +
+                "<br><span style=\'font-size:0.75rem;color:#888;margin-top:6px;display:block;\'>"
+                "Avg sale price per unit across all items in each category. Lower = better household value. "
+                "\U0001f4e5 Export as report coming soon.</span>"
+                "</div>"
+            )
+        st.html(
+            "<div style=\'font-size:0.78rem;color:#888;border-top:1px solid #EEF0EE;"
+            "padding-top:10px;margin-top:16px;\'>"
+            "\U0001f4e1 <strong>Public feed:</strong> This data feeds the WhollyFare Market Intelligence "
+            "weekly index &mdash; anonymized, no household data. "
+            "Phase 3: embed on whollyfare.com. SEO: households searching "
+            "&ldquo;best grocery prices in [city] this week&rdquo; land here first.</div>"
+        )
+
+    elif _pi_data is not None and len(_pi_data) == 0:
+        st.info("No items found. Load circulars first in the Circulars tab.")
+    else:
+        st.html(
+            "<div style=\'color:#9AA8A0;font-size:0.9rem;padding:24px 0;\'>"
+            "Click Load to see which chains are winning each category this week.</div>"
+        )
+
 with tab_fb:
     st.html(
         "<div style='font-size:0.85rem;color:#5A7A62;margin-bottom:16px;'>"
