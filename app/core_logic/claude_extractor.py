@@ -315,7 +315,7 @@ def _parse_json_response(text: str, page_num: int, result: ExtractionResult) -> 
                 f"recovered {len(recovered)} items from partial response"
             )
             result.errors.append(
-                f"Parser note: JSON parse error on page {page_num}: {exc}"
+                f"JSON parse error on page {page_num}: {exc}"
             )
             return recovered
         err = f"JSON parse error on page {page_num}: {exc}"
