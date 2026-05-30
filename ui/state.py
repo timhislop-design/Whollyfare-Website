@@ -2282,10 +2282,17 @@ def _load_flyer_items_from_db():
         # Fallback 2: no stores selected at all — load ALL platform items so new
         # users see prices before completing household setup.
         # POC: fast at pilot scale (handful of chains). PROD: Redis cache.
+        # Load ALL platform_flyer_weeks (most recent per chain) — not filtered by date,
+        # because different chains may have been uploaded on different weeks.
         if not chains:
             all_weeks = _sb_select("platform_flyer_weeks", select="id,chain_name",
-                                   filters={"week_start_date": week})
-            chains = [r["chain_name"] for r in all_weeks] if all_weeks else []
+                                   order="loaded_at.desc")
+            seen_chains: set = set()
+            chains = []
+            for r in (all_weeks or []):
+                if r["chain_name"] not in seen_chains:
+                    seen_chains.add(r["chain_name"])
+                    chains.append(r["chain_name"])
 
         if not chains:
             return
@@ -2293,12 +2300,17 @@ def _load_flyer_items_from_db():
         flyer_data = st.session_state.get("flyer_data", {})
         total = 0
 
-        # 2. For each household chain, load platform items for current week
+        # 2. For each household chain, load platform items — most recently uploaded week.
+        # We do NOT filter by active_week date because different chains are uploaded
+        # at different times and get different week_start_date values. Always loading
+        # the freshest available data per chain is the correct POC behaviour.
+        # PROD: respect week boundaries explicitly; cache in Redis.
         for chain in chains:
             fw_rows = _sb_select(
                 "platform_flyer_weeks",
                 select="id",
-                filters={"chain_name": chain, "week_start_date": week},
+                filters={"chain_name": chain},
+                order="loaded_at.desc",
             )
             if not fw_rows:
                 continue
@@ -2338,7 +2350,7 @@ def _load_flyer_items_from_db():
 
         st.session_state["flyer_data"] = flyer_data
         if total:
-            _log.info("_load_flyer_items_from_db: loaded %d platform items for week=%s", total, week)
+            _log.info("_load_flyer_items_from_db: loaded %d platform items (most-recent-per-chain)", total)
 
     except Exception as e:
         _log.error("_load_flyer_items_from_db: %s", e)
