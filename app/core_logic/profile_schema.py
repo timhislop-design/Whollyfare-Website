@@ -111,7 +111,3 @@ EXAMPLE_HOUSEHOLD = HouseholdProfile(
         rewards_program_enrolled=True,
     ),
 )
-re_id="01200441",
-        rewards_program_enrolled=True,
-    ),
-)
