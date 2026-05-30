@@ -75,7 +75,11 @@ tab_circ, tab_users, tab_dash, tab_fb = st.tabs([
 with tab_circ:
 
     # Lazy imports (heavy)
-    from app.data.store_directory import CHARLOTTESVILLE_STORES, PDF_STORES
+    from app.data.store_directory import (
+        CHARLOTTESVILLE_STORES, PDF_STORES,
+        METRO_STORES, get_all_metro_slugs, get_metro_label,
+        get_stores_for_metro, get_kroger_store_for_metro,
+    )
     try:
         from app.core_logic.claude_extractor import extract_uploaded_pdf, merge_into_flyer_data
         _extractor_available = True
@@ -96,6 +100,21 @@ with tab_circ:
         "Items saved here appear in This Week's Plan, Sunday Buy-Off, and the Shopping List."
         "</div>"
     )
+
+    # Market selector -- drives which stores appear in the grid and checklist
+    _metro_slugs = get_all_metro_slugs()
+    _metro_labels = [get_metro_label(s) for s in _metro_slugs]
+    _saved_metro = st.session_state.get("admin_active_metro", "charlottesville_va")
+    _saved_idx = _metro_slugs.index(_saved_metro) if _saved_metro in _metro_slugs else 0
+    _selected_metro_label = st.selectbox(
+        "Loading circulars for market:",
+        _metro_labels,
+        index=_saved_idx,
+        key="admin_metro_select",
+    )
+    _selected_metro = _metro_slugs[_metro_labels.index(_selected_metro_label)]
+    st.session_state["admin_active_metro"] = _selected_metro
+    _admin_stores = get_stores_for_metro(_selected_metro)
 
     if not _extractor_available:
         st.warning(
@@ -271,7 +290,7 @@ with tab_circ:
 
     _tier_order = ["full_service", "value_discount", "specialty", "local"]
     _by_tier: dict = {t: [] for t in _tier_order}
-    for s in CHARLOTTESVILLE_STORES:
+    for s in _admin_stores:
         _by_tier.setdefault(s["tier"], []).append(s)
 
     for tier_key in _tier_order:
@@ -389,21 +408,58 @@ with tab_circ:
                                     )
 
                     elif method == "kroger_api":
-                        kroger_items = (
-                            flyer_data.get("kroger_palmyra") or
-                            flyer_data.get("Kroger") or []
+                        import os
+                        _kc_id  = os.environ.get("KROGER_CLIENT_ID", "")
+                        _kc_sec = os.environ.get("KROGER_CLIENT_SECRET", "")
+                        # Prefer location_id from store_directory; allow manual override
+                        _dir_loc = store.get("location_id") or ""
+                        _loc_key = "admin_loc_" + _selected_metro + "_" + chain.lower().replace(" ", "_")
+                        _loc_input = st.text_input(
+                            "Kroger location ID",
+                            value=st.session_state.get(_loc_key, _dir_loc),
+                            key=_loc_key + "_inp",
+                            placeholder="e.g. 01200441 — run find_stores(zip) to get it",
+                            help="8-char alphanumeric ID from KrogerClient().find_stores(zip_code='XXXXX')",
                         )
-                        if kroger_items:
+                        if _loc_input:
+                            st.session_state[_loc_key] = _loc_input
+                        _existing_api = flyer_data.get(chain) or []
+                        if _existing_api:
                             st.html(
-                                "<div style='font-size:0.85rem;color:#1E5C32;'>"
-                                + str(len(kroger_items)) + " items loaded from Kroger API. "
-                                "Go to <strong>Grocer Hub</strong> to refresh.</div>"
+                                "<div style='font-size:0.82rem;color:#1E5C32;margin-top:4px;'>"
+                                + str(len(_existing_api)) + " items loaded from " + chain + " API.</div>"
                             )
+                        if _kc_id and _kc_sec:
+                            if st.button(
+                                "Pull " + chain + " API",
+                                key="admin_pull_api_" + _selected_metro + "_" + chain,
+                                disabled=not _loc_input,
+                                help="Requires a valid location ID above" if not _loc_input else "",
+                            ):
+                                from integrations.kroger.client import KrogerClient
+                                with st.spinner("Pulling " + chain + " sale data..."):
+                                    try:
+                                        _kc = KrogerClient(client_id=_kc_id, client_secret=_kc_sec, location_id=_loc_input)
+                                        _kr = _kc.get_weekly_sales(flyer_week=st.session_state["active_week"])
+                                        from app.data.flyer_ingestor import FlyerIngestor
+                                        from pathlib import Path
+                                        _out = Path("app/data/flyers") / (chain.lower().replace(" ","_") + "_" + st.session_state["active_week"] + ".json")
+                                        _kc.save(_kr, _out)
+                                        _cands = FlyerIngestor().from_json(_out)
+                                        _fd = st.session_state.get("flyer_data", {})
+                                        _fd[chain] = _cands
+                                        st.session_state["flyer_data"] = _fd
+                                        if _cands:
+                                            import ui.state as state
+                                            state.save_flyer_items(chain, _cands, method="api")
+                                            st.success(str(len(_cands)) + " items pulled from " + chain + " and saved.")
+                                        else:
+                                            st.warning("Pull succeeded but no sale items found.")
+                                        st.rerun()
+                                    except Exception as _ke:
+                                        st.error("API pull failed: " + str(_ke))
                         else:
-                            st.html(
-                                "<div style='font-size:0.85rem;color:#9AA8A0;'>"
-                                "Pull Kroger data from the <strong>Grocer Hub</strong> page.</div>"
-                            )
+                            st.caption("Set KROGER_CLIENT_ID + KROGER_CLIENT_SECRET in Streamlit secrets to enable API pull.")
 
                     elif method == "manual":
                         st.html(
@@ -445,7 +501,7 @@ with tab_circ:
     total_items = 0
     missing = []
 
-    for s in CHARLOTTESVILLE_STORES:
+    for s in _admin_stores:
         chain   = s["chain"]
         method  = s.get("method", "pdf")
         ref_day = s.get("flyer_day") or "\u2014"
@@ -486,8 +542,8 @@ with tab_circ:
             "</tr>"
         )
 
-    n_loaded  = len(CHARLOTTESVILLE_STORES) - len(missing)
-    n_total   = len(CHARLOTTESVILLE_STORES)
+    n_loaded  = len(_admin_stores) - len(missing)
+    n_total   = len(_admin_stores)
     summary_color = "#1E5C32" if not missing else "#7A4A00"
     summary_bg    = "#D4EDDA" if not missing else "#FFF3CD"
     summary_text  = (
