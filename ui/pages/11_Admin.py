@@ -964,10 +964,32 @@ with tab_intel:
                 "<strong style=\'color:#1E5C32;\'>This week&rsquo;s category winners:</strong><br>"
                 + "<br>".join(_parts) +
                 "<br><span style=\'font-size:0.75rem;color:#888;margin-top:6px;display:block;\'>"
-                "Avg sale price per unit across all items in each category. Lower = better household value. "
-                "\U0001f4e5 Export as report coming soon.</span>"
+                "Avg sale price per unit across all items in each category. Lower = better household value.</span>"
                 "</div>"
             )
+        # PDF export — Market Intelligence weekly report
+        if _winners:
+            try:
+                from app.core_logic.market_intelligence_report import build_report
+                _pdf_bytes = build_report(
+                    _pi_data,
+                    metro_label=get_metro_label(_selected_metro),
+                    week=_pi_week,
+                )
+                st.download_button(
+                    label="\U0001f4e5  Export Weekly Market Intelligence Report (PDF)",
+                    data=_pdf_bytes,
+                    file_name=(
+                        "whollyfare_market_intelligence_"
+                        + _selected_metro + "_" + _pi_week + ".pdf"
+                    ),
+                    mime="application/pdf",
+                    key="pi_export_pdf",
+                    use_container_width=True,
+                )
+            except Exception as _pdf_err:
+                st.warning("PDF export unavailable: " + str(_pdf_err))
+
         st.html(
             "<div style=\'font-size:0.78rem;color:#888;border-top:1px solid #EEF0EE;"
             "padding-top:10px;margin-top:16px;\'>"

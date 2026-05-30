@@ -46,3 +46,6 @@ anthropic>=0.25.0
 # PDF rendering — pure Python, no system poppler required
 # (PyMuPDF renders flyer PDFs to JPEG for the Claude Vision extractor)
 pymupdf>=1.23.0
+
+# PDF report generation (Market Intelligence weekly report)
+reportlab>=4.0.0
