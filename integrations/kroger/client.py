@@ -55,6 +55,7 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Optional
 from urllib import request, parse, error
+import gzip
 
 from integrations.food_lion.item_registry import lookup  # shared registry
 
@@ -366,7 +367,12 @@ class KrogerClient:
         )
         try:
             with request.urlopen(req, timeout=15) as resp:
-                return json.loads(resp.read())
+                raw = resp.read()
+                # Some Kroger banner endpoints (Ralphs, Fred Meyer, etc.) return
+                # gzip-compressed responses. urllib does not decompress automatically.
+                if raw[:2] == b'\x1f\x8b':
+                    raw = gzip.decompress(raw)
+                return json.loads(raw)
         except error.HTTPError as e:
             body = e.read().decode()
             logger.error(f"Kroger API {endpoint} failed ({e.code}): {body}")

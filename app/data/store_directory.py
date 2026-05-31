@@ -65,7 +65,7 @@ METRO_STORES: dict[str, list[dict]] = {
         {
             "chain":       "Kroger",
             "location":    "Barracks Rd",
-            "location_id": "01200441",
+            "location_id": "02900359",
             "flyer_url":   None,
             "method":      "kroger_api",
             "tier":        "full_service",
@@ -76,9 +76,9 @@ METRO_STORES: dict[str, list[dict]] = {
         {
             "chain":       "Harris Teeter",
             "location":    "Barracks Rd",
-            "location_id": None,
+            "location_id": "09700177",
             "flyer_url":   "https://www.harristeeter.com/savings/weekly-ad",
-            "method":      "pdf",
+            "method":      "kroger_api",
             "tier":        "full_service",
             "notes":       "Kroger-owned banner. Could also pull via Kroger API "
                            "(find HT location_id with find_stores('22901')). "
@@ -189,8 +189,8 @@ METRO_STORES: dict[str, list[dict]] = {
     "charlotte_nc": [
         {
             "chain":       "Harris Teeter",
-            "location":    "Charlotte (TBD)",
-            "location_id": None,
+            "location":    "Fifth and Poplar",
+            "location_id": "09700205",
             "flyer_url":   "https://www.harristeeter.com/savings/weekly-ad",
             "method":      "kroger_api",
             "tier":        "full_service",
@@ -247,8 +247,8 @@ METRO_STORES: dict[str, list[dict]] = {
     "denver_co": [
         {
             "chain":       "King Soopers",
-            "location":    "Denver (TBD)",
-            "location_id": None,
+            "location":    "Union Station",
+            "location_id": "62000115",
             "flyer_url":   None,
             "method":      "kroger_api",
             "tier":        "full_service",
@@ -304,8 +304,8 @@ METRO_STORES: dict[str, list[dict]] = {
     "chicago_il": [
         {
             "chain":       "Marianos",
-            "location":    "Chicago (TBD)",
-            "location_id": None,
+            "location":    "Lakeshore East",
+            "location_id": "53100503",
             "flyer_url":   None,
             "method":      "kroger_api",
             "tier":        "full_service",
@@ -351,8 +351,8 @@ METRO_STORES: dict[str, list[dict]] = {
     "los_angeles_ca": [
         {
             "chain":       "Ralphs",
-            "location":    "Los Angeles (TBD)",
-            "location_id": None,
+            "location":    "9th and Flower (Downtown)",
+            "location_id": "70300022",
             "flyer_url":   None,
             "method":      "kroger_api",
             "tier":        "full_service",
